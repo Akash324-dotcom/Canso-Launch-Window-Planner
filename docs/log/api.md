@@ -807,3 +807,339 @@ Numbering continues from the G0 list and the A1-A3 list above.
     `backend/fixtures/` and this log was touched. `git check-ignore -v
     backend/api/data/runs/somefile.json` reports `.gitignore:8`, and
     `git status --untracked-files=all backend/api/data/runs` lists only `.gitkeep`.
+
+## A8 the public Python client of spec IV.9
+
+Issue: `docs/issues/issue-04-API.md`, task A8 only. A1 to A7 were already committed and
+were not rewritten; A9 to A11 are untouched and nothing was committed by this session. The
+tests and the client were written in one pass and the runs are quoted below in the order they
+happened, the first of which is a collection error rather than a failing assertion, and the
+last of which is green.
+
+### What shipped
+
+| Path | Purpose |
+|---|---|
+| `backend/client/launchwin.py` | the six public functions of spec IV.9, the DataFrame shapes, `LaunchwinError` and the base URL resolution |
+| `backend/client/__init__.py` | the in-repository package form of the same module, re-exporting the one public surface |
+| `backend/api/tests/test_client.py` | A8, 54 tests, of which 52 run here and 2 skip because the distribution is not installed in this environment |
+| `pyproject.toml` | `pandas` as a hard dependency, the top level `launchwin` module mapping, and the `pythonpath` entry that lets the suite import the module before it is installed |
+| `docs/log/api.md` | this section |
+
+`backend/api/**` was not modified, `tests/contract/` was not touched, and `backend/fixtures`
+was not touched. `git status --short` lists the four paths above and nothing else.
+
+The public surface, in the words of spec IV.9 plus the shapes this task named:
+
+```python
+import launchwin
+
+frame = launchwin.windows(target="SSO", site="canso", dates=("2026-10-05", "2026-10-15"))
+document = launchwin.weather("2026-10-06")
+series = launchwin.skill("2026-05-01", "2026-08-31", lead_max=10)
+site = launchwin.site()
+track = launchwin.ephemeris("sso981", "2026-10-05T00:00:00Z", "2026-10-05T01:00:00Z")
+provenance = launchwin.citation(frame.attrs["response"]["constants_block"]["citation_id"])
+```
+
+`windows` returns one row per window with the columns of `launchwin.WINDOW_COLUMNS` and the
+whole spec IV.1 response in `frame.attrs["response"]`. `ephemeris` returns one row per point
+with the columns of `launchwin.POINT_COLUMNS` and the whole response in
+`frame.attrs["response"]`. The four reads return the response document as a JSON object.
+Every function takes `base_url` and `client`; `client` is anything with the
+`httpx.Client` interface, which is how a FastAPI `TestClient` is passed in.
+
+### The packaging decision
+
+`import launchwin` has to resolve to `backend/client/launchwin.py`, and the file has to stay
+where this workflow owns it. Three things in the root `pyproject.toml` do that:
+
+```toml
+[tool.setuptools]
+py-modules = ["launchwin"]
+
+[tool.setuptools.package-dir]
+launchwin = "backend/client"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "backend"]
+pythonpath = ["backend/client"]
+```
+
+`py-modules` with a per module `package-dir` key is the smallest mapping setuptools offers:
+`build_py.get_package_dir` resolves a top level module name through `package_dir` before it
+falls back to the project root, so the module is built from `backend/client/launchwin.py`
+with no copy of the file anywhere else, and the editable finder resolves `launchwin` to the
+same path. The alternatives were rejected for stated reasons:
+
+* a top level `launchwin.py` at the repository root that re-exported from `backend.client`
+  would be a second name for one file and a file outside the paths this task may create;
+* a `launchwin` package directory would need the module to become a package, which the
+  task names as a file;
+* `[tool.setuptools.packages.find] where` cannot mix a package root with the existing
+  `include = ["backend*"]` discovery, and the service packages must keep resolving as they do.
+
+`pythonpath` is the pytest `pythonpath` ini option, not a conftest hook and not an
+`import` in the test module. It is what lets the suite exercise the module by the name a
+user writes, `import launchwin`, before the distribution has been installed, and it is
+asserted by `test_the_test_suite_can_reach_the_client_without_it_being_installed` so that
+removing it is a failing test rather than a collection error.
+
+`pandas` is a hard dependency in `[project].dependencies` rather than an optional import.
+The A8 task allowed either, and the choice is recorded in interpretation 70.
+
+### Commands run and their output
+
+The A8 tests on their first run, with the client written and nothing corrected. The
+collection failed rather than the tests, on a construct this interpreter's tokenizer rejects:
+an f-string followed by `+ (` holding a multi-line conditional expression. It reproduces in
+isolation with no other code present, and both files now avoid the shape.
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+==================================== ERRORS ====================================
+______________ ERROR collecting backend/api/tests/test_client.py ______________
+...
+E     File ".../backend/api/tests/test_client.py", line 83
+E       f'`{VENV_PYTHON} -c "{IMPORT_PROBE}"` + (
+E   SyntaxError: unterminated f-string literal (detected at line 83)
+1 warning, 1 error in 0.06s
+```
+
+The same suite on the next run. Seven of the eleven failures were the test asserting the
+wrong thing, one was a decision about an empty environment variable that the module now
+documents and the test now pins, and three were the harness: two a recorder built on an
+asynchronous ASGI transport and one an import scan by regular expression.
+Interpretation 78 lists all eleven.
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+11 failed, 40 passed, 2 skipped, 1 warning in 0.84s
+```
+
+The same suite after those eleven were addressed:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+6 failed, 46 passed, 2 skipped, 1 warning in 0.81s
+```
+
+and after the last six, which were the frozen schema's column order read wrongly, the
+recorded rows carrying 98.08 rather than the requested 98.0, the recorded stub rows being
+compared field by field, a track count that includes both ends of the grid, and the recorder
+itself:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+52 passed, 2 skipped, 1 warning in 0.68s
+```
+
+The API suite, the acceptance command for this issue:
+
+```
+$ .venv/bin/python -m pytest backend/api -q
+335 passed, 5 skipped, 1 warning in 2.73s
+```
+
+The contract suite, unchanged by this session and still green:
+
+```
+$ .venv/bin/python -m pytest tests/contract -q
+70 passed in 0.08s
+```
+
+The whole repository with the configured testpaths, which is the done condition:
+
+```
+$ .venv/bin/python -m pytest -q
+405 passed, 5 skipped, 1 warning in 3.07s
+```
+
+The five skips, each the assertion that checks a live path the day its workflow lands or, for
+the first two, a distribution that has not been installed in this environment:
+
+```
+$ .venv/bin/python -m pytest -q -rs
+SKIPPED [1] backend/api/tests/test_client.py:781: launchwin is not importable in the virtual environment: the interpreter at .../.venv/bin/python cannot import it from /var/folders/.../launchwin-outside-repo-ep7_9mql, exiting 1 with 'Traceback (most recent call last):\n  File "<string>", line 1, in <module>\nModuleNotFoundError: No module named \'launchwin\'; run pip install -e . in that environment first
+SKIPPED [1] backend/api/tests/test_client.py:793: launchwin is not importable in the virtual environment: ... as above
+SKIPPED [1] backend/api/tests/test_ephemeris.py:566: backend.engine.ephemeris has not landed yet
+SKIPPED [1] backend/api/tests/test_weather.py:348: backend.weather.probability has not landed yet
+SKIPPED [1] backend/api/tests/test_windows.py:338: backend.engine.compute_windows has not landed yet
+```
+
+Why the two client tests skip is a property of this workspace, and it is stated rather than
+worked around. Neither `pip` nor `setuptools` is present in the virtual environment and there
+is no network, so `pip install -e .` cannot be run here at all:
+
+```
+$ .venv/bin/python -m pip --version
+/Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python: No module named pip
+$ .venv/bin/python -c "import setuptools"
+ModuleNotFoundError: No module named 'setuptools'
+```
+
+What was verified instead. The two probe statements were run by hand from a temporary
+directory outside the repository, with `PYTHONPATH` set to the two paths an editable install
+of this repository would provide, `backend/client` for the `launchwin` module and the
+repository root for the `backend` packages. Both statements are the ones the two skipped
+tests run. The import probe printed the module path, and the call probe built the
+application in the temporary directory, pointed the run store at a directory there as well,
+and printed the summary the test asserts:
+
+```
+import launchwin; print(launchwin.__file__)
+/Users/rafathossain/MDA_Mission_Accepted_Hackathon/backend/client/launchwin.py
+```
+
+```
+import launchwin
+from fastapi.testclient import TestClient
+from backend.api.app import create_app
+from backend.api.config import Settings
+settings = Settings.load().with_runs_dir("<temporary directory>/runs")
+with TestClient(create_app(settings)) as service:
+    frame = launchwin.windows(
+        target="SSO", site="canso", dates=("2026-10-04", "2027-01-01"),
+        client=service,
+    )
+summary = "rows=%d engine=%s" % (len(frame), frame.attrs["response"]["engine_version"])
+print(summary)
+rows=3 engine=stub
+```
+
+And the five static assertions that hold the parts of the installation contract a change to
+this workflow's own files could break:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q -k "layout or discovered or pandas or nothing_from_the_repository or without_it_being_installed" -v
+================= 5 passed, 49 deselected, 1 warning in 0.50s ==================
+```
+
+The pandas version the suite ran against, for the record:
+
+```
+$ .venv/bin/python -c "import pandas; print(pandas.__version__)"
+3.0.6
+```
+
+### Interpretations
+
+Numbering continues from the G0 list, the A1-A3 list and the A4-A7 list above.
+
+67. **The first clause of interpretation 66 is superseded.** It read "Not delivered,
+    deliberately. No Python client (A8), no `scripts/integration_test.py` (A10), no `DONE.md`
+    (A11)". The A8 task is delivered by this section. The A10 and A11 clauses stand.
+68. **The DataFrame carries the window rows and the response stays whole.** A spec IV.1
+    response is more than a table: it also carries `reachable`, `plane_change_dv_ms`,
+    `sso_consistency_warning`, the constants block and the provenance block. A client that
+    returned only the rows would make the provenance of a number unreachable from the number
+    itself, which requirement 1 exists to prevent, so `windows` returns one row per window
+    and the untouched response in `frame.attrs["response"]`. An empty result is the same
+    shape with no rows, so a caller can read `reachable` and the penalty without a special
+    case, and the columns are declared even when there are no rows so that a downstream
+    selection does not raise on a column that is missing only because the answer was empty.
+69. **The two nested objects of a row are flattened with distinguishing prefixes.**
+    `p_success_components` becomes `p_weather`, `p_range` and `p_conjunction`; `screens`
+    becomes `screen_hazard`, `screen_conjunction` and `screen_notam`. The prefix on the
+    screen columns is forced: both objects of a spec IV.1 row hold a key called
+    `conjunction`, so one column name cannot hold both without losing a field. The mapping
+    is published as `COMPONENT_COLUMNS` and `SCREEN_COLUMNS` and the whole order as
+    `WINDOW_COLUMNS`, and `test_the_columns_are_the_frozen_window_fields_with_two_objects_flattened`
+    derives the expected order from the frozen `windows_response.json` rather than restating
+    it, so a change to the contract at gate G0 fails this suite rather than passing quietly.
+70. **`pandas` is a hard dependency, and the A8 task's either-or is resolved that way.** The
+    task allowed "import launchwin succeeds without pandas installed, or pandas is a declared
+    hard dependency". The declared hard dependency was chosen because two of the six public
+    functions return a `DataFrame` by specification, so the import cannot be made lazy
+    without turning the documented return type into a conditional one: a caller who omitted
+    the dependency would get an `ImportError` at the moment they asked for an answer rather
+    than at the moment they installed anything. `test_pandas_is_a_declared_hard_dependency`
+    asserts it in `pyproject.toml` and asserts that it is not also an optional extra, which
+    would read as an unresolved choice.
+71. **Only two of the six functions return a frame.** `windows` and `ephemeris` return
+    `pandas.DataFrame` objects because both are series. `weather`, `skill`, `site` and
+    `citation` return the response document as a JSON object, because each is one answer
+    with its evidence beside it: the components, the horizon label, the forecast issue time
+    and the source of a probability are part of the answer, and a one row frame would invite
+    a caller to drop them. Spec IV.9 names the methods and not their return types beyond the
+    window call, so this is a choice and it is recorded here rather than left to be
+    discovered.
+72. **`dates` is required, and its order is not checked.** Spec IV.1 gives defaults for
+    `site`, `criteria_version`, `raan_tolerance_deg` and `include_weather`, and gives no
+    default date range, so a default would have been invented. Whether a range whose end
+    precedes its start is an empty answer or a 422 is the service's decision to make from the
+    frozen schema: the client checks the shape of its own argument, a pair or a mapping with
+    `start` and `end`, and leaves the meaning to the contract.
+73. **`LaunchwinError` carries a status for the four conditions of spec IV.7 rule 2, and no
+    status for a request that never completed.** A 422, 404, 429 or 503 response raises with
+    `status_code`, `detail`, `payload` and `retry_after_s` populated, the last because spec
+    IV.7 and spec IV.8 require a `Retry-After` on 429 and on 503 and a caller should not have
+    to parse it out of a message. A transport failure raises with `status_code` of `None`,
+    because there is no status to report and inventing one would make an unreachable service
+    look like a service that answered. Nothing else raises: an unreachable target, an empty
+    window list and a fired constraint are answers and produce an empty frame with the
+    response intact.
+74. **The base URL is the argument, then `LAUNCHWIN_URL`, then
+    `http://localhost:8000/v1`.** Trailing slashes are removed so that a value from a
+    configuration file and one from a shell produce the same request URL. An empty
+    environment variable reads as unset, because that is how a shell spells unset, while an
+    empty argument raises: a caller who passed one made a mistake worth seeing. The request
+    URL is built as an absolute string rather than handed to `httpx.Client` as a `base_url`
+    to be joined, because the `client` a test passes has its own base URL, here
+    `http://testserver`, and a relative path would have been resolved against that instead of
+    against the configured service.
+75. **Not delivered, and not verified, stated plainly.** The client exists and its whole
+    surface is tested; two things about it could not be exercised in this workspace. The
+    first is the editable install itself: `.venv/bin/python -m pip install -e .` cannot run
+    here, because the environment has neither `pip` nor `setuptools` and has no network, so
+    `test_launchwin_imports_from_a_directory_outside_the_repository` and
+    `test_launchwin_imports_and_calls_from_a_directory_outside_the_repository` skip. They
+    skip with the interpreter's own error in the reason, and they will run as written the
+    moment the distribution is installed; nothing about them was weakened to make the suite
+    green. What was verified is the part a change to this workflow's files could break: the
+    mapping in `pyproject.toml`, the hard `pandas` dependency, the absence of any import from
+    the repository in the client module, and the probe statements themselves, which were run
+    from a temporary directory with the paths an editable install would provide and which
+    printed `rows=3 engine=stub`. The second is the two skipped skips of the A8 acceptance
+    list that depend on that install; they are the only parts of A8 this commit does not
+    demonstrate.
+79. **Two lines of `backend/api/README.md` are now stale and were left alone.** The
+    "Known gaps" section ends with "No Python client (A8), no integration harness (A10) and
+    no `DONE.md` (A11)", and the opening paragraph reads "Tasks A1 to A7 of
+    `docs/issues/issue-04-API.md` are complete. A8 to A11 are not." Both are true of the
+    commit before this one and false of this one. The A8 task did not include the README in
+    the paths it may edit, so neither line was changed here; A11 owns that file and both
+    lines are its to correct. The client is documented where it lives instead, in the module
+    docstring of `backend/client/launchwin.py`, in the packaging decision above, and in this
+    section.
+76. **`import launchwin` and `import backend.client.launchwin` are one file loaded twice.**
+    `backend/client/__init__.py` exists so that `backend.client` is a package, and the
+    distribution maps the same file as the top level module `launchwin`, so an interpreter
+    that can reach both gives two module objects with two copies of every constant. Nothing
+    in the client depends on the difference, and the suite therefore compares `__all__` and
+    `__file__` rather than object identity. A caller must not either: two imports of the same
+    module through two names are two modules, and an `is` comparison between objects from
+    them fails for a reason that has nothing to do with the client.
+77. **A client owned transport is opened and closed per call.** Without a `client`, the
+    module builds an `httpx.Client` with the documented 30 s timeout, sends the request and
+    closes it. A module level client would be faster for a caller making many calls, and it
+    would also leave a connection pool alive in a notebook or a short lived script, so the
+    cost was taken per call and the trade is stated here rather than left implicit.
+    `test_the_module_opens_a_transport_of_its_own_and_closes_it` asserts the branch, the
+    arguments and the closed state.
+78. **Seven of the eleven failures of the first A8 run were the test asserting the wrong
+    thing, and that is recorded rather than tidied away.** They were: an identity comparison
+    between the two module objects of interpretation 76; a helper that appended a nested
+    object field name as well as its flattened columns; two tests that read a
+    `request_body` the frozen `windows_response` does not carry; an expectation that a null
+    `constraint_fired` stays `None` in a frame rather than becoming `NaN`; an expectation
+    that the message of an error carries the query string, which the message does not; and a
+    track request of one day asserted to be beyond the three day propagation horizon, which
+    it is not. The eighth was a decision rather than a mistake: an environment variable set
+    to nothing was expected to raise where the module reads it as unset, so the behaviour was
+    documented and split into two tests, one for each reading. The last three were the
+    harness, twice a recorder built on an asynchronous ASGI transport that has no `close` and
+    no `handle_request`, and once an import scan by regular expression that found the
+    module's own name in its own docstring examples, replaced by a walk of the parse tree.
+    No test was weakened: each expectation was either corrected to the contract or, where the
+    contract was silent, replaced by an assertion of the documented decision.
