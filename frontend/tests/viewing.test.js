@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { ELEVATION_MASK_DEG, VIEWING_MIN_ELEVATION_DEG } from '../src/config.js';
+import { ELEVATION_MASK_DEG } from '../src/config.js';
 import { geodeticToEcef } from '../src/geo.js';
 import { SOLAR_CITATION } from '../src/solar.js';
 import { NO_ASCENT_COVERAGE, viewingReport } from '../src/viewing.js';
@@ -192,10 +192,8 @@ describe('F5 screen 4 viewing map', () => {
     expect(halifax.querySelector('[data-elevation-text]').textContent).toBe(
       `${elevation.toFixed(1)} deg`,
     );
-    // The verdict names VIEWING_MIN_ELEVATION_DEG, the threshold the verdict actually uses.
-    expect(halifax.textContent).toContain(
-      `visible above the ${VIEWING_MIN_ELEVATION_DEG} deg minimum elevation`,
-    );
+    // The verdict names ELEVATION_MASK_DEG, the single threshold of the verdict.
+    expect(halifax.textContent).toContain(`visible above the ${ELEVATION_MASK_DEG} deg mask`);
     expect(halifax.textContent).toContain('2026-10-05 13:47:26Z');
 
     const chart = document.querySelector('#viewing-elevation-chart svg');
@@ -233,7 +231,7 @@ describe('F5 screen 4 viewing map', () => {
     const stJohns = report.centres.find((centre) => centre.id === 'st_johns');
     expect(halifax.samples[0].elevation_deg).toBeLessThan(0);
     expect(stJohns.samples[0].elevation_deg).toBeGreaterThan(0);
-    expect(stJohns.samples[0].elevation_deg).toBeLessThan(VIEWING_MIN_ELEVATION_DEG);
+    expect(stJohns.samples[0].elevation_deg).toBeLessThan(ELEVATION_MASK_DEG);
     expect(stJohns.visible).toBe(false);
 
     app.stop();
@@ -323,7 +321,7 @@ it('marks every centre below the mask with an open circle on the mounted map', a
 
     const report = app.viewing.report;
     const montreal = report.centres.find((centre) => centre.id === 'montreal');
-    expect(montreal.max_elevation_deg).toBeLessThan(VIEWING_MIN_ELEVATION_DEG);
+    expect(montreal.max_elevation_deg).toBeLessThan(ELEVATION_MASK_DEG);
     expect(montreal.visible).toBe(false);
     expect(montreal.peak_t_utc).not.toBe(LATER_PASS);
     const row = viewingRow('montreal');
@@ -390,7 +388,7 @@ it('marks every centre below the mask with an open circle on the mounted map', a
     app.stop();
   });
 
-  it('honours the configured minimum elevation of the ascent', async () => {
+  it('honours the configured elevation mask', async () => {
     const track = bracketingTwilightTrack();
     const centres = loadCentresDocument().centres;
 
@@ -400,14 +398,14 @@ it('marks every centre below the mask with an open circle on the mounted map', a
       ephemerisResponse: track,
       ascent: TWILIGHT_ASCENT,
     });
-    expect(strict.min_elevation_deg).toBe(VIEWING_MIN_ELEVATION_DEG);
+    expect(strict.elevation_mask_deg).toBe(ELEVATION_MASK_DEG);
     const stJohns = strict.centres.find((centre) => centre.id === 'st_johns');
     expect(stJohns.max_elevation_deg).toBeGreaterThan(0);
-    expect(stJohns.max_elevation_deg).toBeLessThan(VIEWING_MIN_ELEVATION_DEG);
+    expect(stJohns.max_elevation_deg).toBeLessThan(ELEVATION_MASK_DEG);
     expect(stJohns.visible).toBe(false);
     expect(strict.best_centre_id).toBeNull();
     for (const centre of strict.centres) {
-      expect(centre.visible).toBe(centre.max_elevation_deg >= VIEWING_MIN_ELEVATION_DEG);
+      expect(centre.visible).toBe(centre.max_elevation_deg >= ELEVATION_MASK_DEG);
     }
 
     const lenient = viewingReport({
@@ -415,20 +413,20 @@ it('marks every centre below the mask with an open circle on the mounted map', a
       centres,
       ephemerisResponse: track,
       ascent: TWILIGHT_ASCENT,
-      minElevationDeg: 4,
+      elevationMaskDeg: 4,
     });
     const lenientStJohns = lenient.centres.find((centre) => centre.id === 'st_johns');
     expect(lenientStJohns.visible).toBe(true);
     expect(lenient.best_centre_id).toBe('st_johns');
 
     const app = await startWithTrack(track, TWILIGHT_STUB);
-    const note = textOf('#viewing-min-elevation-note');
-    expect(note).toContain(String(VIEWING_MIN_ELEVATION_DEG));
+    const note = textOf('#elevation-mask-note');
+    expect(note).toContain(String(ELEVATION_MASK_DEG));
     expect(note).toContain('ASSUMPTION');
-    expect(note).toContain('VIEWING_MIN_ELEVATION_DEG');
+    expect(note).toContain('ELEVATION_MASK_DEG');
     const row = viewingRow('st_johns');
     expect(row.getAttribute('data-visible')).toBe('false');
-    expect(row.textContent).toContain('above the horizon but below the minimum elevation');
+    expect(row.textContent).toContain('above the horizon but below the mask');
 
     app.stop();
   });

@@ -3,9 +3,6 @@ import {
   ELEVATION_MASK_FLAG,
   ELEVATION_MASK_SOURCE,
   EARTH_RADIUS_SOURCE,
-  VIEWING_MIN_ELEVATION_DEG,
-  VIEWING_MIN_ELEVATION_FLAG,
-  VIEWING_MIN_ELEVATION_SOURCE,
 } from '../config.js';
 import { el, replaceChildren } from '../dom.js';
 import { clearLayers, createMapContainer, drawViewingLayers, loadLeaflet } from '../mapLeaflet.js';
@@ -18,12 +15,7 @@ function elevationText(value) {
   return value === null || value === undefined ? 'no sample' : `${value.toFixed(1)} deg`;
 }
 
-export function createViewingScreen({
-  root,
-  store,
-  elevationMaskDeg = ELEVATION_MASK_DEG,
-  minElevationDeg = VIEWING_MIN_ELEVATION_DEG,
-}) {
+export function createViewingScreen({ root, store, elevationMaskDeg = ELEVATION_MASK_DEG }) {
   const mapHost = el('div', {
     class: 'map',
     id: 'viewing-map',
@@ -37,11 +29,6 @@ export function createViewingScreen({
     class: 'hint',
     id: 'elevation-mask-note',
     'data-mask-deg': String(elevationMaskDeg),
-  });
-  const minNote = el('p', {
-    class: 'hint',
-    id: 'viewing-min-elevation-note',
-    'data-min-elevation-deg': String(minElevationDeg),
   });
   const ascentNote = el('p', { class: 'hint', id: 'viewing-ascent-note' });
   const tbody = el('tbody', { id: 'viewing-rows' });
@@ -61,7 +48,6 @@ export function createViewingScreen({
     mapNote,
     maskNote,
     ascentNote,
-    minNote,
     el('div', { class: 'table-wrap' }, [
       el('table', { class: 'window-table', id: 'viewing-table' }, [
         el('thead', {}, el('tr', {}, [
@@ -84,9 +70,6 @@ export function createViewingScreen({
   );
 
   maskNote.textContent = `Elevation mask ${elevationMaskDeg} deg, ${ELEVATION_MASK_FLAG}. Source: ${ELEVATION_MASK_SOURCE}.`;
-  minNote.textContent =
-    `Minimum elevation of the ascent for a centre to count as visible ${minElevationDeg} deg, ${VIEWING_MIN_ELEVATION_FLAG}. ` +
-    `Source: ${VIEWING_MIN_ELEVATION_SOURCE}.`;
   geometryNote.textContent = `Geometry: ECEF on a sphere of the radius ${EARTH_RADIUS_SOURCE}; topocentric elevation is the ` +
     'angle between the line of sight and the local vertical, so Earth curvature is included and atmospheric refraction is not. ' +
     `Illumination: ${SOLAR_CITATION}`;
@@ -121,7 +104,6 @@ export function createViewingScreen({
       memo.ephemerisResponse === state.ephemerisResponse &&
       memo.centres === centres &&
       memo.maskDeg === elevationMaskDeg &&
-      memo.minDeg === minElevationDeg &&
       memo.liftoff === liftoff &&
       memo.injection === injection
     ) {
@@ -132,14 +114,12 @@ export function createViewingScreen({
       centres,
       ephemerisResponse: state.ephemerisResponse,
       elevationMaskDeg,
-      minElevationDeg,
       ascent,
     });
     memo = {
       ephemerisResponse: state.ephemerisResponse,
       centres,
       maskDeg: elevationMaskDeg,
-      minDeg: minElevationDeg,
       liftoff,
       injection,
       report,
@@ -247,11 +227,11 @@ export function createViewingScreen({
                     class: `badge badge-${centre.visible ? 'forecast' : 'climatology'}`,
                     'data-verdict': centre.visible ? 'visible' : 'not visible',
                     text: centre.visible
-                      ? `visible above the ${minElevationDeg} deg minimum elevation`
+                      ? `visible above the ${elevationMaskDeg} deg mask`
                       : centre.max_elevation_deg === null
                         ? 'no ascent sample, so not visible'
                         : centre.max_elevation_deg > 0
-                          ? 'above the horizon but below the minimum elevation'
+                          ? 'above the horizon but below the mask'
                           : 'below the horizon',
                   }),
                   el('span', {
@@ -273,7 +253,7 @@ export function createViewingScreen({
         el('p', { class: 'chart-empty', id: 'viewing-chart-empty', text: 'No elevation series to draw.' }),
       ]);
       chartNote.textContent = report.ascent_covered
-        ? `No centre reaches the ${minElevationDeg} deg minimum elevation during the ascent of this window, so there is no best view to draw.`
+        ? `No centre reaches the ${elevationMaskDeg} deg elevation mask during the ascent of this window, so there is no best view to draw.`
         : 'The elevation chart appears once an ephemeris covers the ascent of the selected window.';
       return;
     }
@@ -316,8 +296,8 @@ export function createViewingScreen({
         map = createMapContainer(mapHost, L);
         mapHost.setAttribute('data-leaflet', 'loaded');
         mapNote.textContent =
-          `Circles mark every centre: a filled circle is a centre that reaches the ${minElevationDeg} deg minimum ` +
-          'elevation during the ascent, an open circle is one that does not. Leaflet is loaded from ' +
+          `Circles mark every centre: a filled circle is a centre with an elevation above the ` +
+          `${elevationMaskDeg} deg mask during the ascent, an open circle is one below it. Leaflet is loaded from ` +
           'frontend/node_modules, not from a CDN.';
         if (lastReport !== null) {
           draw(store.getState());

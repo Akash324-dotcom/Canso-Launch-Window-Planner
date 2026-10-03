@@ -11,18 +11,37 @@ WHAT THIS IS NOT
 This is a fixture approximation, not the ENGINE. It implements no window search, no
 plane-change arithmetic, no J2 secular rates and no injection-consistent fixed point.
 It places one circular two-body orbit so that the shipped ground track starts over the
-site at the first liftoff instant and runs south over the Atlantic, and it restates the
-window rows with an injection instant exactly 600 s after liftoff. ENGINE replaces both
-files with a real run at gate G1; nothing in this file is a claim about the engine.
+site at the first liftoff instant and runs south over the Atlantic, it models the ascent
+from that liftoff to the injection instant rather than flying it at orbit altitude, and it
+restates the window rows with an injection instant exactly 600 s after liftoff. ENGINE
+replaces both files with a real run at gate G1; nothing in this file is a claim about the
+engine.
 
-The orbit is the classic two-body ellipse in the inertial equatorial frame, converted
-to ECEF with the Greenwich mean sidereal time model that ``constants_block.gmst_model``
-names (IAU 1982, nutation omitted) and with the sidereal rotation rate
-omega_sid_rad_s = 7.292115e-5 rad/s. The circular orbit is therefore at constant
-altitude and the ground track regresses westward by about 24 deg per revolution, which
-is the behaviour the viewer sees.
+The ascent from liftoff to injection and the orbit after injection. Between
+``t_liftoff_utc`` and ``t_injection_utc`` the vehicle is modelled on a smooth profile rather
+than integrated, because the fixture needs a track a browser can plot and a viewer can
+read, not a trajectory:
 
-Standard library only: no third party import, no network, no install step.
+* altitude ``h(t) = TARGET_ALTITUDE_KM * (t / INJECTION_OFFSET_S) ** 1.5``, that is 0 km on
+  the pad at liftoff and ``TARGET_ALTITUDE_KM`` at injection;
+* ground position moving downrange from the site along the ``azimuth_compass_deg`` of the
+  first window row, over a distance ``d(t) = D * (t / INJECTION_OFFSET_S) ** 2``;
+* ``D`` is the downrange distance at injection. It is not a free number: it is the ground
+  distance the same circular orbit covers in the 600 s from liftoff, measured from the
+  solved plane, so the modelled ascent is the same length as the arc the orbit flies.
+  That measured value is about 4236 km and it is an ASSUMPTION of this fixture, as are the
+  1.5 and 2 exponents: no thrust, mass flow, guidance or gravity turn is integrated
+  anywhere in this file. ENGINE replaces the whole file with a real run at G1.
+
+The ascent is a great circle on the ``azimuth_compass_deg`` of the first window row, and the
+orbit track is not, so the two parts do not meet exactly: the script prints the gap between
+the end of the ascent and the injection point of the orbit and requires it to stay under a
+fifth of ``D``. With the shipped numbers the gap is about 456 km, and it is an artefact of
+modelling the ascent on a constant compass bearing rather than an error in the orbit.
+
+After injection the same circular two-body orbit continues, sampled on the 60 s grid, so the
+sample times after the handover are the ones this file always wrote. Standard library only:
+no third party import, no network, no install step.
 """
 
 from __future__ import annotations
@@ -45,9 +64,20 @@ TARGET_INCLINATION_DEG = 98.1
 TARGET_ALTITUDE_KM = 550.0
 ORBIT_ID = "sso981"
 
-# Sample grid of the ephemeris.
+# Sample grid of the ephemeris. The ascent is sampled every ASCENT_SAMPLE_STEP_S and the
+# orbit after injection on the EPHEMERIS_STEP_S grid it always used.
 EPHEMERIS_ORBITS = 2
 EPHEMERIS_STEP_S = 60
+ASCENT_SAMPLE_STEP_S = 30
+
+# Ascent profile, stated here so the file is the documentation of its own numbers.
+# h(t) = TARGET_ALTITUDE_KM * (t / INJECTION_OFFSET_S) ** ASCENT_ALTITUDE_EXPONENT
+# d(t) = downrange_at_injection_km * (t / INJECTION_OFFSET_S) ** ASCENT_DOWNRANGE_EXPONENT
+ASCENT_ALTITUDE_EXPONENT = 1.5
+ASCENT_DOWNRANGE_EXPONENT = 2.0
+# Step at which the downrange distance at injection is measured on the solved orbit, in
+# seconds. One second resolves the ground track of the fixture to about 7 m.
+DOWNRANGE_INTEGRATION_STEP_S = 1.0
 
 # Vehicle duration of the fixture: injection is exactly this many seconds after
 # liftoff. The value is the Vehicle Duration bonus of the slide, quantified as a
@@ -265,8 +295,96 @@ def expected_launch_azimuth_deg(site_lat_deg: float) -> float:
     return wrap_deg(180.0 - math.degrees(math.asin(argument)))
 
 
-def build_ephemeris(first_liftoff: str, site_lat_deg: float, site_lon_deg: float) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The SSO ground track of the fixture, two orbits from the first liftoff at 60 s."""
+# --------------------------------------------------------------------------------------
+# great-circle helpers, the same spherical formulas as frontend/src/geo.js
+# --------------------------------------------------------------------------------------
+
+
+def great_circle_km(lat1_deg: float, lon1_deg: float, lat2_deg: float, lon2_deg: float) -> float:
+    """Distance between two geodetic points on the sphere of radius R_EARTH_M."""
+    lat1, lon1 = math.radians(lat1_deg), math.radians(lon1_deg)
+    lat2, lon2 = math.radians(lat2_deg), math.radians(lon2_deg)
+    cosine = (
+        math.sin(lat1) * math.sin(lat2) + math.cos(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)
+    )
+    return math.acos(max(-1.0, min(1.0, cosine))) * R_EARTH_M / 1000.0
+
+
+def destination_point(lat_deg: float, lon_deg: float, bearing_deg: float, distance_km: float) -> tuple[float, float]:
+    """Point reached from a geodetic point along a compass bearing over a ground distance."""
+    if distance_km == 0.0:
+        return lat_deg, wrap_signed_deg(lon_deg)
+    angular = (distance_km * 1000.0) / R_EARTH_M
+    lat1, lon1, bearing = math.radians(lat_deg), math.radians(lon_deg), math.radians(bearing_deg)
+    lat2 = math.asin(
+        math.sin(lat1) * math.cos(angular) + math.cos(lat1) * math.sin(angular) * math.cos(bearing)
+    )
+    lon2 = lon1 + math.atan2(
+        math.sin(bearing) * math.sin(angular) * math.cos(lat1),
+        math.cos(angular) - math.sin(lat1) * math.sin(lat2),
+    )
+    return math.degrees(lat2), wrap_signed_deg(math.degrees(lon2))
+
+
+def orbit_subpoint(
+    raan_deg: float,
+    arg_lat_deg: float,
+    semi_major_m: float,
+    mean_motion: float,
+    theta0_deg: float,
+    offset_s: float,
+) -> tuple[float, float, float]:
+    """Geodetic sub-point and radius of the circular orbit at offset_s after liftoff."""
+    arg_lat = arg_lat_deg + math.degrees(mean_motion * offset_s)
+    position = rotate_about_z(
+        position_eci(raan_deg, arg_lat, semi_major_m),
+        -(theta0_deg + OMEGA_SID_RAD_S * math.degrees(offset_s)),
+    )
+    return subpoint(position)
+
+
+def downrange_at_injection_km(
+    raan_deg: float,
+    arg_lat_deg: float,
+    semi_major_m: float,
+    mean_motion: float,
+    theta0_deg: float,
+) -> float:
+    """Ground distance the orbit covers between liftoff and injection, along its track.
+
+    Summed from the sub-points of the solved orbit. That is the definition of D that makes
+    the modelled ascent the same length as the arc the orbit flies, which is why it is used
+    rather than a number picked for the model. It is an ASSUMPTION of this fixture; see the
+    module header.
+    """
+    steps = int(round(INJECTION_OFFSET_S / DOWNRANGE_INTEGRATION_STEP_S))
+    total = 0.0
+    previous = orbit_subpoint(raan_deg, arg_lat_deg, semi_major_m, mean_motion, theta0_deg, 0.0)
+    for step in range(1, steps + 1):
+        current = orbit_subpoint(
+            raan_deg, arg_lat_deg, semi_major_m, mean_motion, theta0_deg, step * DOWNRANGE_INTEGRATION_STEP_S
+        )
+        total += great_circle_km(previous[0], previous[1], current[0], current[1])
+        previous = current
+    return total
+
+
+def ascent_altitude_km(offset_s: float) -> float:
+    """h(t) of the modelled ascent: 0 km at liftoff, TARGET_ALTITUDE_KM at injection."""
+    fraction = max(0.0, offset_s / INJECTION_OFFSET_S)
+    return TARGET_ALTITUDE_KM * fraction ** ASCENT_ALTITUDE_EXPONENT
+
+
+def ascent_downrange_km(offset_s: float, downrange_km: float) -> float:
+    """d(t) of the modelled ascent: 0 km at liftoff, downrange_km at injection."""
+    fraction = max(0.0, offset_s / INJECTION_OFFSET_S)
+    return downrange_km * fraction ** ASCENT_DOWNRANGE_EXPONENT
+
+
+def build_ephemeris(
+    first_liftoff: str, site_lat_deg: float, site_lon_deg: float, azimuth_compass_deg: float
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The ascent of the fixture, then the SSO orbit, two orbits from the first liftoff."""
     existing = read_json(FIXTURE_DIR / "ephemeris.json")
     epoch0 = epoch_ms(parse_instant(first_liftoff))
     semi_major_m = R_EARTH_M + TARGET_ALTITUDE_KM * 1000.0
@@ -279,24 +397,45 @@ def build_ephemeris(first_liftoff: str, site_lat_deg: float, site_lon_deg: float
     inertial_azimuth = inertial_launch_azimuth_deg(theta0, raan_deg, arg_lat_deg, semi_major_m, mean_motion)
     heading_deg = ground_track_heading_deg(theta0, raan_deg, arg_lat_deg, semi_major_m, mean_motion)
 
+    downrange_km = downrange_at_injection_km(raan_deg, arg_lat_deg, semi_major_m, mean_motion, theta0)
+
     last_sample_s = EPHEMERIS_STEP_S * int((EPHEMERIS_ORBITS * period_s) // EPHEMERIS_STEP_S)
-    points = []
-    for index in range(last_sample_s // EPHEMERIS_STEP_S + 1):
-        offset_s = index * EPHEMERIS_STEP_S
-        arg_lat = arg_lat_deg + math.degrees(mean_motion * offset_s)
-        position = rotate_about_z(
-            position_eci(raan_deg, arg_lat, semi_major_m),
-            -(theta0 + OMEGA_SID_RAD_S * math.degrees(offset_s)),
+    points: list[dict[str, Any]] = []
+    ascent_offsets = list(range(0, INJECTION_OFFSET_S + 1, ASCENT_SAMPLE_STEP_S))
+    if ascent_offsets[-1] != INJECTION_OFFSET_S:
+        ascent_offsets.append(INJECTION_OFFSET_S)
+    orbit_offsets = [
+        offset
+        for offset in range(EPHEMERIS_STEP_S * ((INJECTION_OFFSET_S // EPHEMERIS_STEP_S) + 1), last_sample_s + 1, EPHEMERIS_STEP_S)
+    ]
+
+    ascent_points: list[dict[str, Any]] = []
+    for offset_s in ascent_offsets:
+        latitude, longitude = destination_point(
+            site_lat_deg, site_lon_deg, azimuth_compass_deg, ascent_downrange_km(offset_s, downrange_km)
         )
-        latitude, longitude, radius = subpoint(position)
-        points.append(
-            {
-                "t_utc": format_instant(parse_instant(first_liftoff) + dt.timedelta(seconds=offset_s)),
-                "lat_deg": round(latitude, LAT_LON_DECIMALS),
-                "lon_deg": round(longitude, LAT_LON_DECIMALS),
-                "alt_km": round((radius - R_EARTH_M) / 1000.0, ALT_DECIMALS),
-            }
+        point = {
+            "t_utc": format_instant(parse_instant(first_liftoff) + dt.timedelta(seconds=offset_s)),
+            "lat_deg": round(latitude, LAT_LON_DECIMALS),
+            "lon_deg": round(longitude, LAT_LON_DECIMALS),
+            "alt_km": round(ascent_altitude_km(offset_s), ALT_DECIMALS),
+        }
+        ascent_points.append(point)
+        points.append(point)
+
+    orbit_points: list[dict[str, Any]] = []
+    for offset_s in orbit_offsets:
+        latitude, longitude, radius = orbit_subpoint(
+            raan_deg, arg_lat_deg, semi_major_m, mean_motion, theta0, offset_s
         )
+        point = {
+            "t_utc": format_instant(parse_instant(first_liftoff) + dt.timedelta(seconds=offset_s)),
+            "lat_deg": round(latitude, LAT_LON_DECIMALS),
+            "lon_deg": round(longitude, LAT_LON_DECIMALS),
+            "alt_km": round((radius - R_EARTH_M) / 1000.0, ALT_DECIMALS),
+        }
+        orbit_points.append(point)
+        points.append(point)
 
     ephemeris = {
         "orbit_id": ORBIT_ID,
@@ -305,6 +444,10 @@ def build_ephemeris(first_liftoff: str, site_lat_deg: float, site_lon_deg: float
         "ground_track_valid": True,
         "constants_block": existing["constants_block"],
     }
+
+    injection_lat, injection_lon, injection_radius = orbit_subpoint(
+        raan_deg, arg_lat_deg, semi_major_m, mean_motion, theta0, INJECTION_OFFSET_S
+    )
     report = {
         "period_s": period_s,
         "semi_major_m": semi_major_m,
@@ -316,7 +459,22 @@ def build_ephemeris(first_liftoff: str, site_lat_deg: float, site_lon_deg: float
         "expected_launch_azimuth_deg": expected_launch_azimuth_deg(site_lat_deg),
         "last_sample_s": last_sample_s,
         "samples": len(points),
+        "ascent_samples": len(ascent_points),
+        "ascent_step_s": ASCENT_SAMPLE_STEP_S,
+        "downrange_at_injection_km": downrange_km,
+        "ascent_bearing_deg": azimuth_compass_deg,
+        "ascent_end_gap_km": great_circle_km(
+            ascent_points[-1]["lat_deg"],
+            ascent_points[-1]["lon_deg"],
+            injection_lat,
+            injection_lon,
+        ),
+        "orbit_injection_alt_km": (injection_radius - R_EARTH_M) / 1000.0,
+        "orbit_altitude_span_km": max(point["alt_km"] for point in orbit_points)
+        - min(point["alt_km"] for point in orbit_points),
         "first_point": points[0],
+        "ascent_last_point": ascent_points[-1],
+        "first_orbit_point": orbit_points[0],
         "last_point": points[-1],
         "southernmost_lat_deg": min(point["lat_deg"] for point in points),
         "northernmost_lat_deg": max(point["lat_deg"] for point in points),
@@ -551,7 +709,8 @@ def main(argv: list[str]) -> int:
     first_liftoff = windows_existing["windows"][0]["t_liftoff_utc"]
 
     windows = build_windows(windows_existing)
-    ephemeris, report = build_ephemeris(first_liftoff, site_lat, site_lon)
+    azimuth_compass_deg = float(windows["windows"][0]["azimuth_compass_deg"])
+    ephemeris, report = build_ephemeris(first_liftoff, site_lat, site_lon, azimuth_compass_deg)
 
     print(f"site {site['name']} at {site_lat} N, {site_lon} W (site.json)")
     print(f"target {ORBIT_ID} inclination {TARGET_INCLINATION_DEG} deg, {TARGET_ALTITUDE_KM} km circular")
@@ -563,12 +722,27 @@ def main(argv: list[str]) -> int:
           f"direct ascent azimuth {report['expected_launch_azimuth_deg']:.4f} deg of spec II.2; "
           f"ground track heading in the rotating frame {report['ground_track_heading_deg']:.4f} deg, "
           f"the Earth rotation correction being {report['ground_track_heading_deg'] - report['inertial_launch_azimuth_deg']:.4f} deg")
-    print(f"samples {report['samples']} over {report['last_sample_s']} s, step {EPHEMERIS_STEP_S} s, "
-          f"{EPHEMERIS_ORBITS} orbits of {report['period_s']:.3f} s")
+    print(f"ascent over {INJECTION_OFFSET_S} s sampled every {report['ascent_step_s']} s, "
+          f"{report['ascent_samples']} samples: altitude 0 to {TARGET_ALTITUDE_KM} km as "
+          f"{TARGET_ALTITUDE_KM} * (t/{INJECTION_OFFSET_S})^{ASCENT_ALTITUDE_EXPONENT}, downrange 0 to "
+          f"{report['downrange_at_injection_km']:.3f} km as D * (t/{INJECTION_OFFSET_S})^{ASCENT_DOWNRANGE_EXPONENT} "
+          f"on bearing {azimuth_compass_deg} deg")
+    print(f"the downrange distance at injection D is {report['downrange_at_injection_km']:.3f} km, "
+          f"the ground distance the same orbit covers in {INJECTION_OFFSET_S} s from liftoff; "
+          f"ASSUMPTION, as are both profile exponents")
+    print(f"ascent end {report['ascent_last_point']} against the injection point of the orbit "
+          f"{report['orbit_injection_alt_km']:.3f} km up, a gap of {report['ascent_end_gap_km']:.3f} km: the "
+          "ascent follows the compass azimuth of the window row, which is a great circle, while the orbit track "
+          "curves, so the two parts are close but not identical at the handover")
+    print(f"samples {report['samples']} over {report['last_sample_s']} s, "
+          f"{report['ascent_samples']} of them on the {report['ascent_step_s']} s ascent grid and the rest on the "
+          f"{EPHEMERIS_STEP_S} s orbit grid, {EPHEMERIS_ORBITS} orbits of {report['period_s']:.3f} s")
     print(f"first sample {report['first_point']}")
+    print(f"first sample after the ascent {report['first_orbit_point']}")
     print(f"last sample {report['last_point']}")
     print(f"latitude span {report['southernmost_lat_deg']:.5f} to {report['northernmost_lat_deg']:.5f} deg, "
-          f"altitude span {report['altitude_span_km']:.6f} km")
+          f"altitude span {report['altitude_span_km']:.6f} km over the whole track and "
+          f"{report['orbit_altitude_span_km']:.6f} km over the orbit after injection")
 
     azimuth_gap = abs(
         wrap_signed_deg(report["inertial_launch_azimuth_deg"] - report["expected_launch_azimuth_deg"])
@@ -580,8 +754,8 @@ def main(argv: list[str]) -> int:
             f"the ground track heading {report['ground_track_heading_deg']} deg is not the "
             "southbound branch the corridor admits from Canso"
         )
-    if report["altitude_span_km"] > 0.001:
-        raise ValueError("a circular orbit must hold altitude")
+    if report["first_point"]["alt_km"] != 0.0:
+        raise ValueError(f"the first sample must sit on the pad at 0 km, found {report['first_point']['alt_km']} km")
     if report["first_point"]["lat_deg"] != report["first_point"]["lat_deg"]:
         raise ValueError("the first sample latitude is not a number")
     if abs(report["first_point"]["lat_deg"] - site_lat) > 10 ** -LAT_LON_DECIMALS:
@@ -590,6 +764,32 @@ def main(argv: list[str]) -> int:
         raise ValueError("the first sample must sit over the site longitude")
     if report["first_point"]["t_utc"] != first_liftoff:
         raise ValueError("the ephemeris must start at the first liftoff instant")
+    if report["ascent_last_point"]["t_utc"] != windows["windows"][0]["t_injection_utc"]:
+        raise ValueError("the last ascent sample must sit on the injection instant of the first row")
+    if abs(report["ascent_last_point"]["alt_km"] - TARGET_ALTITUDE_KM) > 0.001:
+        raise ValueError(
+            f"the ascent must reach the orbit altitude at injection, found {report['ascent_last_point']['alt_km']} km"
+        )
+    if report["ascent_end_gap_km"] > 0.2 * report["downrange_at_injection_km"]:
+        raise ValueError(
+            f"the modelled ascent ends {report['ascent_end_gap_km']} km from the injection point of the orbit, "
+            "which is more than a fifth of the downrange distance, so the downrange model is wrong"
+        )
+    for point in ephemeris["points"][: report["ascent_samples"]]:
+        offset_s = (parse_instant(point["t_utc"]) - parse_instant(first_liftoff)).total_seconds()
+        if offset_s % ASCENT_SAMPLE_STEP_S != 0:
+            raise ValueError(f"ascent sample at {point['t_utc']} is off the {ASCENT_SAMPLE_STEP_S} s grid")
+        if abs(point["alt_km"] - ascent_altitude_km(offset_s)) > 10 ** -ALT_DECIMALS:
+            raise ValueError(f"ascent altitude {point['alt_km']} km at {point['t_utc']} misses the profile")
+        downrange = great_circle_km(site_lat, site_lon, point["lat_deg"], point["lon_deg"])
+        expected_downrange = ascent_downrange_km(offset_s, report["downrange_at_injection_km"])
+        if abs(downrange - expected_downrange) > 0.05:
+            raise ValueError(
+                f"ascent downrange {downrange:.3f} km at {point['t_utc']} misses the profile value "
+                f"{expected_downrange:.3f} km"
+            )
+    if report["orbit_altitude_span_km"] > 0.001:
+        raise ValueError("a circular orbit must hold altitude after injection")
     if report["southernmost_lat_deg"] >= report["northernmost_lat_deg"]:
         raise ValueError("the track must span both hemispheres")
     for row in windows["windows"]:

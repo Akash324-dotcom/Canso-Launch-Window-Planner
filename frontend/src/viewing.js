@@ -1,4 +1,4 @@
-import { EARTH_RADIUS_M, ELEVATION_MASK_DEG, VIEWING_MIN_ELEVATION_DEG } from './config.js';
+import { EARTH_RADIUS_M, ELEVATION_MASK_DEG } from './config.js';
 import {
   DEG,
   dot3,
@@ -257,7 +257,6 @@ export function viewingReport(options = {}) {
     centres = [],
     ephemerisResponse = null,
     elevationMaskDeg = ELEVATION_MASK_DEG,
-    minElevationDeg = VIEWING_MIN_ELEVATION_DEG,
     ascent = null,
   } = options;
   const radiusM = earthRadiusOf(ephemerisResponse);
@@ -266,7 +265,6 @@ export function viewingReport(options = {}) {
   const entries = centreEntries(centres);
   const report = {
     elevation_mask_deg: elevationMaskDeg,
-    min_elevation_deg: minElevationDeg,
     earth_radius_m: radiusM,
     sample_count: window.total_count,
     first_sample_t_utc: window.first_t_utc,
@@ -327,7 +325,7 @@ export function viewingReport(options = {}) {
         peakSample = sample;
       }
     }
-    const visible = maxElevationDeg !== null && maxElevationDeg >= minElevationDeg;
+    const visible = maxElevationDeg !== null && maxElevationDeg >= elevationMaskDeg;
     const entry = {
       ...centre,
       max_elevation_deg: maxElevationDeg,

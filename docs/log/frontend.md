@@ -407,3 +407,112 @@ Per file during development: `npx vitest run tests/viewing.test.js` reported 12 
 ## Not done in this session
 
 The 3D globe stays cut, the elevation mask of spec V.4 is not replaced anywhere else, no fixture, schema or backend file was touched, no package was installed, nothing was committed, and no file outside `frontend/` and this log was created or edited.
+
+---
+
+# Session covering the two Screen 4 follow-ups (issue 5, F5)
+
+Summary: one threshold instead of two, `ELEVATION_MASK_DEG = 10` of spec V.4, and a fixture that models the ascent instead of starting the vehicle at 550 km on the pad. With the regenerated ephemeris the first window now answers the slide question with one region, Halifax, instead of every city on the list.
+
+## Commands run
+
+```text
+$ /Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python frontend/tools/make_fixtures.py
+```
+
+Generator output, the ascent block and the handover:
+
+```text
+ascent over 600 s sampled every 30 s, 21 samples: altitude 0 to 550.0 km as 550.0 * (t/600)^1.5, downrange 0 to 4236.045 km as D * (t/600)^2.0 on bearing 188.9 deg
+the downrange distance at injection D is 4236.045 km, the ground distance the same orbit covers in 600 s from liftoff; ASSUMPTION, as are both profile exponents
+ascent end {'t_utc': '2026-10-05T11:52:17Z', 'lat_deg': 7.54857, 'lon_deg': -66.52014, 'alt_km': 550.0} against the injection point of the orbit 550.000 km up, a gap of 455.725 km: the ascent follows the compass azimuth of the window row, which is a great circle, while the orbit track curves, so the two parts are close but not identical at the handover
+samples 202 over 11460 s, 21 of them on the 30 s ascent grid and the rest on the 60 s orbit grid, 2 orbits of 5738.993 s
+first sample {'t_utc': '2026-10-05T11:42:17Z', 'lat_deg': 45.3, 'lon_deg': -61.0, 'alt_km': 0.0}
+first sample after the ascent {'t_utc': '2026-10-05T11:53:17Z', 'lat_deg': 4.44065, 'lon_deg': -71.39316, 'alt_km': 550.0}
+last sample {'t_utc': '2026-10-05T14:53:17Z', 'lat_deg': 46.40489, 'lon_deg': -108.553, 'alt_km': 550.0}
+latitude span -81.89057 to 81.89564 deg, altitude span 550.000000 km over the whole track and 0.000000 km over the orbit after injection
+ephemeris.json validates against ephemeris_response.json
+site.json validates against site_response.json
+skill.json validates against skill_response.json
+weather.json validates against weather_probability_response.json
+windows.json validates against windows_response.json
+the schema subset check accepted every good example and rejected every bad example of the five fixture schemas, 42 frozen examples
+```
+
+Contract tests:
+
+```text
+$ /Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python -m pytest tests/contract -q
+```
+
+```text
+......................................................................   [100%]
+70 passed in 0.09s
+```
+
+Frontend tests:
+
+```text
+$ cd frontend && npx vitest run
+```
+
+```text
+ Test Files  9 passed (9)
+      Tests  57 passed (57)
+   Duration  1.11s (environment 51%, tests 35%, transform 8%, import 5%)
+```
+
+The count is the same as at the end of the previous session: `VIEWING_MIN_ELEVATION_DEG` was removed, so the six cases added there were edited to the single threshold and none was added or dropped.
+
+## Visible centres of the first window after the fix
+
+Ascent `2026-10-05T11:42:17Z` to `2026-10-05T11:52:17Z`, 21 of the 202 ephemeris samples, threshold `ELEVATION_MASK_DEG = 10`:
+
+| Rank | Centre | Max elevation over the ascent | Time of max | Visible |
+|---|---|---|---|---|
+| 1 | Halifax, Nova Scotia | 14.05 deg at 11:44:47Z, 263 km | yes |
+| 2 | Sydney, Nova Scotia | 8.85 deg at 11:44:17Z, 281 km | no |
+| 3 | Charlottetown, Prince Edward Island | 8.24 deg at 11:44:47Z, 396 km | no |
+| 4 | Moncton, New Brunswick | 7.33 deg at 11:45:17Z, 537 km | no |
+| 5 | Boston, Massachusetts | 6.33 deg at 11:46:47Z, 922 km | no |
+| 6 | Montreal, Quebec | 1.67 deg at 11:46:47Z, 1291 km | no |
+| 7 | St. Johns, Newfoundland and Labrador | 1.29 deg at 11:45:47Z, 1076 km | no |
+
+Visible centres 1 of 7, best view Halifax. The Halifax elevation series reads 4.1 deg one minute after liftoff, 12.7 deg at 11:44:17Z, 13.3 deg at 11:45:17Z, then falls through zero at 11:49:17Z, which is the shape of a vehicle climbing away to the south: a rise, a shallow peak, then the horizon. No centre sees a sunlit vehicle while in darkness at any ascent sample of this window. The rows of 6 and 7 Oct are still outside the span of the shipped ephemeris and state the coverage sentence.
+
+## Files changed
+
+| Path | Change |
+|---|---|
+| `frontend/src/config.js` | `VIEWING_MIN_ELEVATION_DEG`, `VIEWING_MIN_ELEVATION_FLAG` and `VIEWING_MIN_ELEVATION_SOURCE` removed. `ELEVATION_MASK_DEG = 10` with its flag and source is the only threshold and is unchanged |
+| `frontend/src/viewing.js` | `viewingReport` lost `minElevationDeg` and the `min_elevation_deg` field; the verdict is `max elevation >= elevationMaskDeg` again. The ascent restriction, the interpolation, the coverage message, the ranking and the best view of the previous session are unchanged |
+| `frontend/src/screens/viewing.js` | The `minElevationDeg` option, `p#viewing-min-elevation-note` and its `data-min-elevation-deg` removed. The verdict badge, the empty chart note and the map legend name the mask again. The ascent note, the rank column and the coverage sentence are unchanged |
+| `frontend/tests/viewing.test.js` | Six cases edited to the single threshold: `honours the configured elevation mask` injects `elevationMaskDeg: 4` instead of `minElevationDeg: 4` and asserts `ELEVATION_MASK_DEG`, `elevation_mask_deg` and `#elevation-mask-note`; the in view case asserts `visible above the 10 deg mask` as it did before. No case was added, removed or weakened |
+| `frontend/tools/make_fixtures.py` | The ascent is modelled between liftoff and injection and the orbit continues after it. Added `great_circle_km`, `destination_point`, `orbit_subpoint`, `downrange_at_injection_km`, `ascent_altitude_km`, `ascent_downrange_km`, the constants `ASCENT_SAMPLE_STEP_S`, `ASCENT_ALTITUDE_EXPONENT`, `ASCENT_DOWNRANGE_EXPONENT` and `DOWNRANGE_INTEGRATION_STEP_S`, the two sample grids in `build_ephemeris`, and the profile, grid, pad and handover guards in `main`. The plane solve, the window rows, the schema subset check and the self check are unchanged |
+| `backend/fixtures/ephemeris.json` | Regenerated: 202 samples, 21 on the 30 s ascent grid from 0 km at liftoff to 550 km at injection, then 181 on the unchanged 60 s orbit grid to the end of the second revolution. `orbit_id`, `frame`, `ground_track_valid` and the `constants_block` are carried over |
+| `backend/fixtures/windows.json` | Rewritten by the generator with identical content, because `build_windows` restates the same three rows. `git status` shows no change to it |
+| `frontend/README.md` | Geometry step 5 back to one threshold, and the two fixture paragraphs rewritten: the generator paragraph names the two profiles, `D`, the new guards, the handover gap and the 202 samples; the Screen 4 paragraph states the new outcome, Halifax as the only centre |
+| `frontend/DONE.md`, `frontend/REQUIREMENTS_MAP.md` | The Screen 4 rows name the elevation mask again, and the map row carries the same ten test names |
+| `docs/log/frontend.md` | This section |
+
+## Test to requirement map
+
+| Requirement | Test |
+|---|---|
+| One visibility threshold, `ELEVATION_MASK_DEG = 10` | `tests/viewing.test.js` / `honours the configured elevation mask`: `elevation_mask_deg` is the configured value, St. Johns at 4.400 deg is not visible at it and visible at an injected 4, `best_centre_id` follows, and the screen note carries the value with its ASSUMPTION flag and the `ELEVATION_MASK_DEG` source name |
+| The verdict names the threshold it uses | `tests/viewing.test.js` / `shows visibility with an elevation number for a centre geometrically in view`: the row reads `visible above the 10 deg mask` and the chart still draws `data-elevation-mask-deg` 10 |
+| The ascent is modelled instead of starting at 550 km | `tests/offline.test.js` reads the regenerated `backend/fixtures/ephemeris.json` from disk and renders all five screens from it, and `tests/viewing.test.js` / `ignores every sample outside the ascent interval of the selected row` pins the sample bookkeeping that the new grid feeds |
+| The regenerated fixture stays schema valid | The generator prints all five fixture files validating, and `python -m pytest tests/contract -q` reports 70 passed on the same files |
+
+## Interpretations and open points
+
+1. **The downrange distance at injection is D = 4236.045 km, measured from the orbit, and it is an ASSUMPTION.** `D` was not given a number, so it is defined as the ground distance the solved circular orbit covers in the 600 s from liftoff, integrated from its sub-points at 1 s. That choice makes the modelled ascent the same length as the arc the orbit flies, which is the only definition that ties the two parts of the fixture together. It is a fixture value, not a claim about the vehicle: it implies an average ground speed of about 7.1 km/s during the ascent, which no launcher flies, and the two profile exponents 1.5 and 2 are no less arbitrary. All three are named as ASSUMPTIONs in the script header, in the printed output and here.
+2. **The ascent and the orbit do not meet exactly at the handover, and that is reported, not hidden.** The ascent follows `azimuth_compass_deg` of 188.9 deg from the site, which is a great circle, while the sub-satellite track of the orbit curves and carries a bearing of 194.16 deg at liftoff rising to 195.54 deg at injection. The two paths are therefore about 456 km apart at injection. The generator prints that gap on every run and refuses to write if it exceeds a fifth of `D`, which is a bound against a broken downrange model rather than a claim of continuity. Making the two parts meet exactly would mean letting the ascent follow the orbit track instead of the compass azimuth of the window row, which is a different model from the one asked for, so it was not done silently.
+3. **The orbital grid after the handover is unchanged, so the file keeps its end.** The ascent occupies 0 to 600 s at 30 s and the orbit resumes at 660 s on the 60 s grid it always used, so every sample the old file carried after 600 s is still there and the last sample is still `2026-10-05T14:53:17Z`.
+4. **The old altitude guard became two guards.** "A circular orbit must hold altitude" no longer holds for the whole track, so it is checked over the orbit after injection only, and the ascent is checked against its own profile, its 30 s grid, and a first sample of 0 km over the site.
+5. **A stale README claim was found and not fixed.** The known conflicts section states that `site.json` declares corridor bounds of 100 to 140 deg against 90 to 200 deg in `windows.json`. Both shipped fixtures actually declare 90 to 200, so that paragraph no longer describes the files, and the Screen 2 guard flags 126 of the 202 samples of the new track as outside those bounds, which is the orbit leaving the fan rather than the bounds disagreement. It is outside the two follow-ups, so it is left for the next session rather than edited here.
+6. **Nothing personal or unverifiable was invented.** The only new numbers are the two profile exponents, the 30 s ascent step and `D`, and every one of them is stated in the script, printed on every run and recorded here.
+
+## Not done in this session
+
+The frozen contract examples were not regenerated, so `tests/contract/examples/good/ephemeris_response_good_leo45.json` still carries the two-sample track at 550 km that the viewing tests use as an explicit input, which is correct because those tests are about the browser, not about the fixture. No schema was changed, no package was installed, nothing was committed, and no file outside `frontend/`, `backend/fixtures/*.json` and this log was created or edited.

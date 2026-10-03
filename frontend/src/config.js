@@ -108,15 +108,6 @@ export const ELEVATION_MASK_FLAG = 'ASSUMPTION';
 
 export const ELEVATION_MASK_SOURCE = 'src/config.js ELEVATION_MASK_DEG, the default of spec V.4';
 
-export const VIEWING_MIN_ELEVATION_DEG = 5;
-
-export const VIEWING_MIN_ELEVATION_FLAG = 'ASSUMPTION';
-
-export const VIEWING_MIN_ELEVATION_SOURCE =
-  'src/config.js VIEWING_MIN_ELEVATION_DEG, the minimum a centre must reach during the ascent for the ' +
-  'slide question of issue 5 F5, which regions have the best view of the ascent; it is below the ' +
-  'ELEVATION_MASK_DEG reference line of spec V.4, which stays the mask drawn on the elevation chart';
-
 export const VEHICLE_FOOTPRINTS = {
   cyclone4m: {
     hazard_half_width_km: null,
