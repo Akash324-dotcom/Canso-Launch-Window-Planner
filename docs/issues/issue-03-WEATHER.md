@@ -1,6 +1,8 @@
-# [WEATHER] Probabilistic launch-weather layer: P(L|d), climatology, hindcast validation - GATE G2
+# [WEATHER] Probabilistic launch-weather layer: P(L|d), climatology, criteria table - GATE G2 (part 1 of 2)
 
-**Assigned to:** Het (GitHub: TBD) - holds the data-API accounts.
+**Assigned to:** Het (GitHub: @HetJivani04) - holds the data-API accounts.
+
+**This workflow is split across two issues.** This issue (#3) covers the operational probability layer: the criteria table, forecast and ensemble acquisition, P(L|d) for days 0 to 10, climatology beyond, and the horizon configuration. **The hindcast validation, Brier skill and reliability work now lives in issue #7, which is also yours.** #3 must land first because #7 consumes its criteria version and its probability function.
 
 **Owner role:** WEATHER developer. **Depends on:** G0 contract. **Blocks:** API composition; carries the Originality rubric row.
 **You own:** `backend/weather/**` and nothing else.
@@ -67,15 +69,10 @@ def hindcast(period_start: str, period_end: str, lead_max: int = 10) -> dict
 - [ ] TEST: the 10-day boundary comes from `data/skill_horizon.json` (`{"max_forecast_lead_days": 10, "source": "...", "flag": "SKETCHED"}`)
 - [ ] Cite the skill-decay literature in the JSON: Lorenz 1982; Tellus A 2013 (doi 10.3402/tellusa.v65i0.19022); Buizza and Leutbecher 2015. **The boundary is SKETCHED in spec II.9 until your own hindcast supports or kills it. Do not claim it as established for Canso before the hindcast runs.**
 
-### W6 Hindcast and skill - GATE G2 (3 h)
-- [ ] TEST (pure): given `(p, outcome)` pairs, `hindcast()` returns `BS = mean((p - o)^2)` matching a hand computation
-- [ ] TEST: `BSS = 1 - BS/BS_ref` with the climatological base rate as reference; a perfect forecast gives 1, the base rate gives 0
-- [ ] TEST: `reliability_bins` are equal-width over [0,1] with `p_center`, `observed_freq`, `n`; empty bins are dropped, not zero-filled
-- [ ] DATA: historical forecasts for leads 1-10 days (Open-Meteo historical forecast archive, or GEFS reforecasts) plus verification outcomes for the same days evaluated against the same criteria version
-- [ ] METHOD: for each issue date `d` and lead `L`: forecast issued at `d` for `d+L` gives `p`; observed weather at `d+L` evaluated against criteria gives `o` in {0,1}; accumulate per lead
-- [ ] REPORT `backend/weather/HINDCAST.md`: the BSS table by lead, the reliability table, `n` per cell, and the honest reading - at what lead does skill die? **If BSS <= 0 at every lead, write that.** A negative result reported is a finding; a hidden one is a project failure
-- [ ] GATE definition: `hindcast()` runs end to end on real data, emits the spec IV.4 shape, and HINDCAST.md states the result with its sample sizes and caveats
-- [ ] TEST: the spec IV.4 response shape is produced exactly
+### W6 Hindcast and skill - MOVED TO ISSUE #7 (1 h here, for the seam only)
+- [ ] **The hindcast, Brier score, Brier skill score, reliability diagram and the skill fixture are now issue #7.** Do not implement them here
+- [ ] What stays in #3 is the **seam**: export `criteria_version` and the outcome evaluator (`observed_launchable`) so #7 can consume exactly the same thresholds. Add a test asserting #7 can import them
+- [ ] TEST: the exported surface exists and is importable from `backend.weather`
 
 ### W7 Contract integration (1 h)
 - [ ] TEST: your outputs validate against `tests/contract/` (schema from the API workflow). If the schema does not exist yet, validate against the spec text and note it for API
