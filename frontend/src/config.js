@@ -122,7 +122,7 @@ export const CORRIDOR_FALLBACK_ARC_KM = 1200;
 
 export const CORRIDOR_BEARING_TOLERANCE_DEG = 0;
 
-export const DATA_BASE = './data/';
+export const DATA_BASE = './src/data/';
 
 export const CENTRES_FILE = 'centres.json';
 
