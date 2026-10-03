@@ -697,3 +697,27 @@ the mission-family specification, now applied on the published authority that 3C
 "the third satellite of the Sentinel-3 series" released "matching the existing
 Sentinel-3A/3B orbit configuration". That is recorded as the weakest link in the
 anchor rather than left to look like a like-for-like citation.
+
+### Final verification on a clean clone
+
+The `.DS_Store` untracking was undone by a later bulk add, so it was re-removed and
+excluded in `.git/info/exclude`, which is local to the clone. The shared `.gitignore`
+is owned by another workflow and was left untouched.
+
+```
+$ git diff main...HEAD --name-only | grep -Ev "^backend/engine/"
+  (no output: every changed file is inside backend/engine/)
+
+$ git clone --branch engine/issue-02 <repo> clean && cd clean
+$ python3 -m venv .venv && . .venv/bin/activate && pip install -q -e ".[dev]"
+$ python -m pytest backend/engine/ -q   ->  283 passed in 1.12s
+$ python -m pytest tests/contract/ -q   ->   70 passed in 0.27s
+
+GATE G1 residuals, engine minus published:
+  sentinel_1c_2024_12_05   i= 98.180 node=ascending  site=ascending   -1.545 min
+  earthcare_2024_05_28     i= 97.050 node=descending site=descending  -0.547 min
+  sentinel_5p_2017_10_13   i= 98.740 node=ascending  site=ascending   +0.914 min
+  sentinel_3c_2026_09_15   i= 98.600 node=descending site=ascending   +2.257 min
+```
+
+Branch `engine/issue-02`, seven commits, working tree clean.
