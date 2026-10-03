@@ -1,0 +1,93 @@
+"""The offline fixtures of spec V.5 must satisfy the frozen contract themselves.
+
+Spec V.5 makes the fixtures the demo floor: if a live call fails during judging the
+service answers from these documents. That only works while they are schema valid, so
+each one is validated here against the frozen schema its name names.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from backend.api.schemas import errors_for
+
+FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures"
+
+FIXTURE_SCHEMAS = {
+    "windows.json": "windows_response",
+    "weather.json": "weather_probability_response",
+    "skill.json": "skill_response",
+    "site.json": "site_response",
+    "ephemeris.json": "ephemeris_response",
+}
+
+
+@pytest.mark.parametrize(("filename", "schema_name"), sorted(FIXTURE_SCHEMAS.items()))
+def test_fixture_validates_against_its_frozen_schema(filename: str, schema_name: str) -> None:
+    path = FIXTURE_DIR / filename
+    assert path.is_file(), f"{filename} is missing; spec V.5 makes it the demo floor"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    errors = errors_for(schema_name, document)
+    assert not errors, f"{filename} must be valid against {schema_name}.json: {errors}"
+
+
+@pytest.mark.parametrize("filename", sorted(FIXTURE_SCHEMAS))
+def test_fixture_is_a_json_object_with_no_trailing_content(filename: str) -> None:
+    text = (FIXTURE_DIR / filename).read_text(encoding="utf-8")
+    assert isinstance(json.loads(text), dict)
+    assert text.endswith("\n")
+
+
+def test_every_configured_fixture_exists_on_disk() -> None:
+    from backend.api.config import Settings
+
+    settings = Settings.load()
+    assert sorted(settings.fixture_paths) == sorted(
+        name.removesuffix(".json") for name in FIXTURE_SCHEMAS
+    )
+    for name, relative in sorted(settings.fixture_paths.items()):
+        assert settings.resolve(relative).is_file(), name
+        assert relative == f"backend/fixtures/{name}.json"
+
+
+def test_the_window_fixture_describes_an_sso_target_from_canso() -> None:
+    document = json.loads((FIXTURE_DIR / "windows.json").read_text(encoding="utf-8"))
+    assert document["engine_version"] == "stub"
+    assert document["reachable"] is True
+    assert len(document["windows"]) == 3
+    site = document["provenance_block"]["site"]
+    assert site["name"] == "canso"
+    assert abs(site["phi_s_deg"] - 45.3) < 1e-9
+    inclinations = {window["reached_inclination_deg"] for window in document["windows"]}
+    assert inclinations == {98.08}
+    assert all(window["reached_inclination_deg"] > site["phi_s_deg"] for window in document["windows"])
+
+
+def test_the_window_fixture_carries_both_shared_blocks() -> None:
+    document = json.loads((FIXTURE_DIR / "windows.json").read_text(encoding="utf-8"))
+    assert errors_for("constants_block", document["constants_block"]) == []
+    assert errors_for("provenance_block", document["provenance_block"]) == []
+    assert document["constants_block"]["citation_id"].startswith("run_")
+
+
+def test_the_weather_fixture_is_a_recorded_snapshot() -> None:
+    document = json.loads((FIXTURE_DIR / "weather.json").read_text(encoding="utf-8"))
+    assert document["source"] == "snapshot_cache"
+    assert document["horizon_label"] in {"FORECAST", "CLIMATOLOGY"}
+    if document["horizon_label"] == "CLIMATOLOGY":
+        assert document["ensemble_size"] is None
+
+
+def test_fixture_windows_and_the_weather_snapshot_agree() -> None:
+    """The route recomposes p_success, so the frozen rows must already agree with it."""
+    windows = json.loads((FIXTURE_DIR / "windows.json").read_text(encoding="utf-8"))
+    weather = json.loads((FIXTURE_DIR / "weather.json").read_text(encoding="utf-8"))
+    for window in windows["windows"]:
+        components = window["p_success_components"]
+        expected = weather["p_launch"] * components["range"] * components["conjunction"]
+        assert window["p_success"] == pytest.approx(expected)
+        assert window["horizon_label"] == weather["horizon_label"]
+        assert window["forecast_issue_time"] == weather["forecast_issue_time"]

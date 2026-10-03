@@ -1,0 +1,25 @@
+{
+  "description": "Physical constants of the secular J2 model, spec II.10 constants table. This file is the only place these values live: no Python module under backend/api/ may repeat them (spec II.10, and the test test_no_physical_constant_is_hard_coded_in_service_source).",
+  "values": {
+    "J2": 1.08262668e-3,
+    "GM": 3.986004418e14,
+    "R_e": 6378137.0,
+    "omega_sid_rad_s": 7.292115e-5,
+    "gmst_model": "IAU_1982"
+  },
+  "sources": {
+    "J2": "EGM2008 second zonal harmonic, value as recorded in SCIENCE Sec A.2; spec II.10 constants table",
+    "GM": "Earth gravitational parameter, NASA GSFC GDC Orbit Primer October 2018 (formula set VERIFIED, SCIENCE Sec F.7), value SCIENCE Sec A.2; spec II.10 constants table",
+    "R_e": "Earth equatorial radius, EGM2008 and WGS84, SCIENCE Sec A.2; spec II.10 constants table",
+    "omega_sid_rad_s": "Earth sidereal rotation rate, SCIENCE Sec A.4; spec II.10 constants table",
+    "gmst_model": "IAU 1982 sidereal time with nutation omitted, model choice and precision note SCIENCE Sec G.11; spec IV constants_block"
+  },
+  "provenance": {
+    "J2": "hard-coded universal constant, printed with its source on every result",
+    "GM": "hard-coded universal constant, printed with its source on every result",
+    "R_e": "hard-coded universal constant, printed with its source on every result",
+    "omega_sid_rad_s": "hard-coded universal constant, printed with its source on every result",
+    "gmst_model": "hard-coded algorithm choice, recorded rather than derived"
+  },
+  "file": "backend/api/data/constants.json"
+}
