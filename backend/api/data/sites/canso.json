@@ -1,0 +1,32 @@
+{
+  "name": "canso",
+  "description": "Spaceport Nova Scotia, Canso. Site state per spec II.10: site geometry and corridor come from configuration and never from code. API owns this file until ENGINE lands backend/engine/data/site_canso.json, which takes precedence when present.",
+  "phi_s_deg": 45.3,
+  "lambda_s_deg": -61.0,
+  "h_s_m": 0.0,
+  "geometry_source": "Cyclone-4M Abbreviated User's Guide sec 2.2 (VERIFIED, SCIENCE Sec F.2); spec II.10 site geometry row: 45.3 N, 61.0 W, 0 m default",
+  "coordinate_variants_source": "SCIENCE Sec G.3; alternates recorded when available",
+  "operating_hours": {
+    "start": "07:00",
+    "end": "12:00",
+    "local": "ADT"
+  },
+  "operating_hours_source": "spec IV.5 nominal operating hours 07:00 to 12:00 local",
+  "corridor": {
+    "A_min_deg": 90.0,
+    "A_max_deg": 200.0,
+    "source": "spec II.3 default corridor file: east and south over open ocean fan, due east through the SSO azimuth plus margin; bounds ASSUMPTION pending the environmental assessment Figure 2.9 three-sigma corridor check (open item SCIENCE Sec G.2)",
+    "flag": "ASSUMPTION"
+  },
+  "car_references": ["602.43", "602.44"],
+  "car_references_source": "spec II.10 CARs references row; environmental assessment project description (VERIFIED, PRIOR Sec A.4)",
+  "row_flags": {
+    "site_phi_s_deg": "VERIFIED",
+    "site_lambda_s_deg": "VERIFIED",
+    "site_h_s_m": "VERIFIED",
+    "corridor_A_min_deg": "ASSUMPTION",
+    "corridor_A_max_deg": "ASSUMPTION",
+    "car_references": "VERIFIED"
+  },
+  "engine_owned_path": "backend/engine/data/site_canso.json"
+}

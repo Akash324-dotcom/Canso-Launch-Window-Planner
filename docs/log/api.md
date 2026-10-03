@@ -221,3 +221,223 @@ difference is recorded here.
     Seam 2 and not of this issue.
 ### Update to interpretation 26
 `pip install -e .` verified by the lead: `uv venv` in a fresh temp dir, `uv pip install -e .`, then `python -c "import backend.api, fastapi, httpx, pydantic, uvicorn"` run from `/tmp` printed `install ok`.
+
+## A1-A3 provenance, app skeleton and the stubbed window route
+
+Issue: `docs/issues/issue-04-API.md`, tasks A1, A2 and A3 only. A4 to A11 are untouched and
+nothing was committed by this session. The test suite is written before the code it tests; the
+red observations are quoted below in the order they happened.
+
+### What shipped
+
+| Path | Purpose |
+|---|---|
+| `backend/api/provenance.py` | `constants_block`, `provenance_block`, the deterministic `citation_id`, the config hash, `assert_complete` |
+| `backend/api/config.py` | the only reader of `backend/api/data`, and the `Settings` seam every other module takes |
+| `backend/api/schemas.py` | loader for the frozen schemas under `tests/contract/schemas`, with a registry and an enforcing `date-time` format checker |
+| `backend/api/errors.py` | the exception vocabulary and the spec IV.7 status mapping, each carrying the body fields its handler needs |
+| `backend/api/app.py` | the FastAPI app, the `/v1` prefix, `openapi_url=/v1/openapi.json`, and `register_exception_handlers` |
+| `backend/api/request_model.py` | application of the spec IV.1 request defaults |
+| `backend/api/stubs.py` | the offline seam: fixture readers, target resolution, the reachability predicate of spec II.4, the plane-change penalty of spec II.5, the SSO consistency check of spec II.6, and the weather composition |
+| `backend/api/routes/__init__.py`, `backend/api/routes/windows.py` | the `/v1` routers and `POST /v1/windows` |
+| `backend/api/data/constants.json` | the five constants and their sources, the only place those values exist |
+| `backend/api/data/service.json` | defaults, target classes, the spec II.6 inclination table, fixture paths, Retry-After durations |
+| `backend/api/data/sites/canso.json` | site geometry, corridor, CAR references and row flags, until ENGINE lands its own file |
+| `backend/api/tests/test_provenance.py` | A1, 36 tests |
+| `backend/api/tests/test_error_model.py` | A2, 39 tests |
+| `backend/api/tests/test_windows.py` | A3 and the requested additions, 24 tests |
+| `backend/api/tests/test_fixtures.py` | every fixture against its frozen schema, 15 tests |
+| `backend/fixtures/windows.json` | shape-complete stub response, three SSO windows from Canso, `engine_version` stub |
+| `backend/fixtures/weather.json`, `skill.json`, `site.json`, `ephemeris.json` | copies of the most complete good examples |
+
+`backend/fixtures/__init__.py` was not created: the fixtures are read by path, not imported, so a
+package marker would be unused.
+
+### Commands run and their output
+
+The first run of the A1 tests, before any of the modules existed:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_provenance.py -q
+ImportError while loading conftest '.../backend/api/tests/conftest.py'.
+backend/api/tests/conftest.py:11: in <module>
+    from backend.api.app import create_app
+E   ModuleNotFoundError: No module named 'backend.api.app'
+1 error in 0.35s
+```
+
+The A2 and A3 tests in place, after the modules existed but before two defects were fixed (the
+reachable inclination band was built with its endpoints the wrong way round, and one test referred
+to a renamed attribute):
+
+```
+$ .venv/bin/python -m pytest backend/api/tests -q
+3 failed, 72 passed, 1 warning in 0.14s
+```
+
+The A3 tests, before the route reported the offline documents it had read:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_windows.py -q
+1 failed, 22 passed, 1 skipped, 1 warning in 0.09s
+```
+
+The fixture tests, before the fixture set was complete:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_fixtures.py -q
+2 failed, 13 passed, 1 warning in 0.03s
+```
+
+The API suite, the acceptance command for this issue:
+
+```
+$ .venv/bin/python -m pytest backend/api -q
+113 passed, 1 skipped, 1 warning in 0.20s
+```
+
+The contract suite, unchanged by this session and still green:
+
+```
+$ .venv/bin/python -m pytest tests/contract -q
+70 passed in 0.08s
+```
+
+The whole repository with the configured testpaths, which is the done condition:
+
+```
+$ .venv/bin/python -m pytest -q
+183 passed, 1 skipped, 1 warning in 0.52s
+```
+
+The one skip is `test_the_live_engine_path_produces_schema_valid_output`, gated on
+`backend.engine.compute_windows` existing, per the A3 instruction to skip gracefully until ENGINE
+lands. Its mirror image, `test_the_stub_is_the_served_path_until_the_engine_lands`, is the one that
+runs today and asserts `engine_version == "stub"`.
+
+The application object imports the way uvicorn will import it:
+
+```
+$ .venv/bin/python -c "from backend.api.app import app; print(app.title)"
+Launch window decision engine
+```
+
+### Interpretations
+
+Numbering continues from the G0 list above.
+
+28. **The service validates against `tests/contract/schemas` at run time.** Seam 2 makes those files
+    the contract for everyone, so `backend/api/schemas.py` loads them rather than keeping a second
+    copy that could drift. The directory is `LAUNCHWIN_CONTRACT_DIR` if set, otherwise the
+    repository path. The consequence, stated plainly: the deployed service reads that directory, so
+    a deployment must ship it. A copy under `backend/api/data/contract` was deliberately not made,
+    because two copies of a frozen contract is the drift risk the freeze exists to prevent.
+29. **`citation_id` is hashed over the effective request.** The hash input is the request after the
+    spec IV.1 defaults have been applied, the constants including their recorded sources, and the
+    whole service configuration. The consequence is deliberate: a request that omits `site` and the
+    same request that states `site: "canso"` produce the same identifier, because they are the same
+    run. `test_the_same_request_with_and_without_a_default_gives_the_same_citation_id` asserts it.
+30. **The date part of `citation_id` is the request start, never the clock.** `run_YYYYMMDD_` where
+    the date is `date_range.start` with the hyphens removed, followed by the first twelve hexadecimal
+    characters of the SHA-256 of the canonical JSON (sorted keys, no insignificant whitespace) of
+    request, constants and configuration. Spec IV shows the shape `run_20261003_...`, which is a
+    different date from any request in the frozen examples; the specification is a shape, not a
+    promise to stamp today's date, and a clock-derived identifier could not be reproduced.
+31. **A corridor bound supplied in the request is recorded as unsourced.** Spec II.10 wants a source
+    for every value. A bound that arrived in the request has no citation, so the bound takes the
+    value from the request, the corridor `source` string says so, and its `row_flags` entry becomes
+    `UNSOURCED_REQUEST_OVERRIDE` instead of the `ASSUMPTION` that was read from the site file. The
+    frozen schema leaves `row_flags` open, which is what makes the extra value expressible.
+32. **Three of the four weather fields cannot be null, so they take neutral values.** Spec IV.1 and
+    the frozen schema type `p_success`, `p_success_components.weather` and `horizon_label` as
+    non-nullable. With `include_weather` false the composition therefore sets `weather` to 1.0
+    (weather imposes no penalty because it was excluded), `p_success` to the product of the two
+    deterministic pre-screens `range` and `conjunction`, and `horizon_label` to `CLIMATOLOGY`, which
+    is the honest label for a probability no forecast produced. `forecast_issue_time` is nullable and
+    is null. This is the schema-valid neutral value the task brief asks for; the alternative,
+    dropping the fields, would break the frozen response schema.
+33. **The stub composes weather from the shipped snapshot.** With `include_weather` true and no
+    WEATHER module, the four weather fields come from `backend/fixtures/weather.json`, whose
+    `source` is `snapshot_cache`, the value spec IV.3 reserves for a recorded forecast echoed rather
+    than refetched. `backend/fixtures/windows.json` is authored so that its own `p_success` is
+    already that product, which makes the recomposition idempotent and is asserted by
+    `test_fixture_windows_and_the_weather_snapshot_agree`.
+34. **The stub returns rows only for the orbit class they describe.** The offline floor ships three
+    SSO rows. Echoing an SSO row for a POLAR request would be a wrong answer dressed as a right one,
+    so a resolved target whose inclination is outside `fixture_inclination_tolerance_deg` of a row's
+    `reached_inclination_deg` gets the empty window list, which spec IV.1 calls an informative valid
+    result. The tolerance is 0.8 deg, half the 1.6 deg span of the published inclination table across
+    its 500 to 900 km range. Known limitation for FRONTEND: the POLAR preset renders "no window in
+    range" until ENGINE supplies per-class rows at G1.
+35. **The reachability interval is ordered by value, not as spec II.4 writes it.** Spec II.4 states
+    the reachable set as `[i(A_max), i(A_min)]`. With the shipped corridor of 90 to 200 deg the map
+    `i(beta) = arccos(cos(phi_s) sin(beta))` is ascending rather than descending, so the two
+    endpoints are ordered by value and the set is unchanged. The result reproduces the
+    specification's own check that a bound of 200 deg caps the reachable inclination at about
+    104 deg: the computed upper end is 103.92 deg.
+36. **The plane-change penalty is computed by the stub.** Spec IV.1 makes `plane_change_dv_ms`
+    non-null when an unreachable target's penalty is computable, and spec III.5 pass criteria name
+    26.8 m/s within 1 m/s. The stub computes spec II.5 exactly, `2 v_c sin(Delta_i / 2)` with
+    `v_c = sqrt(GM / (R_e + h_t))` from the constants block, which gives 26.36 m/s for the advertised
+    LEO 45.1 deg class at 600 km, inside the specification's tolerance. The formula is the
+    specification's; the reachability verdict it accompanies is PROVED as algebraic in
+    `docs/00_INTEGRATION_CONTRACT.md` section 5, while the magnitude belongs to ENGINE and will
+    replace this value when ENGINE lands. The test asserts the specification's own criterion rather
+    than the stub's number. The class altitudes that make the computation possible are transcribed
+    from the spec III drift table into `service.json`, with their sources.
+37. **The SSO consistency check reads a published table, and interpolation is refused.** Spec II.6
+    tabulates the altitude-inclination coupling, so the table is transcribed into
+    `service.json` and the stub reads the nearest row at or below the requested altitude. Nothing is
+    interpolated, because an interpolated inclination would be a number the specification does not
+    publish. The warning threshold is half the coarsest precision the table is quoted at, which is
+    why an explicit `i_t_deg` of 98.1 at 600 km warns (the table says 97.8 at that altitude) while a
+    consistent pair does not.
+38. **Vehicle rows are reported as absent rather than invented.** ENGINE owns
+    `backend/engine/data/vehicles/*.json`. Until it lands the API reads no vehicle rows, so
+    `provenance_block.row_flags` carries only the site rows it actually read and the vehicle file is
+    absent from `source_files`. The path is resolved so that the file appears by itself once
+    ENGINE ships it. No row flag was fabricated to fill the block, which is the point of spec II.10.
+39. **The criteria version is read from WEATHER when its file exists.** `service.json` names
+    `backend/weather/data/criteria_v1.json` and the configured fallback version. While that file is
+    absent the configured version is used and no criteria path is claimed in `source_files`; once
+    WEATHER ships it, the version declared inside it wins and the file is listed. The criteria rows
+    themselves are WEATHER's to compose at A4.
+40. **The site document lives under `backend/api` until ENGINE lands its own.** The API owns
+    `backend/api/data/sites/canso.json` and `Settings.site_path` prefers
+    `backend/engine/data/site_canso.json` when that file exists, so the provenance block reports the
+    file the engine actually reads. The corridor bounds are the spec II.3 defaults of 90 and
+    200 deg with the specification's own ASSUMPTION flag, not the illustrative 100 and 140 of the
+    frozen examples; the site altitude is the 0 m default of the spec II.10 row.
+41. **429 and the orbit and run 404s are driven through the production handlers, not through
+    endpoints that do not exist.** A2 requires those branches, but the endpoints that would raise
+    them belong to A5, A6 and A7. `register_exception_handlers` is therefore a public function and
+    the test builds a scratch application that calls it and then raises each exception, so the
+    shipped handler code is what is asserted. The site 404 and the 503 are additionally exercised
+    through the real route: an unknown site id is a 404, and an unreadable offline document is a
+    503 whose body names the configured fixture path.
+42. **`computation_ms` is measured and is the one field excluded from a byte comparison.** Every
+    other numeric field is a pure function of the request and the configuration, which is what spec
+    III.6 test 6 compares. A wall-clock duration cannot be, so the A9 determinism gate must exclude
+    it rather than pretend otherwise. Recorded now so that A9 does not have to rediscover it.
+43. **The stub fixture's own `citation_id` is an illustrative placeholder.** The route overwrites it
+    on every response, as it overwrites both shared blocks. This is the same status as the numeric
+    values of the frozen examples, recorded as interpretation 25 of the G0 list: the fixture
+    demonstrates the shape and makes no claim about the value.
+44. **`site_response` stays open, so `backend/fixtures/site.json` is a verbatim copy.** Spec IV.5
+    enumerates the body in prose without field names, which is why the frozen schema leaves it open
+    (G0 interpretation 14). The fixture therefore cannot add the EA reference URLs, the launch rate
+    cap or the corridor polygon that spec IV.5 describes; A5 has to settle the names with ENGINE and
+    announce any schema change through Seam 2 before this fixture gains fields.
+45. **Not delivered, deliberately.** `backend/api/README.md` and `backend/api/DONE.md` are A11 and are
+    not written, so the stub-versus-real statement required by the acceptance criteria of the issue
+    is outstanding. There is no `GET /v1/site`, `GET /v1/weather/probability`,
+    `GET /v1/validation/skill`, `GET /v1/orbits/{id}/ephemeris` or `GET /v1/citation` route; those are
+    A4 to A6. There is no rate limiter, no cache and no run store; those are A6 and A7. The
+    `weather.json`, `skill.json`, `site.json` and `ephemeris.json` fixtures exist because the task
+    asked for the demo floor to be complete, and no endpoint reads three of them yet.
+    `backend/api/data/service.json` carries `retry_after_s` values that nothing enforces until A7,
+    so no test asserts a particular duration; the tests assert that the header is present and
+    positive.
+46. **`git status` was not clean before this session.** The working tree already carried
+    `.oc-brief-contract.md` and `.oc-brief-api1.md` from the lead. Neither was edited here, and
+    nothing was committed.

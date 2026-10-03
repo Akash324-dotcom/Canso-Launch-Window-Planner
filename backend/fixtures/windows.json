@@ -1,0 +1,130 @@
+{
+  "reachable": true,
+  "plane_change_dv_ms": null,
+  "sso_consistency_warning": null,
+  "windows": [
+    {
+      "t_liftoff_utc": "2026-10-05T11:42:17Z",
+      "t_injection_utc": "2026-10-05T11:47:52Z",
+      "raan_deg": 45.0,
+      "azimuth_deg": 191.6,
+      "azimuth_compass_deg": 188.9,
+      "reached_inclination_deg": 98.08,
+      "window_width_s": 612.0,
+      "window_center_shift_s": 41.5,
+      "liftoff_instant_error_min": 2.5,
+      "p_success": 0.36,
+      "p_success_components": {
+        "weather": 0.36,
+        "range": 1.0,
+        "conjunction": 1.0
+      },
+      "horizon_label": "FORECAST",
+      "forecast_issue_time": "2026-10-03T09:00:00Z",
+      "constraint_fired": null,
+      "screens": {
+        "hazard": "pass",
+        "conjunction": "clear",
+        "notam": "none"
+      }
+    },
+    {
+      "t_liftoff_utc": "2026-10-06T11:43:05Z",
+      "t_injection_utc": "2026-10-06T11:48:41Z",
+      "raan_deg": 45.99,
+      "azimuth_deg": 191.7,
+      "azimuth_compass_deg": 189.0,
+      "reached_inclination_deg": 98.08,
+      "window_width_s": 588.0,
+      "window_center_shift_s": 39.8,
+      "liftoff_instant_error_min": 2.5,
+      "p_success": 0.36,
+      "p_success_components": {
+        "weather": 0.36,
+        "range": 1.0,
+        "conjunction": 1.0
+      },
+      "horizon_label": "FORECAST",
+      "forecast_issue_time": "2026-10-03T09:00:00Z",
+      "constraint_fired": null,
+      "screens": {
+        "hazard": "pass",
+        "conjunction": "clear",
+        "notam": "none"
+      }
+    },
+    {
+      "t_liftoff_utc": "2026-10-07T11:43:53Z",
+      "t_injection_utc": "2026-10-07T11:49:28Z",
+      "raan_deg": 46.97,
+      "azimuth_deg": 191.8,
+      "azimuth_compass_deg": 189.1,
+      "reached_inclination_deg": 98.08,
+      "window_width_s": 641.0,
+      "window_center_shift_s": 43.6,
+      "liftoff_instant_error_min": 2.6,
+      "p_success": 0.36,
+      "p_success_components": {
+        "weather": 0.36,
+        "range": 1.0,
+        "conjunction": 1.0
+      },
+      "horizon_label": "FORECAST",
+      "forecast_issue_time": "2026-10-03T09:00:00Z",
+      "constraint_fired": null,
+      "screens": {
+        "hazard": "pass",
+        "conjunction": "clear",
+        "notam": "none"
+      }
+    }
+  ],
+  "constants_block": {
+    "J2": 0.000108262668,
+    "GM": 398600441800000.0,
+    "R_e": 6378137.0,
+    "omega_sid_rad_s": 7.292115e-05,
+    "gmst_model": "IAU_1982",
+    "citation_id": "run_20261005_5f2c9d1a77b4",
+    "source": {
+      "J2": "EGM2008 second zonal harmonic, value as recorded in SCIENCE Sec A.2; spec II.10 constants table",
+      "GM": "Earth gravitational parameter, NASA GSFC GDC Orbit Primer October 2018 (formula set VERIFIED, SCIENCE Sec F.7), value SCIENCE Sec A.2; spec II.10 constants table",
+      "R_e": "Earth equatorial radius, EGM2008 and WGS84, SCIENCE Sec A.2; spec II.10 constants table",
+      "omega_sid_rad_s": "Earth sidereal rotation rate, SCIENCE Sec A.4; spec II.10 constants table",
+      "gmst_model": "IAU 1982 sidereal time with nutation omitted, model choice and precision note SCIENCE Sec G.11; spec IV constants_block"
+    }
+  },
+  "provenance_block": {
+    "site": {
+      "name": "canso",
+      "phi_s_deg": 45.3,
+      "lambda_s_deg": -61.0,
+      "h_s_m": 0.0
+    },
+    "corridor": {
+      "A_min_deg": 90.0,
+      "A_max_deg": 200.0,
+      "source": "spec II.3 default corridor file: east and south over open ocean fan; bounds ASSUMPTION pending the environmental assessment Figure 2.9 three-sigma corridor check (open item SCIENCE Sec G.2)",
+      "flag": "ASSUMPTION"
+    },
+    "criteria_version": "v1",
+    "vehicle_profile_id": "cyclone4m",
+    "row_flags": {
+      "site_phi_s_deg": "VERIFIED",
+      "site_lambda_s_deg": "VERIFIED",
+      "site_h_s_m": "VERIFIED",
+      "corridor_A_min_deg": "ASSUMPTION",
+      "corridor_A_max_deg": "ASSUMPTION",
+      "car_references": "VERIFIED"
+    },
+    "source_files": [
+      "backend/api/data/constants.json",
+      "backend/api/data/service.json",
+      "backend/api/data/sites/canso.json",
+      "backend/fixtures/weather.json",
+      "backend/fixtures/windows.json"
+    ]
+  },
+  "engine_version": "stub",
+  "computation_ms": 0.42
+}
