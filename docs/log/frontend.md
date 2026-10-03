@@ -334,3 +334,76 @@ Per file during development: `npx vitest run tests/analysis.test.js` reported 6 
 ## Not done in this session
 
 `frontend/progress.md` is still not written, for the reason recorded above. No file outside `frontend/`, `backend/fixtures/*.json` and this log was created or edited, `Canso Launch Prototype.html` was not touched, nothing was committed, and no package was installed.
+
+---
+
+# Session covering the Screen 4 viewing fix (issue 5, F5)
+
+Summary: the visibility of Screen 4 is now computed over the ascent of the selected window only, from the samples inside `[t_liftoff_utc, t_injection_utc]`, with the position at both endpoints interpolated when fewer than two samples fall inside, over a `VIEWING_MIN_ELEVATION_DEG = 5` threshold flagged ASSUMPTION, and the centres are ranked by that maximum so the screen names the best view. An ephemeris that does not reach the ascent now says so and marks no centre visible. Six cases were added to `tests/viewing.test.js`, two existing cases were adjusted, and none was weakened.
+
+## Commands run
+
+```text
+$ cd frontend && npx vitest run
+```
+
+First run, after the geometry change and before the test file was touched, to record the red state of the two cases that asserted the old all-samples behaviour and the old mask wording:
+
+```text
+ Test Files  1 failed | 8 passed (9)
+      Tests  2 failed | 49 passed (51)
+AssertionError: expected '1Halifax, Nova Scotia44.6488-63.57529…' to contain 'visible above the 10 deg mask'
+TypeError: Cannot read properties of undefined (reading 'vehicle_sunlit')
+```
+
+Final run:
+
+```text
+$ cd frontend && npx vitest run
+```
+
+```text
+ Test Files  9 passed (9)
+      Tests  57 passed (57)
+   Duration  1.29s (environment 53%, tests 35%, transform 8%, import 4%)
+```
+
+Per file during development: `npx vitest run tests/viewing.test.js` reported 12 passed.
+
+## Files changed
+
+| Path | Change |
+|---|---|
+| `frontend/src/config.js` | Added `VIEWING_MIN_ELEVATION_DEG` of 5 with `VIEWING_MIN_ELEVATION_FLAG` and `VIEWING_MIN_ELEVATION_SOURCE`. `ELEVATION_MASK_DEG` and its flag and source are untouched |
+| `frontend/src/viewing.js` | `ascentSamples()`, which restricts the ephemeris to the ascent of the selected row, interpolates the liftoff and injection positions between bracketing samples and reports coverage; `NO_ASCENT_COVERAGE`; `viewingReport()` gained `ascent` and `minElevationDeg`, reports the ascent window, the samples used, the interpolated count and the coverage message, ranks `report.centres` by max elevation with a `rank` per centre, takes `best_centre` as the top visible centre, and each sample now carries `index` and `interpolated`. `earthRadiusOf`, `topocentric` and `centreEntries` are unchanged |
+| `frontend/src/screens/viewing.js` | Reads the selected row and passes its ascent interval, memoises on it, adds `p#viewing-ascent-note` and `p#viewing-min-elevation-note`, a rank column, `data-rank`, `data-best`, `data-peak-t-utc` and `data-peak-sunlit-in-darkness` on every row, names `VIEWING_MIN_ELEVATION_DEG` in the verdict text, and reports the missing coverage in the status, the sub line and the ascent note |
+| `frontend/tests/viewing.test.js` | Six cases added, two adjusted, none weakened |
+| `frontend/README.md` | The Screen 4 geometry section rewritten as eight numbered steps, with the ascent rule first, the two thresholds separated, the ranking and the best view stated, and a paragraph on what the shipped fixtures show through the new rule. Both test tables updated |
+| `frontend/DONE.md` | The Screen 4 row and the recorded test count |
+| `frontend/REQUIREMENTS_MAP.md` | The viewing map row, with the six new case names and the components they cover |
+| `docs/log/frontend.md` | This section |
+
+## Test to requirement map
+
+| Requirement | Test |
+|---|---|
+| Visibility is computed over the ascent of the selected row, so a centre far from the ascent is not counted | `tests/viewing.test.js` / `does not count a centre that only the samples outside the ascent can see`: the same track puts Montreal at 90 deg and visible when every sample counts, and below the horizon and not visible once the ascent interval is applied, at the screen and in `viewingReport` |
+| Samples outside `[t_liftoff_utc, t_injection_utc]` are ignored | `tests/viewing.test.js` / `ignores every sample outside the ascent interval of the selected row`: `sample_count` 3, `ascent_sample_count` 2, and every sample of every centre inside the interval with its peak time inside it |
+| The liftoff and injection positions are interpolated when fewer than two samples fall inside | `tests/viewing.test.js` / `interpolates the liftoff and injection positions when fewer than two samples fall inside the ascent`: two bracketing samples, two interpolated endpoints, both flagged, liftoff at the midpoint of the bracketing latitude and longitude |
+| A centre is visible only at or above `VIEWING_MIN_ELEVATION_DEG`, labelled ASSUMPTION on screen | `tests/viewing.test.js` / `honours the configured minimum elevation of the ascent`: St. Johns at 4.400 deg is not visible at the configured 5 and visible at an injected 4, `best_centre_id` follows, and the screen note carries the value, the flag and the source name |
+| Centres are ranked by max elevation, descending, with the max elevation, its UTC time and the sunlit flag, and the best view is the top visible centre | `tests/viewing.test.js` / `ranks the centres by the maximum elevation of the ascent and calls the best view`: the report elevations are sorted descending, the ranks are 1 to 7, each peak time is the time of its maximum sample, the rendered rows carry the rank order with one `data-best`, and the chart note names the best view |
+| A missing ephemeris coverage shows the message and marks no centre visible | `tests/viewing.test.js` / `says the ephemeris does not cover the ascent and marks no centre visible`: `coverage_message`, `ascent_covered` false, no best centre, the sentence in the ascent note, the sub line and the status, `visible centres 0 of 7`, and every row not visible with no elevation |
+| The existing F5 cases still hold | `tests/viewing.test.js` first, second, fourth, fifth and sixth cases unchanged and passing, plus `tests/offline.test.js` |
+
+## Interpretations and open points
+
+1. **The ascent endpoints are interpolated, never clamped.** When fewer than two samples fall inside the ascent, the position at liftoff and at injection is interpolated linearly between the samples that bracket each instant. When the ephemeris has no sample on both sides of one of the two instants, the coverage fails and the screen says `Ephemeris does not cover the ascent of this window` rather than holding a position from far outside the ascent at the endpoint instant. Holding the nearest sample would have reported an invented position as an observation, and the phrase "at all" in the instruction is read as covering this case.
+2. **`ELEVATION_MASK_DEG = 10` and `VIEWING_MIN_ELEVATION_DEG = 5` are two different numbers and both stay.** The verdict uses the new minimum of 5, because the slide asks which regions have the best view of the ascent and a 10 deg mask on a 10 minute ascent hides the low passes that the answer depends on. The 10 deg mask of spec V.4 stays what the specification calls it, the reference line drawn on the elevation chart, and its ASSUMPTION note is unchanged. Nothing about the chart changed.
+3. **Two existing cases were adjusted, and neither was weakened.** `reports whether the vehicle is sunlit while an observer is in darkness` used a single ephemeris sample at 09:30 UTC, four hours before the ascent of the stub row, which the old all-samples code used and the new code must not. The row is shifted so that its ascent brackets that instant, the sample is replaced by the two samples that bracket it, and the assertions are unchanged in kind and stricter in extent: both ascent samples of every centre are asserted sunlit with a dark observer, so the count is 2 rather than 1. `shows visibility with an elevation number for a centre geometrically in view` asserted the verdict string `visible above the 10 deg mask`, which would now be a false statement on screen, so it asserts `visible above the 5 deg minimum elevation`; its elevation number, its `>= ELEVATION_MASK_DEG` check, its chart point and its mask line assertions are untouched.
+4. **The rows are rendered in rank order, so the report order is the ranking.** `report.centres` is sorted by max elevation descending, with centres that have no ascent sample last and ties broken by id. The elevation chart is drawn for the top visible centre, and when no centre reaches the minimum the screen says so instead of drawing a series for a centre that is not visible.
+5. **The shipped ephemeris fixture covers one row of three.** `backend/fixtures/ephemeris.json` spans two orbital periods from the first liftoff of 5 Oct, so only the 11 samples inside the 10 minute ascent of the first row count, and the rows of 6 and 7 Oct now state the coverage sentence. The old screen borrowed the first row's geometry for those rows. No fixture was changed, and ENGINE's per row ephemeris replaces it at G1.
+6. **Nothing personal or unverifiable was invented.** The only new number is the 5 deg minimum elevation of issue F5, which is in `src/config.js` with its flag and source and is printed on the screen.
+
+## Not done in this session
+
+The 3D globe stays cut, the elevation mask of spec V.4 is not replaced anywhere else, no fixture, schema or backend file was touched, no package was installed, nothing was committed, and no file outside `frontend/` and this log was created or edited.
