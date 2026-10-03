@@ -1,0 +1,298 @@
+import { CORRIDOR_ARC_SAMPLES, EARTH_RADIUS_M } from './config.js';
+
+export const DEG = Math.PI / 180;
+
+export function wrapDeg(value) {
+  return ((value % 360) + 360) % 360;
+}
+
+export function clamp(value, low, high) {
+  return Math.min(high, Math.max(low, value));
+}
+
+/**
+ * Geodetic to ECEF on a sphere of the given radius, WGS84 longitude positive east.
+ * The ephemeris altitude is treated as height above that sphere, which is the
+ * simplification stated in frontend/README.md.
+ */
+export function geodeticToEcef(latDeg, lonDeg, altM = 0, radiusM = EARTH_RADIUS_M) {
+  const lat = latDeg * DEG;
+  const lon = lonDeg * DEG;
+  const r = radiusM + altM;
+  return {
+    x: r * Math.cos(lat) * Math.cos(lon),
+    y: r * Math.cos(lat) * Math.sin(lon),
+    z: r * Math.sin(lat),
+  };
+}
+
+export function dot3(a, b) {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+export function norm3(a) {
+  return Math.hypot(a.x, a.y, a.z);
+}
+
+export function subtract3(a, b) {
+  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+}
+
+export function crossNorm(a, b) {
+  return Math.hypot(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
+
+export function localFrame(latDeg, lonDeg) {
+  const lat = latDeg * DEG;
+  const lon = lonDeg * DEG;
+  return {
+    east: { x: -Math.sin(lon), y: Math.cos(lon), z: 0 },
+    north: { x: -Math.sin(lat) * Math.cos(lon), y: -Math.sin(lat) * Math.sin(lon), z: Math.cos(lat) },
+    up: { x: Math.cos(lat) * Math.cos(lon), y: Math.cos(lat) * Math.sin(lon), z: Math.sin(lat) },
+  };
+}
+
+export function greatCircleDistanceKm(lat1, lon1, lat2, lon2, radiusM = EARTH_RADIUS_M) {
+  const centralAngle = Math.acos(
+    clamp(
+      Math.sin(lat1 * DEG) * Math.sin(lat2 * DEG) +
+        Math.cos(lat1 * DEG) * Math.cos(lat2 * DEG) * Math.cos((lon2 - lon1) * DEG),
+      -1,
+      1,
+    ),
+  );
+  return (centralAngle * radiusM) / 1000;
+}
+
+export function initialBearingDeg(lat1, lon1, lat2, lon2) {
+  const p1 = lat1 * DEG;
+  const p2 = lat2 * DEG;
+  const dLon = (lon2 - lon1) * DEG;
+  const y = Math.sin(dLon) * Math.cos(p2);
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dLon);
+  return wrapDeg(Math.atan2(y, x) / DEG);
+}
+
+export function destinationPoint(latDeg, lonDeg, bearingDeg, distanceKm, radiusM = EARTH_RADIUS_M) {
+  const angular = (distanceKm * 1000) / radiusM;
+  const p1 = latDeg * DEG;
+  const l1 = lonDeg * DEG;
+  const bearing = bearingDeg * DEG;
+  const p2 = Math.asin(
+    Math.sin(p1) * Math.cos(angular) + Math.cos(p1) * Math.sin(angular) * Math.cos(bearing),
+  );
+  const l2 =
+    l1 +
+    Math.atan2(
+      Math.sin(bearing) * Math.sin(angular) * Math.cos(p1),
+      Math.cos(angular) - Math.sin(p1) * Math.sin(p2),
+    );
+  return { lat_deg: p2 / DEG, lon_deg: l2 / DEG };
+}
+
+export function siteOf(siteResponse) {
+  if (siteResponse === null || siteResponse === undefined) {
+    return null;
+  }
+  return {
+    name: siteResponse.name,
+    lat_deg: siteResponse.phi_s_deg,
+    lon_deg: siteResponse.lambda_s_deg,
+    alt_m: siteResponse.h_s_m,
+    corridor: siteResponse.corridor ?? null,
+  };
+}
+
+export function corridorBounds(siteResponse) {
+  const corridor = siteResponse === null || siteResponse === undefined ? null : siteResponse.corridor;
+  if (corridor === null || corridor === undefined) {
+    return null;
+  }
+  if (!Number.isFinite(corridor.A_min_deg) || !Number.isFinite(corridor.A_max_deg)) {
+    return null;
+  }
+  return {
+    a_min_deg: corridor.A_min_deg,
+    a_max_deg: corridor.A_max_deg,
+    source: corridor.source ?? null,
+    flag: corridor.flag ?? null,
+  };
+}
+
+/**
+ * The corridor polygon of spec V.2. The site response is written in prose without field
+ * names for the hazard-test vertices, so declared vertices are used when the response
+ * carries them and the azimuth wedge A_min_deg to A_max_deg is drawn otherwise.
+ */
+export function corridorPolygon(siteResponse, options = {}) {
+  const {
+    radiusKm = null,
+    samples = CORRIDOR_ARC_SAMPLES,
+    trackPoints = [],
+  } = options;
+  const site = siteOf(siteResponse);
+  const bounds = corridorBounds(siteResponse);
+  if (site === null || bounds === null) {
+    return { vertices: [], basis: 'unavailable', radius_km: null, bounds: null };
+  }
+  const declared = readDeclaredCorridorVertices(siteResponse);
+  if (declared !== null) {
+    return { vertices: declared, basis: 'response vertices', radius_km: radiusKm, bounds };
+  }
+  const extent = trackExtentKm(site, trackPoints);
+  const span = radiusKm === null ? (extent === null ? null : extent) : Math.max(radiusKm, extent ?? 0);
+  if (span === null) {
+    return { vertices: [], basis: 'azimuth wedge without a radius', radius_km: null, bounds };
+  }
+  const vertices = [{ lat_deg: site.lat_deg, lon_deg: site.lon_deg }];
+  const step = (bounds.a_max_deg - bounds.a_min_deg) / Math.max(1, samples - 1);
+  for (let index = 0; index < samples; index += 1) {
+    vertices.push(destinationPoint(site.lat_deg, site.lon_deg, bounds.a_min_deg + step * index, span));
+  }
+  return { vertices, basis: 'azimuth wedge from corridor.A_min_deg and A_max_deg', radius_km: span, bounds };
+}
+
+function readDeclaredCorridorVertices(siteResponse) {
+  if (siteResponse === null || siteResponse === undefined) {
+    return null;
+  }
+  const candidates = [siteResponse.corridor_polygon, siteResponse.corridor_polygon_vertices];
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate) || candidate.length < 3) {
+      continue;
+    }
+    const vertices = [];
+    for (const entry of candidate) {
+      if (Array.isArray(entry) && entry.length >= 2) {
+        vertices.push({ lat_deg: Number(entry[0]), lon_deg: Number(entry[1]) });
+      } else if (entry !== null && typeof entry === 'object') {
+        vertices.push({ lat_deg: Number(entry.lat_deg ?? entry.lat), lon_deg: Number(entry.lon_deg ?? entry.lon) });
+      }
+    }
+    if (vertices.length >= 3 && vertices.every((v) => Number.isFinite(v.lat_deg) && Number.isFinite(v.lon_deg))) {
+      return vertices;
+    }
+  }
+  return null;
+}
+
+export function trackExtentKm(site, trackPoints) {
+  if (site === null || !Array.isArray(trackPoints) || trackPoints.length === 0) {
+    return null;
+  }
+  let longest = 0;
+  for (const point of trackPoints) {
+    longest = Math.max(longest, greatCircleDistanceKm(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg));
+  }
+  return longest;
+}
+
+export function trackBearingAt(points, index) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return null;
+  }
+  const last = points.length - 1;
+  const clampedIndex = clamp(index, 0, last);
+  const from = points[clampedIndex === 0 ? 0 : clampedIndex - 1];
+  const to = points[clampedIndex === last ? last : clampedIndex + 1];
+  if (from === undefined || to === undefined || from === to) {
+    return null;
+  }
+  return initialBearingDeg(from.lat_deg, from.lon_deg, to.lat_deg, to.lon_deg);
+}
+
+/**
+ * The hazard buffer of spec V.2: a band of the configured vehicle footprint half width
+ * drawn either side of the nominal track. Without a declared half width no polygon is
+ * returned, because a buffer width is vehicle data and not a browser default.
+ */
+export function hazardBufferPolygon(trackPoints, halfWidthKm, options = {}) {
+  const { radiusM = EARTH_RADIUS_M, toleranceKm = 0.05 } = options;
+  if (!Number.isFinite(halfWidthKm) || halfWidthKm <= 0) {
+    return { vertices: [], half_width_km: null };
+  }
+  if (!Array.isArray(trackPoints) || trackPoints.length < 2) {
+    return { vertices: [], half_width_km: halfWidthKm };
+  }
+  const port = [];
+  const starboard = [];
+  for (let index = 0; index < trackPoints.length; index += 1) {
+    const point = trackPoints[index];
+    const bearing = trackBearingAt(trackPoints, index);
+    if (bearing === null) {
+      continue;
+    }
+    port.push(destinationPoint(point.lat_deg, point.lon_deg, bearing - 90, halfWidthKm, radiusM));
+    starboard.push(destinationPoint(point.lat_deg, point.lon_deg, bearing + 90, halfWidthKm, radiusM));
+  }
+  if (port.length < 2) {
+    return { vertices: [], half_width_km: halfWidthKm };
+  }
+  const left = port.map((point, index) => ({ lat_deg: point.lat_deg, lon_deg: point.lon_deg }));
+  const right = starboard
+    .map((point) => ({ lat_deg: point.lat_deg, lon_deg: point.lon_deg }))
+    .reverse();
+  const vertices = [...left, ...right];
+  return { vertices, half_width_km: halfWidthKm, tolerance_km: toleranceKm };
+}
+
+export function withinCorridor(bearingDeg, bounds, toleranceDeg = 0) {
+  if (bounds === null) {
+    return true;
+  }
+  const low = bounds.a_min_deg - toleranceDeg;
+  const high = bounds.a_max_deg + toleranceDeg;
+  const bearing = wrapDeg(bearingDeg);
+  if (low <= 0 && high >= 360) {
+    return true;
+  }
+  const crossesNorth = low < 0 || high >= 360;
+  if (crossesNorth) {
+    return bearing >= low + 360 || bearing <= high;
+  }
+  return bearing >= low && bearing <= high;
+}
+
+/**
+ * The UI level guard for the northbound bug of the inherited prototype: every ground track
+ * point must lie inside the azimuth wedge of the site corridor, so a track running north
+ * over Quebec is refused and surfaced rather than drawn as a corridor track.
+ */
+export function corridorCheck(siteResponse, trackPoints, options = {}) {
+  const { toleranceDeg = 0 } = options;
+  const site = siteOf(siteResponse);
+  const bounds = corridorBounds(siteResponse);
+  if (site === null || !Array.isArray(trackPoints) || trackPoints.length === 0) {
+    return { available: false, inside: null, bounds, samples: [], violations: [] };
+  }
+  const samples = [];
+  const violations = [];
+  for (const point of trackPoints) {
+    const distanceKm = greatCircleDistanceKm(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg);
+    const bearingDeg = initialBearingDeg(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg);
+    const inside = distanceKm > 0 && withinCorridor(bearingDeg, bounds, toleranceDeg);
+    const sample = {
+      t_utc: point.t_utc ?? null,
+      lat_deg: point.lat_deg,
+      lon_deg: point.lon_deg,
+      bearing_deg: bearingDeg,
+      distance_km: distanceKm,
+      inside,
+    };
+    samples.push(sample);
+    if (!inside) {
+      violations.push(sample);
+    }
+  }
+  const bearings = samples.map((sample) => sample.bearing_deg);
+  return {
+    available: true,
+    inside: violations.length === 0,
+    bounds,
+    samples,
+    violations,
+    bearing_min_deg: Math.min(...bearings),
+    bearing_max_deg: Math.max(...bearings),
+    distance_max_km: Math.max(...samples.map((sample) => sample.distance_km)),
+  };
+}

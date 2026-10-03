@@ -1,0 +1,56 @@
+{
+  "flag": "ASSUMPTION",
+  "note": "City centre coordinates in WGS84 degrees, positive north and positive east. The specification V.4 names Halifax, Moncton, Charlottetown, St. John's and the Canso area; Boston and Montreal are added because they sit inside the viewing geometry of an Atlantic corridor ascent. No authoritative gazetteer was reachable from this branch, so every row is flagged ASSUMPTION and ENGINE or the site configuration owns the verified values.",
+  "coordinate_reference": "WGS84 geodetic latitude and longitude of the city centre, degrees",
+  "centres": [
+    {
+      "id": "halifax",
+      "name": "Halifax, Nova Scotia",
+      "lat_deg": 44.6488,
+      "lon_deg": -63.5752,
+      "flag": "ASSUMPTION"
+    },
+    {
+      "id": "sydney_ns",
+      "name": "Sydney, Nova Scotia",
+      "lat_deg": 46.1368,
+      "lon_deg": -60.1942,
+      "flag": "ASSUMPTION"
+    },
+    {
+      "id": "moncton",
+      "name": "Moncton, New Brunswick",
+      "lat_deg": 46.0878,
+      "lon_deg": -64.7782,
+      "flag": "ASSUMPTION"
+    },
+    {
+      "id": "charlottetown",
+      "name": "Charlottetown, Prince Edward Island",
+      "lat_deg": 46.2382,
+      "lon_deg": -63.1311,
+      "flag": "ASSUMPTION"
+    },
+    {
+      "id": "st_johns",
+      "name": "St. Johns, Newfoundland and Labrador",
+      "lat_deg": 47.5615,
+      "lon_deg": -52.7126,
+      "flag": "ASSUMPTION"
+    },
+    {
+      "id": "boston",
+      "name": "Boston, Massachusetts",
+      "lat_deg": 42.3601,
+      "lon_deg": -71.0589,
+      "flag": "ASSUMPTION"
+    },
+    {
+      "id": "montreal",
+      "name": "Montreal, Quebec",
+      "lat_deg": 45.5019,
+      "lon_deg": -73.5674,
+      "flag": "ASSUMPTION"
+    }
+  ]
+}

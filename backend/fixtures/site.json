@@ -4,10 +4,10 @@
   "lambda_s_deg": -61.0,
   "h_s_m": 20.0,
   "corridor": {
-    "A_min_deg": 100.0,
-    "A_max_deg": 140.0,
-    "source": "Canso environmental assessment, corridor azimuth bounds",
-    "flag": "VERIFIED"
+    "A_min_deg": 90.0,
+    "A_max_deg": 200.0,
+    "source": "spec II.3 default corridor file: east through south fan over open ocean; bounds ASSUMPTION pending the environmental assessment Figure 2.9 three-sigma corridor check (open item SCIENCE Sec G.2)",
+    "flag": "ASSUMPTION"
   },
   "operating_hours": {
     "start": "07:00",
