@@ -59,7 +59,7 @@
       "vehicle": "Rockot, Eurockot",
       "site": "Plesetsk Cosmodrome Site 133 (Raduga), pad 133/3, Arkhangelsk Oblast, Russia",
       "latitude_deg": 62.887,
-      "longitude_deg": 40.850,
+      "longitude_deg": 40.85,
       "longitude_convention": "east-positive, from 62 deg 53 min 13 s N, 40 deg 51 min 00 s E",
       "altitude_km": 820.0,
       "altitude_flag": "ASSUMPTION",
@@ -78,6 +78,31 @@
       "timezone_arithmetic": "09:27 UTC = 12:27 Moscow = 11:27 CEST.",
       "why_plane_bound": "Eurockot inserted direct into a sun-synchronous orbit with a published node time.",
       "why_this_case_is_the_strongest": "A site at 62.9 N with an inclination of 98.74 deg gives a site-to-node offset delta of about -17.5 deg, far from the near-zero offset a low-latitude site produces. This is the anchor that would expose a missing delta term, and it lands within a minute."
+    },
+    {
+      "id": "sentinel_3c_2026_09_15",
+      "mission": "Sentinel-3C (Copernicus)",
+      "vehicle": "Vega-C, with FLEX co-passenger",
+      "site": "Guiana Space Centre, ELA-1, Kourou, French Guiana",
+      "latitude_deg": 5.2392,
+      "longitude_deg": -52.7653,
+      "longitude_convention": "east-positive, converted from 52 deg 45 min 55 s W",
+      "altitude_km": 810.0,
+      "altitude_flag": "ASSUMPTION",
+      "altitude_rationale": "Avio's launch release states 'about 810 km'. The inclination is passed to the engine directly, so the assumed altitude does not enter the comparison.",
+      "inclination_deg": 98.6,
+      "inclination_source": "Avio launch press release: 'released into Sun-Synchronous Orbit at an altitude of about 810 km with an inclination of 98.6 deg'; eoPortal agrees",
+      "inclination_url": "https://www.eoportal.org/satellite-missions/copernicus-sentinel-3",
+      "ltan_hours": 10.0,
+      "ltan_branch": "descending",
+      "ltan_source": "eoPortal Sentinel-3 mission page, verbatim: 'inclination = 98.6, LTDN (Local Time on Descending Node) is at 10:00 hours', corroborated by ESA Sentinel Online",
+      "ltan_note": "Published as a DESCENDING node time. A descending node at 10:00 and an ascending node at 22:00 are the SAME orbital plane, so the engine converts the published value into one plane and then offers both site crossings of that plane. See the branch note in the README.",
+      "published_window": "Instantaneous. Arianespace, ESA and Avio publish only the instant.",
+      "published_liftoff_utc": "2026-09-15T01:21:00Z",
+      "published_window_url": "https://www.esa.int/Newsroom/Press_Releases/FLEX_and_Sentinel-3C_launch_re-watch",
+      "instant_url": "https://www.esa.int/Newsroom/Press_Releases/FLEX_and_Sentinel-3C_launch_re-watch",
+      "timezone_arithmetic": "03:21 CEST (UTC+2) = 01:21 UTC. Kourou local 22:21 on 14 September (UTC-3) = 01:21 UTC.",
+      "why_plane_bound": "Vega-C inserted direct into a sun-synchronous orbit with a published node time, and there is no payload to phase against."
     }
   ],
   "rejected_candidates": [
@@ -98,6 +123,28 @@
     {
       "mission": "Soyuz and Crew Dragon to ISS, Starlink, and most rideshare launches",
       "reason": "The launch time is set by rendezvous phasing to a target satellite, not by orbital plane geometry. The engine does not model phasing and the brief places it out of scope."
+    },
+    {
+      "mission": "Sentinel-3A (2016-02-16) and Sentinel-3B (2018-04-25), both Rockot from Plesetsk Site 133/3",
+      "reason": "Measured residuals of +24.947 min and +7.514 min, outside the 5 minute gate. The published inclination (98.6 and 98.65 deg) and node time (LTDN 10:00) are unambiguous and quoted by eoPortal and ESA, and the same engine reproduces Sentinel-5P from the same pad and vehicle to +0.914 min, so this is not a site or vehicle error. No physical explanation was found within scope. They are excluded and reported rather than explained away, and they are the reason the tolerance was NOT widened: a tolerance of 30 minutes would admit them, and it was not adopted.",
+      "measured_residual_min": {
+        "sentinel_3a": 24.947,
+        "sentinel_3b": 7.514
+      }
+    },
+    {
+      "mission": "Sentinel-1D (2025-11-04), Ariane 62 from Kourou ELA-4",
+      "reason": "Measured residual +9.641 min against a published time of 21:02 UTC, and +8.641 min against the 21:03 UTC that Wikipedia and NASASpaceflight give instead. The 1 minute spread between sources is itself a reason to be cautious. Excluded rather than adopted at a widened tolerance.",
+      "measured_residual_min": 9.641
+    },
+    {
+      "mission": "MetOp-SG-A1 (2025-08-12)",
+      "reason": "Node time is well published (LTDN 09:30) but the launch flew Ariane 6 VA264, which flew a roughly 30 minute ballistic coast over the pole before insertion. A coasted insertion is outside the pad-plane model and produced a residual of the wrong order. Excluded as a class, not as a point.",
+      "measured_residual_min": null
+    },
+    {
+      "mission": "KOMPSAT-7, and any mission with no published node local time",
+      "reason": "KOMPSAT-7 has no published node time and eoPortal's altitude (685 km) contradicts Arianespace and CSG (576 km). Any anchor whose plane must be inferred from its launch time is circular and is excluded by a test."
     }
   ]
 }

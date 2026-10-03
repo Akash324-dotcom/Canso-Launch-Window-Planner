@@ -67,6 +67,9 @@ def _validate(request: Any) -> None:
 def compose(request: Mapping[str, Any]) -> dict[str, Any]:
     """Run the whole pipeline for one request."""
     _validate(request)
+    # Spec II.10 / III.6: the provenance block must name the files THIS run read,
+    # not everything read earlier in the process.
+    provenance.reset_source_files()
     resolved = target_module.resolve(request)
     profile = injection.load_vehicle(request["vehicle_profile_id"])
     fixture = provenance.load_json("tle_fixture.json")

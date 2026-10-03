@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -79,6 +79,68 @@ def load_json(relative_path: str) -> Any:
 
     The only file I/O the engine performs. ``relative_path`` is a literal under
     the package, never caller-supplied text, so there is no traversal surface.
+    Every read is recorded so the provenance block can name the files a run
+    actually depended on rather than the files that happen to exist.
     """
     path = DATA_DIR / relative_path
+    _READ_FILES.add(f"backend/engine/data/{relative_path}")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+# --- Provenance echo (spec II.10, III.6) -------------------------------------
+
+_READ_FILES: set[str] = set()
+
+
+def reset_source_files() -> None:
+    """Forget which files have been read. Called at the start of every run."""
+    _READ_FILES.clear()
+
+
+def source_files() -> list[str]:
+    """Every data file read since the last reset, as repository-relative paths."""
+    return sorted(_READ_FILES)
+
+
+def build_provenance_block(request: Mapping[str, Any]) -> dict[str, Any]:
+    """The spec IV ``provenance_block`` for a request.
+
+    The API composes the block; this exposes every piece it needs so the values
+    on the response are the ones the engine actually used, read from the same
+    files the numbers came from. ``row_flags`` is the union of the per-row
+    VERIFIED and ASSUMPTION flags in the vehicle profile and the corridor.
+    """
+    site_name = request.get("site") or "canso"
+    if site_name != "canso":
+        raise ValueError(f"unknown site {site_name!r}; configuration ships for 'canso' only")
+    site = load_json("site_canso.json")
+    vehicle_id = request.get("vehicle_profile_id") or ""
+    profile = load_json(f"vehicles/{vehicle_id}.json") if vehicle_id else {}
+
+    row_flags: dict[str, str] = {}
+    override = request.get("corridor")
+    # The override replaces the bounds only; the flags, source and assumptions
+    # still describe those bounds and must travel with them.
+    corridor = {**site["corridor"], **(override or {})}
+    for bound in ("A_min_deg", "A_max_deg"):
+        flag = corridor.get("flags", {}).get(bound)
+        if flag is None:
+            flag = site["corridor"]["flags"][bound]
+        row_flags[f"corridor.{bound}"] = flag
+    for row in profile.get("rows", []):
+        row_flags[f"{vehicle_id}.{row['key']}"] = row["flag"]
+
+    return {
+        "site": {
+            "name": site["name"],
+            "latitude_deg": site["latitude_deg"],
+            "longitude_deg": site["longitude_deg"],
+            "altitude_m": site["altitude_m"],
+            "coordinate_source": site["coordinate_source"],
+        },
+        "corridor": corridor,
+        "criteria_version": request.get("criteria_version") or "v1",
+        "vehicle_profile_id": vehicle_id,
+        "row_flags": row_flags,
+        "source_files": source_files(),
+    }
