@@ -204,6 +204,135 @@ export function renderSkillCurve(skillResponse, options = {}) {
 }
 
 /**
+ * The reliability diagram of spec V.6, drawn as inline SVG from the reliability_bins of
+ * the GET /v1/validation/skill response: observed frequency against forecast
+ * probability, with the perfect reliability diagonal for reference. Both axes are
+ * probabilities, so the domain is the closed unit interval and is not padded.
+ */
+export function renderReliabilityDiagram(skillResponse, options = {}) {
+  const size = { ...DEFAULT_SIZE, ...options.size, margin: { ...DEFAULT_SIZE.margin, ...(options.size?.margin ?? {}) } };
+  const plot = plotArea(size);
+  const bins = Array.isArray(skillResponse?.reliability_bins) ? skillResponse.reliability_bins : [];
+  const x = scale(0, 1, plot.x0, plot.x1);
+  const y = scale(0, 1, plot.y1, plot.y0);
+  const points = bins.map((bin) => ({
+    p_center: Number(bin.p_center),
+    observed_freq: Number(bin.observed_freq),
+    n: Number(bin.n),
+    cx: x(Number(bin.p_center)),
+    cy: y(Number(bin.observed_freq)),
+  }));
+  const children = [];
+  for (const value of [0, 0.25, 0.5, 0.75, 1]) {
+    children.push(
+      svgEl('line', {
+        class: 'chart-grid',
+        x1: plot.x0,
+        x2: plot.x1,
+        y1: y(value),
+        y2: y(value),
+      }),
+      svgEl('line', {
+        class: 'chart-grid',
+        x1: x(value),
+        x2: x(value),
+        y1: plot.y0,
+        y2: plot.y1,
+      }),
+      svgEl('text', { class: 'chart-tick', x: plot.x0 - 8, y: y(value) + 4, 'text-anchor': 'end' }, [
+        value.toFixed(2),
+      ]),
+      svgEl('text', { class: 'chart-tick', x: x(value), y: plot.y1 + 16, 'text-anchor': 'middle' }, [
+        value.toFixed(2),
+      ]),
+    );
+  }
+  children.push(
+    svgEl('line', { class: 'chart-axis', x1: plot.x0, x2: plot.x1, y1: plot.y1, y2: plot.y1 }),
+    svgEl('line', { class: 'chart-axis', x1: plot.x0, x2: plot.x0, y1: plot.y0, y2: plot.y1 }),
+    svgEl('line', {
+      class: 'chart-diagonal',
+      x1: x(0),
+      y1: y(0),
+      x2: x(1),
+      y2: y(1),
+      'data-reference': 'perfect_reliability',
+    }),
+    svgEl('text', { class: 'chart-note', x: x(0.5) + 6, y: y(0.5) - 6 }, ['perfect reliability']),
+  );
+  if (Number.isFinite(Number(skillResponse?.base_rate))) {
+    const base = Number(skillResponse.base_rate);
+    children.push(
+      svgEl('line', {
+        class: 'chart-base-rate',
+        x1: x(base),
+        x2: x(base),
+        y1: plot.y0,
+        y2: plot.y1,
+        'data-base-rate': base,
+      }),
+      svgEl('text', { class: 'chart-note', x: x(base) + 4, y: plot.y1 - 6 }, [`base rate ${base}`]),
+    );
+  }
+  if (points.length > 0) {
+    children.push(
+      svgEl('polyline', {
+        class: 'chart-line',
+        points: points.map((point) => `${point.cx},${point.cy}`).join(' '),
+        'data-point-count': points.length,
+      }),
+    );
+    for (const point of points) {
+      children.push(
+        svgEl('circle', {
+          class: 'chart-point',
+          cx: point.cx,
+          cy: point.cy,
+          r: 5,
+          'data-p-center': point.p_center,
+          'data-observed-freq': point.observed_freq,
+          'data-n': point.n,
+        }),
+        svgEl('text', {
+          class: 'chart-tick',
+          x: point.cx + 8,
+          y: point.cy - 8,
+          'data-p-center': point.p_center,
+        }, [`n ${point.n}`]),
+      );
+    }
+  }
+  children.push(
+    svgEl('text', {
+      class: 'chart-axis-label',
+      x: (plot.x0 + plot.x1) / 2,
+      y: size.height - 6,
+      'text-anchor': 'middle',
+    }, ['forecast probability p_center']),
+    svgEl('text', {
+      class: 'chart-axis-label',
+      x: 12,
+      y: (plot.y0 + plot.y1) / 2,
+      'text-anchor': 'middle',
+      transform: `rotate(-90 12 ${(plot.y0 + plot.y1) / 2})`,
+    }, ['observed frequency']),
+  );
+  const svg = svgEl(
+    'svg',
+    {
+      class: 'chart',
+      viewBox: `0 0 ${size.width} ${size.height}`,
+      role: 'img',
+      'aria-label': 'Reliability diagram, observed frequency against forecast probability',
+      'data-point-count': points.length,
+      'data-series': 'reliability',
+    },
+    children,
+  );
+  return { element: svg, points, bins };
+}
+
+/**
  * The elevation against time chart of spec V.4 for the best viewing centre.
  */
 export function renderElevationCurve(centre, options = {}) {

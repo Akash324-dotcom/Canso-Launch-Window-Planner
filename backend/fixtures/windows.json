@@ -5,7 +5,7 @@
   "windows": [
     {
       "t_liftoff_utc": "2026-10-05T11:42:17Z",
-      "t_injection_utc": "2026-10-05T11:47:52Z",
+      "t_injection_utc": "2026-10-05T11:52:17Z",
       "raan_deg": 45.0,
       "azimuth_deg": 191.6,
       "azimuth_compass_deg": 188.9,
@@ -30,7 +30,7 @@
     },
     {
       "t_liftoff_utc": "2026-10-06T11:43:05Z",
-      "t_injection_utc": "2026-10-06T11:48:41Z",
+      "t_injection_utc": "2026-10-06T11:53:05Z",
       "raan_deg": 45.99,
       "azimuth_deg": 191.7,
       "azimuth_compass_deg": 189.0,
@@ -55,7 +55,7 @@
     },
     {
       "t_liftoff_utc": "2026-10-07T11:43:53Z",
-      "t_injection_utc": "2026-10-07T11:49:28Z",
+      "t_injection_utc": "2026-10-07T11:53:53Z",
       "raan_deg": 46.97,
       "azimuth_deg": 191.8,
       "azimuth_compass_deg": 189.1,

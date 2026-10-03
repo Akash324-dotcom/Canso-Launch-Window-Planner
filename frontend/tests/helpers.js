@@ -23,6 +23,15 @@ export function loadExample(fileName) {
   return JSON.parse(readFileSync(new URL(fileName, EXAMPLES_DIR), 'utf8'));
 }
 
+/**
+ * The shipped offline fixture as it sits in backend/fixtures, read from disk. F7 uses
+ * this loader so that the offline tests exercise the files the browser would read, not
+ * the frozen contract examples.
+ */
+export function loadFixtureFile(name) {
+  return JSON.parse(readFileSync(new URL(`../backend/fixtures/${name}`, PROJECT_ROOT), 'utf8'));
+}
+
 export function loadCentresDocument() {
   return JSON.parse(readFileSync(new URL('src/data/centres.json', PROJECT_ROOT), 'utf8'));
 }
@@ -92,20 +101,22 @@ export function mountIndexMarkup() {
     trajectoryHost: document.getElementById('screen-trajectory'),
     weatherHost: document.getElementById('screen-weather'),
     viewingHost: document.getElementById('screen-viewing'),
+    analysisHost: document.getElementById('screen-analysis'),
   };
 }
 
 export function boot(overrides = {}) {
-  const { root, bannerHost, trajectoryHost, weatherHost, viewingHost } = mountIndexMarkup();
+  const { root, bannerHost, trajectoryHost, weatherHost, viewingHost, analysisHost } = mountIndexMarkup();
   const app = createApp({
     root,
     bannerHost,
     trajectoryHost,
     weatherHost,
     viewingHost,
+    analysisHost,
     ...overrides,
   });
-  return { app, root, bannerHost, trajectoryHost, weatherHost, viewingHost };
+  return { app, root, bannerHost, trajectoryHost, weatherHost, viewingHost, analysisHost };
 }
 
 export function flush() {

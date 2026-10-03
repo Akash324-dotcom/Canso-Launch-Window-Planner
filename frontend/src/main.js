@@ -8,6 +8,7 @@ const app = createApp({
   trajectoryHost: document.getElementById('screen-trajectory'),
   weatherHost: document.getElementById('screen-weather'),
   viewingHost: document.getElementById('screen-viewing'),
+  analysisHost: document.getElementById('screen-analysis'),
   autoMountMaps: true,
 });
 

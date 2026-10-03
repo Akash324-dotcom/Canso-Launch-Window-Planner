@@ -546,3 +546,46 @@ h3 {
   stroke: var(--muted);
   fill: var(--muted);
 }
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.btn {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+}
+
+.source-files {
+  margin: 0.2rem 0 0.6rem;
+  padding-left: 1.4rem;
+  font-size: 0.85rem;
+}
+
+.source-files li {
+  margin: 0.15rem 0;
+}
+
+.chart-diagonal {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+
+.chart-base-rate {
+  stroke: var(--caution);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}

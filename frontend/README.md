@@ -1,13 +1,15 @@
 # Frontend
 
-Screen 1 of the launch window decision engine for Spaceport Nova Scotia (Canso). This directory currently ships the refactor of the inherited prototype for tasks F0, F1 and F2: the input form, the window table, the engine-driven countdown, the honesty panel, the constants and provenance footer, and the offline fallback layer.
+The launch window decision engine for Spaceport Nova Scotia (Canso): five screens, one countdown, the offline fallback layer, and the fixture set the demo floor stands on. Tasks F0 to F9 of issue 5 are covered; `DONE.md` lists what shipped and what is known unfinished, and `REQUIREMENTS_MAP.md` maps every slide requirement to a component and a test.
 
 ## Stack and why
 
-- Plain ES modules, no framework, no bundler, no build step. Spec V.7 recommends the static path because a build step is a demo failure mode at judging, and this branch has no network and no registry access, so a toolchain could not be installed anyway.
-- No framework rewrite. The audit in `AUDIT.md` records the decision and the evidence; the whole of F0 to F2 is one response object and a handful of renderers, which plain functions express directly.
-- Leaflet is present in `frontend/node_modules/leaflet` for F3. It will be imported from that path, never from a CDN, so the demo works with the network off. F0 to F2 render no map and therefore load no mapping library.
+- Plain ES modules, no framework, no bundler, no build step. Spec V recommends the static path because a build step is a demo failure mode at judging, and this branch has no network and no registry access, so a toolchain could not be installed anyway.
+- No framework rewrite of the inherited prototype. The audit in `AUDIT.md` records the decision and the evidence; the whole application is a handful of renderers reading one response object each, which plain functions express directly.
+- Leaflet 1.9.4 for the two maps, imported from `frontend/node_modules/leaflet/dist/leaflet-src.esm.js`, never from a CDN, so the maps work with the network off. No tile layer is requested.
+- Charts are inline SVG built in `src/svgChart.js`. No chart library, so nothing to install and nothing that can fail to load at judging.
 - vitest with jsdom for the tests, for the reason recorded in `AUDIT.md` section 0.
+- The fixture generator is Python 3 standard library only, so it runs anywhere the contract tests run and needs no install.
 
 ## How to run
 
@@ -17,9 +19,18 @@ Serve the repository root, not this directory, so that the relative offline fixt
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000/frontend/`. The app posts to `http://localhost:8000/v1/windows` by default, which is `API_BASE` in `src/config.js`. With no API running the request fails, the mode switches to `offline_precomputed`, and the banner names the fixtures. The five fixture files themselves live in `backend/fixtures/` and do not exist on this branch, because API owns that directory.
+Then open `http://localhost:8000/frontend/`. The app posts to `http://localhost:8000/v1/windows` by default, which is `API_BASE` in `src/config.js`. With no API running the request fails, the mode switches to `offline_precomputed`, and the banner names the engine run and every fixture in use. To point the app at a live API, change `API_BASE` in `src/config.js`.
 
-To point the app at a live API, change `API_BASE` in `src/config.js`.
+## The fixture path
+
+| What | Where |
+|---|---|
+| The five shipped fixtures | `backend/fixtures/windows.json`, `weather.json`, `skill.json`, `site.json`, `ephemeris.json`, read through `src/fixtures.js` from `FIXTURE_BASE`, which is `../backend/fixtures/` relative to `frontend/` |
+| Population centres | `frontend/src/data/centres.json`, a repository file with no fixture fallback |
+| Leaflet | `frontend/node_modules/leaflet/dist/leaflet-src.esm.js` and `node_modules/leaflet/dist/leaflet.css` |
+| Regeneration | `python frontend/tools/make_fixtures.py`, which rewrites `windows.json` and `ephemeris.json` and then validates all five files against `tests/contract/schemas/` |
+
+`tools/make_fixtures.py` is a fixture approximation, not the ENGINE: it places one circular two-body orbit at 98.1 deg and 550 km so that the ground track starts over Canso at the first liftoff instant and runs south over the Atlantic, and it restates the window rows with injection exactly 600 s after liftoff. It prints the geometry it solved (semi-major axis, period, mean motion, RAAN, argument of latitude, the inertial launch azimuth against the spec II.2 value, and the rotating frame heading) and refuses to write if the plane misses the direct ascent azimuth, if the track is not southbound, if the orbit is not circular, or if the first sample is not over the site. Its schema check is a documented subset of JSON Schema 2020-12, and it is proved non-vacuous on every run by requiring that it accepts all the good examples and rejects all the bad examples of the five fixture schemas, 42 frozen files in total.
 
 ## How to test
 
@@ -34,8 +45,13 @@ npx vitest run
 | `tests/api.test.js` | F1: one POST per input change, the store and the table read the same response, the offline switch and its banner, the timeout, the `include_weather: false` path, the hazard rejection guard |
 | `tests/countdown.test.js` | F2: the three required countdown tests plus the dual display, the stop at liftoff and the survival of an outage, using vitest fake timers |
 | `tests/windowEngine.test.js` | F2: the orbit presets and their pre-filled inclinations, the CUSTOM request, corridor override, site and date defaults, the vehicle flag, and the spec V.1 table columns |
+| `tests/trajectory.test.js` | F3: the ground track per row, the corridor polygon, the site marker, the hazard buffer, the northbound rejection, the Leaflet map from `node_modules`, the CUSTOM target with no ephemeris id, the ephemeris fixture fallback |
+| `tests/weatherPanel.test.js` | F4: the CLIMATOLOGY and FORECAST badges, the skill curve, the probability beside the colour, the thresholds, the per-criterion flags, the grey state |
+| `tests/viewing.test.js` | F5: visibility per centre, the elevation numbers and chart, the illumination test, the ECEF geometry against the mask, the Leaflet viewing map |
+| `tests/analysis.test.js` | F6: the CSV and JSON downloads, the provenance panel and its source files, the vehicle duration per row, the Brier skill table and chart, the reliability diagram and the ROC points |
+| `tests/offline.test.js` | F7: the app with the network fully blocked on the shipped fixtures, all screens rendering, the countdown ticking, the banner, and the identical element tree against the live path |
 
-Mock payloads are the frozen examples in `tests/contract/examples/good/`.
+Mock payloads are the frozen examples in `tests/contract/examples/good/`, except in `tests/offline.test.js`, which reads the real `backend/fixtures/` files from disk because that test is about the shipped fixtures.
 
 ## The countdown specification as implemented
 
@@ -50,11 +66,16 @@ Mock payloads are the frozen examples in `tests/contract/examples/good/`.
 
 | Area | State |
 |---|---|
-| `POST /v1/windows` | Live client, one request per input change, 8000 ms timeout from `src/config.js` |
-| Offline fixtures | Registry and loader for the five names `windows`, `weather`, `skill`, `site`, `ephemeris`; the files themselves are API's to write |
-| Vehicle `T_to_inj` flag | Read from the response `provenance_block.row_flags`; the value and its VERIFIED or ASSUMPTION flag are ENGINE's data at `backend/engine/data/vehicles/cyclone4m.json` and are absent on this branch, so the screen names the owner instead of showing a flag |
-| Screens 2 to 5 | Not built. Trajectory, weather, viewing map and analysis view are F3 to F6 |
-| Network | Never used except the API call and the fixture reads |
+| `POST /v1/windows` | Live client, one request per input change, 8000 ms timeout from `src/config.js`. The engine behind it is `engine_version: "stub"` until GATE G1, so every fixture and every stub response is labelled as such |
+| The other four endpoints | Live clients with fixture fallbacks, see the fetch order below |
+| Offline fixtures | Shipped and regenerated by `tools/make_fixtures.py`, content owned by FRONTEND, directory owned by API |
+| Vehicle `T_to_inj` flag | Read from the response `provenance_block.row_flags`; the value and its VERIFIED or ASSUMPTION flag are ENGINE data at `backend/engine/data/vehicles/cyclone4m.json` and are absent on this branch, so the screen names the owner instead of showing a flag |
+| Vehicle hazard footprint | `hazard_half_width_km` is `null` in `src/config.js`, owned by ENGINE, so the buffer is implemented and tested through an injected value and states the gap on screen |
+| Population centre coordinates | `src/data/centres.json`, every row flagged `ASSUMPTION` |
+| Solar position | Low precision series, formula source named in `src/config.js`, carried as `ASSUMPTION` pending citation verification |
+| 3D globe | Cut, as spec V.2 permits |
+| Expected delay cost | Not implemented: it belongs to the decision layer of spec II.9 (iv) and VI.3, has no field in the frozen schema, and is listed as NOT DONE in `REQUIREMENTS_MAP.md` |
+| Network | Never used except the API calls and the reads of the repository fixture files |
 
 # Screens 2, 3 and 4 (F3, F4 and F5)
 
@@ -135,4 +156,48 @@ The Leaflet assertions run against the real library under jsdom: the map contain
 | Population centre coordinates | `src/data/centres.json`, every row flagged `ASSUMPTION` |
 | Solar position | Low precision series, formula source named in `src/config.js`, carried as `ASSUMPTION` pending citation verification |
 | 3D globe | Cut, as spec V.2 permits |
-| Screens 5 and the exports | F6, not built |
+
+# Screen 5 and the fixture floor (F6, F7, F8, F9)
+
+The sections above describe F0 to F5 as they were written and are left as written, except for the stale sentences about the fixture files, which this section replaces. The current state: five screens, five shipped fixtures regenerated by a script, two offline tests, the requirements map, and the slide text.
+
+## Screen 5, scientific analysis (`src/screens/analysis.js`, `src/export.js`, `src/svgChart.js`)
+
+| Element | Source | Rendered as |
+|---|---|---|
+| Brier skill table | `skill_series[]` of `GET /v1/validation/skill` | `#analysis-skill-rows`, one `tr[data-lead-time-days]` per lead time with `bs`, `bs_ref`, `bss`, `n_cases` |
+| Brier skill chart | the same series, `renderSkillCurve` | `#analysis-skill-curve`, inline SVG with the measured skill horizon annotated |
+| Reliability diagram | `reliability_bins[]`, `renderReliabilityDiagram` | `#analysis-reliability-diagram`, inline SVG, observed frequency against forecast probability, with the perfect reliability diagonal and the base rate marked, plus `#analysis-reliability-rows` |
+| ROC points | `roc_points[]` | `#analysis-roc-rows`, one `tr[data-threshold]` per point with `pod` and `far` |
+| Vehicle duration | every row of the loaded window response | `#analysis-duration-rows`, `t_liftoff_utc`, `t_injection_utc`, `window_center_shift_s`, `liftoff_instant_error_min` and the ascent interval in seconds |
+| Constants block | `constants_block` of the window response | definition list, every constant with its `source` string from the response |
+| Criteria version | `provenance_block.criteria_version` | `#analysis-criteria-version`, beside the vehicle profile |
+| Config hash | `constants_block.citation_id` | `#analysis-config-hash`, with the gmst model and a note that `GET /v1/citation` resolves it |
+| Provenance table | `provenance_block`, including `site`, `corridor`, `row_flags` and `vehicle_profile_id` | definition list plus `#analysis-source-files`, one `li[data-source-file]` per declared file |
+| Downloads | the loaded response objects | four buttons: the window table as CSV, the Brier skill series as CSV, the reliability bins as CSV, and the full JSON response |
+
+Notes on the exports:
+
+- The window table CSV is read from the rendered table, one column per rendered cell with the rendered headers as the header row, so the file is what the planner saw. The test compares every exported row with the rendered row cell by cell.
+- The JSON download is the untouched response object, so a researcher has the exact values without parsing a formatted string. The test asserts the round trip equals the response.
+- The file names carry the `citation_id` of the run, so an exported file names the run that produced it.
+
+## The offline floor (F7)
+
+- All five fixtures are committed under `backend/fixtures/` and are read through `src/fixtures.js`. Any API failure, HTTP error or timeout switches the mode to `offline_precomputed` and raises the banner naming the engine run and every fixture in use.
+- There is one renderer. The live path and the fallback path pass the same response objects into the same five screen renderers; `tests/offline.test.js` asserts that the element tree of all five screens is identical between the two paths and that the rendered rows are identical, with the same five documents served from disk in both cases.
+- The offline test blocks the network rather than stubbing the loader: every URL under `API_BASE` is refused with a failed fetch, and only a repository file can answer.
+- The first test pins the clock with `vi.setSystemTime`, which is what makes the countdown assertion possible offline: it checks the exact remaining time `1d 23:42:17` against the first fixture liftoff and then that two seconds later it reads `1d 23:42:15`.
+
+## Fetch order and failure transitions, unchanged from F3 to F5
+
+1. On load and on every committed input change: `POST /v1/windows` only.
+2. On the first window row selection: `GET /v1/site`, `GET /v1/weather/probability`, `GET /v1/validation/skill`, `src/data/centres.json`, and `GET /v1/orbits/{id}/ephemeris` for the selected row.
+3. Any failure of a GET falls back to the fixture named for that resource in `src/config.js` `FIXTURES` and sets the mode to `offline_precomputed`. A failure of `src/data/centres.json` is reported on the screen only.
+4. A late response for a superseded request or selection is discarded by its sequence number.
+
+## Known conflicts in the shipped fixture set, reported not worked around
+
+1. The corridor bounds disagree between fixtures. `backend/fixtures/site.json` declares `A_min_deg` 100 and `A_max_deg` 140 marked `VERIFIED`, while `backend/fixtures/windows.json` declares 90 and 200 for the same run marked `ASSUMPTION`, and spec II.3 states the default corridor file ships 90 and 200. With the 100 to 140 bounds the reachable inclination set tops out near 63 deg, so no honest southbound SSO track from Canso can satisfy them: the corridor guard on Screen 2 therefore flags the correct southbound fixture track as leaving the corridor. The bounds come from the ENGINE corridor file, `backend/engine/data/site_canso.json`, which does not exist on this branch, so no value was invented here. This needs ENGINE or API to publish the EA bounds.
+2. `raan_deg` in the window rows is 45.0, 45.99 and 46.97, the declared launch plane of the stub run. The ephemeris plane is solved for the southbound crossing of the site latitude to be over Canso at the first liftoff instant, which fixes the plane to a RAAN of 300.47 deg at that instant. The two agree on inclination, altitude, site, heading and epoch; they do not agree on the RAAN value, because no RAAN satisfies both the declared value and a site passage at that instant. ENGINE's real ephemeris replaces both files.
+3. The two fixtures carry different `citation_id` values (`run_20261005_5f2c9d1a77b4` in the window response, `run_20261003_7f3a91c2` in the ephemeris and skill responses) because they were frozen in separate runs by API. They are carried over untouched.

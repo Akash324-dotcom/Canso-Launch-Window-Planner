@@ -9,6 +9,7 @@ import { loadCentres } from './centres.js';
 import { createCountdown } from './countdown.js';
 import { loadFixture, loadFixtures } from './fixtures.js';
 import { buildWindowsRequest, RequestValidationError } from './request.js';
+import { createAnalysisScreen } from './screens/analysis.js';
 import { orbitIdFor, createTrajectoryScreen } from './screens/trajectory.js';
 import { createViewingScreen } from './screens/viewing.js';
 import { createWeatherScreen } from './screens/weather.js';
@@ -100,6 +101,7 @@ export function createApp(options = {}) {
     trajectoryHost = null,
     weatherHost = null,
     viewingHost = null,
+    analysisHost = null,
     store = createStore(INITIAL_STATE),
     client = createApiClient(),
     fixtureNames = Object.keys(FIXTURES),
@@ -138,6 +140,7 @@ export function createApp(options = {}) {
       : createTrajectoryScreen({ root: trajectoryHost, store, footprintRegistry: options.footprints });
   const weather = weatherHost === null ? null : createWeatherScreen({ root: weatherHost, store });
   const viewing = viewingHost === null ? null : createViewingScreen({ root: viewingHost, store });
+  const analysis = analysisHost === null ? null : createAnalysisScreen({ root: analysisHost, store });
 
   const unsubscribe = store.subscribe((state) => {
     screen.render(state);
@@ -150,6 +153,9 @@ export function createApp(options = {}) {
     if (viewing !== null) {
       viewing.render(state);
     }
+    if (analysis !== null) {
+      analysis.render(state);
+    }
     renderBanner(bannerHost, state);
   });
   screen.render(store.getState());
@@ -161,6 +167,9 @@ export function createApp(options = {}) {
   }
   if (viewing !== null) {
     viewing.render(store.getState());
+  }
+  if (analysis !== null) {
+    analysis.render(store.getState());
   }
   renderBanner(bannerHost, store.getState());
 
@@ -351,6 +360,9 @@ export function createApp(options = {}) {
     if (viewing !== null) {
       viewing.destroy();
     }
+    if (analysis !== null) {
+      analysis.destroy();
+    }
   }
 
   return {
@@ -360,6 +372,7 @@ export function createApp(options = {}) {
     trajectory,
     weather,
     viewing,
+    analysis,
     dispatch,
     selectRow,
     start,

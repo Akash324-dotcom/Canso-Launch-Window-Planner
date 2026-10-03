@@ -193,3 +193,144 @@ Per file, during development: `npx vitest run tests/trajectory.test.js` reported
 ## Not done in this session
 
 F6 to F9: the scientific analysis view with the reliability diagram, the constants and provenance table and the CSV and JSON exports, the fixture content that API owns, `frontend/REQUIREMENTS_MAP.md`, `frontend/SLIDE.md`, `frontend/DONE.md` and `frontend/progress.md`. `frontend/AUDIT.md` is left as the F0 to F2 record; the F3 to F5 dispositions are in this file and in `frontend/README.md`.
+---
+
+# Session covering the fixtures, F6, F7, F8 and F9
+
+Same branch, built on the F0 to F5 modules. `src/api.js`, `src/store.js`, `src/config.js` and the four existing screens were extended, not rewritten, and no existing test was changed or weakened. The 43 tests that existed at the start of this session still pass unchanged; 8 cases were added, for 51.
+
+## Commands run
+
+Fixture generation and its schema check, from the repository root:
+
+```text
+$ /Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python frontend/tools/make_fixtures.py
+```
+
+```text
+site canso at 45.3 N, -61.0 W (site.json)
+target sso981 inclination 98.1 deg, 550.0 km circular
+semi-major axis 6928137.0 m, period 5738.993 s, mean motion 0.001094824 rad/s
+solved plane: RAAN 300.467797 deg, argument of latitude 134.113516 deg at the first liftoff 2026-10-05T11:42:17Z
+inertial launch azimuth 191.5554 deg against the direct ascent azimuth 191.5554 deg of spec II.2; ground track heading in the rotating frame 194.1591 deg, the Earth rotation correction being 2.6036 deg
+samples 192 over 11460 s, step 60 s, 2 orbits of 5738.993 s
+first sample {'t_utc': '2026-10-05T11:42:17Z', 'lat_deg': 45.3, 'lon_deg': -61.0, 'alt_km': 550.0}
+last sample {'t_utc': '2026-10-05T14:53:17Z', 'lat_deg': 46.40489, 'lon_deg': -108.553, 'alt_km': 550.0}
+latitude span -81.89057 to 81.89564 deg, altitude span 0.000000 km
+wrote /Users/rafathossain/MDA-frontend/backend/fixtures/windows.json and /Users/rafathossain/MDA-frontend/backend/fixtures/ephemeris.json
+ephemeris.json validates against ephemeris_response.json
+site.json validates against site_response.json
+skill.json validates against skill_response.json
+weather.json validates against weather_probability_response.json
+windows.json validates against windows_response.json
+the schema subset check accepted every good example and rejected every bad example of the five fixture schemas, 42 frozen examples
+```
+
+Idempotence, a second run over the files the first run wrote:
+
+```text
+$ before=$(git diff backend/fixtures | shasum) && /Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python frontend/tools/make_fixtures.py > /dev/null && after=$(git diff backend/fixtures | shasum) && [ "$before" = "$after" ] && echo IDENTICAL
+```
+
+```text
+IDENTICAL: a second run produced byte identical fixture files
+```
+
+Independent validation of the five fixtures with the real jsonschema through the frozen contract validator, not with the script's own subset check:
+
+```text
+$ /Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python -c "... validator_for(schema).iter_errors(document) ..."
+```
+
+```text
+windows.json windows_response OK
+weather.json weather_probability_response OK
+skill.json skill_response OK
+site.json site_response OK
+ephemeris.json ephemeris_response OK
+```
+
+Contract tests:
+
+```text
+$ /Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python -m pytest tests/contract -q
+```
+
+```text
+70 passed in 0.09s
+```
+
+Frontend tests, final run:
+
+```text
+$ cd frontend && npx vitest run
+```
+
+```text
+ Test Files  9 passed (9)
+      Tests  51 passed (51)
+   Start at  20:22:10
+   Duration  1.10s (environment 52%, tests 26%, transform 10%, import 6%, worker 1%)
+```
+
+Per file during development: `npx vitest run tests/analysis.test.js` reported 6 passed, `npx vitest run tests/offline.test.js` reported 2 passed, and the full suite after each change reported 51 passed with no failure at any intermediate state other than the recorded red states while writing a case.
+
+## Files created
+
+| Path | Purpose |
+|---|---|
+| `frontend/tools/make_fixtures.py` | Regenerates `backend/fixtures/windows.json` and `backend/fixtures/ephemeris.json` from one geometry, then validates all five fixtures against the frozen schemas. Standard library only, no network, no install |
+| `frontend/src/export.js` | The client-side exports of spec V.6: the rendered window table as CSV, the Brier skill series as CSV, the reliability bins as CSV, the response as JSON, and `downloadText`, which turns a finished string into a file through an anchor |
+| `frontend/src/screens/analysis.js` | Screen 5: the Brier skill table and chart, the vehicle duration per row, the reliability diagram and the ROC points, the constants block with sources, the criteria version, the config hash, the provenance panel with every declared source file, the four download buttons and the fixture links |
+| `frontend/tests/analysis.test.js` | The F6 cases, 6 of them |
+| `frontend/tests/offline.test.js` | The F7 cases, 2 of them, with the network blocked and the real fixture files read from disk |
+| `frontend/SLIDE.md` | The slide text verbatim, checked character for character against the text this session was given |
+| `frontend/REQUIREMENTS_MAP.md` | One row per slide requirement, each naming its component and its exact test name, with the one gap marked NOT DONE |
+| `frontend/DONE.md` | What shipped, what is known unfinished, with the commands and results |
+
+## Files changed
+
+| Path | Change |
+|---|---|
+| `backend/fixtures/windows.json` | Regenerated. The only field that changed is `t_injection_utc` on each row, now exactly 600 s after `t_liftoff_utc`. Every other field, including `engine_version` `stub`, the constants and provenance blocks and `computation_ms`, is carried over byte for byte |
+| `backend/fixtures/ephemeris.json` | Regenerated for `sso981`: 192 samples at 60 s from the first liftoff, two orbital periods, constant 550 km, `ground_track_valid` true, the first sample exactly on the site. The `constants_block` is carried over |
+| `frontend/src/svgChart.js` | Added `renderReliabilityDiagram`, inline SVG from `reliability_bins`, with the perfect reliability diagonal and the base rate marked. `renderSkillCurve` and `renderElevationCurve` untouched |
+| `frontend/src/app.js` | The optional `analysisHost`, the analysis screen in the render fan out and in `stop()`, nothing else changed |
+| `frontend/src/main.js` | Passes `analysisHost` |
+| `frontend/index.html` | The `screen-analysis` host |
+| `frontend/styles.css` | Styles for the download buttons, the source file list and the two new chart rules |
+| `frontend/tests/helpers.js` | `loadFixtureFile` reads a real file from `backend/fixtures`; `mountIndexMarkup` and `boot` return and pass `analysisHost` |
+| `frontend/README.md` | Stack and why, how to run, the fixture path table, the countdown specification, the stubbed versus live table, the Screen 5 element table, the offline floor and the fixture conflicts reported below. The stale sentences about the fixture files not existing were corrected |
+| `docs/log/frontend.md` | This section |
+
+## Test to requirement map
+
+| Requirement | Test |
+|---|---|
+| F6 download produces a file whose rows equal the rendered table | `tests/analysis.test.js` first case: the anchor href and `download` attribute captured, the Blob read back, the header row equal to the rendered headers and every data row equal to the rendered row cell by cell and, independently, to the formatted values of the response row |
+| F6 the provenance panel shows every source file the run declared | `tests/analysis.test.js` second case: one `li[data-source-file]` per `provenance_block.source_files` entry, plus every constant value, every `source of` entry, the criteria version, the vehicle profile, the engine version and the config hash |
+| F6 Brier skill table and chart | `tests/analysis.test.js` third case |
+| F6 reliability diagram and ROC points | `tests/analysis.test.js` fourth case |
+| F6 vehicle duration surfaced as `liftoff_instant_error_min` | `tests/analysis.test.js` fifth case, added because the F8 map row for the slide bonus names that number and the issue asks for it to be surfaced |
+| F6 fixture links and claim status | `tests/analysis.test.js` sixth case |
+| F7 with the network fully blocked the app loads, all screens render, the countdown works, the banner is present | `tests/offline.test.js` first case: every URL under `API_BASE` refused with a failed fetch, all five repository fixtures read from disk, five screens asserted element by element, the clock pinned so the countdown reads `1d 23:42:17` and `1d 23:42:15` two seconds later |
+| F7 the fallback renders the same element tree as the live path | `tests/offline.test.js` second case: the same five documents served from the API in one run and from the fixtures in the other, then the tag and id signature of all five screen hosts and the rendered row cells compared for equality |
+
+## Interpretations and open points
+
+1. **The ephemeris starts at the site, so the RAAN is solved rather than declared.** A circular orbit at inclination 98.1 deg crossing latitude 45.3 deg on the southbound branch has the argument of latitude fixed, and the ECEF longitude at the first liftoff then fixes the RAAN in closed form. The solve gives 300.467797 deg. The window rows keep the stub run's declared `raan_deg` of 45.0, 45.99 and 46.97, so the two fixtures agree on inclination, altitude, site, heading and epoch but not on the RAAN value. No RAAN can satisfy both, because the site passage at that instant and the declared RAAN are independent. ENGINE's real ephemeris replaces both files at G1.
+2. **The launch azimuth is checked in the inertial frame, and the rotating frame value is reported.** Spec II.2 gives cos(i) = cos(phi_s) sin(beta) for the inertial azimuth, and the fixture reproduces it to 0.0001 deg. The ground track heading of the same instant in the rotating frame is 194.1591 deg, 2.6036 deg larger, because the Earth turns under the vehicle during the ascent. Spec II.6 reports both, so the script checks the first and prints both rather than asserting the rotating frame value equals the inertial one.
+3. **The injection offset is exactly 600 s and is an ASSUMPTION.** The instruction for this session fixed it, and it is a vehicle parameter that belongs to ENGINE at `backend/engine/data/vehicles/cyclone4m.json`, which does not exist on this branch. The number is the fixture's, and the screen names the owner.
+4. **The window table CSV is read from the rendered table.** That is the literal reading of the acceptance test, and it makes the file the table the planner saw. The JSON download is the untouched response, so the exact values are still available without parsing a formatted string. The test compares the exported rows with the rendered rows cell by cell, and separately with the formatted values of the response row.
+5. **The vehicle duration needed a screen to live on.** F8 asks for the slide bonus to be surfaced as the `liftoff_instant_error_min` number. That number is in the response but was in no table, so Screen 5 prints it per row beside `window_center_shift_s` and the ascent interval, with a test. The window table of Screen 1 keeps the eight spec V.1 columns unchanged.
+6. **The schema check in the script is a documented subset, proved on every run.** `jsonschema` is not importable from the standard library, so the script implements the keywords the frozen schemas use and lists them in `SchemaSet.SUPPORTED`, printing a warning for any keyword it does not implement. It is proved non-vacuous by requiring, on every run, that it accepts all the good examples and rejects all the bad examples of the five fixture schemas, 42 files, which are the same examples the contract suite checks with jsonschema.
+7. **The fixture set has a corridor conflict that is reported, not patched.** `backend/fixtures/site.json` declares corridor bounds of 100 to 140 deg marked `VERIFIED`; `backend/fixtures/windows.json` declares 90 to 200 marked `ASSUMPTION` for the same site; spec II.3 states the default corridor file ships 90 to 200. With bounds of 100 to 140 the reachable inclination tops out near 63 deg, so the 191.6 deg southbound SSO azimuth cannot satisfy them, and the Screen 2 guard consequently flags the correct southbound fixture track as leaving the corridor. The instruction for this session was to regenerate `windows.json` and `ephemeris.json` and to keep every other field of every other fixture, so `site.json` was not touched and no value was invented. The bounds are ENGINE data in `backend/engine/data/site_canso.json`, absent on this branch. This needs ENGINE or API.
+8. **The offline test blocks the network rather than stubbing the loader.** Every URL under `API_BASE` is refused with a failed fetch and only a repository file can answer, so the test exercises the same code path a browser takes with the server down, including the fixture URLs resolved from `FIXTURE_BASE`.
+9. **The clock is pinned in the offline test.** The fixture liftoffs are in October 2026, so asserting an exact countdown reading against `Date.now()` would expire. `vi.setSystemTime` fixes the clock and makes the assertion exact without weakening it: the value is still computed from the clock against the ISO string, and the tick still has to fire for the second reading to change.
+10. **The provenance panel reads `constants_block.citation_id` as the config hash.** No field of the frozen schemas is named `config_hash`, so the run identifier that spec IV says is resolvable through `GET /v1/citation` is shown as the config hash, with the resolution route named. No new field was invented.
+11. **One row of the requirements map is NOT DONE.** The slide line "a missed window can cost millions" is quantified as expected delay cost in spec II.9 (iv) and VI.3, in the decision layer, which is ENGINE's, and no frozen schema field carries a cost. Nothing was invented in the browser, so the row names no test and is marked NOT DONE.
+12. **The verdict line of the analysis screen states the claim status.** The PROVED, SKETCHED and CONJECTURE marks of spec II.9 are printed next to the skill series, so a viewer cannot read positive Brier skill as a theorem.
+
+## Not done in this session
+
+`frontend/progress.md` is still not written, for the reason recorded above. No file outside `frontend/`, `backend/fixtures/*.json` and this log was created or edited, `Canso Launch Prototype.html` was not touched, nothing was committed, and no package was installed.
