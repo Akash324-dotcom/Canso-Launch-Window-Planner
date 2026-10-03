@@ -45,7 +45,7 @@ git clone https://github.com/nafisahnubah/MDA_Mission_Accepted_Hackathon.git
 cd MDA_Mission_Accepted_Hackathon
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-python -m pytest backend/engine/ -q          # 314 passing
+python -m pytest backend/engine/ -q          # 283 passing
 python -m pytest backend/engine/tests/test_reproduce_published_windows.py -q -s
 ```
 
@@ -87,11 +87,26 @@ makes no forecast-skill claim of any kind.
 
 ## Gate G1: what reproduced and what did not
 
-The credibility test is `tests/test_reproduce_published_windows.py`. It stays in
-the suite permanently. For each anchor the engine is given only the site
+The gate lives in `tests/test_reproduce_published_windows.py` and stays in the
+suite permanently. It runs at two levels.
+
+**Level 1, the physics.** For each anchor the engine is given only the site
 coordinates, the PUBLISHED inclination, the PUBLISHED local time of the ascending
 or descending node, and the date. The published RAAN is never supplied and never
 back-solved, because back-solving would make the test circular.
+
+**Level 2, the seam, and this is the level that matters for the team.** A second
+test drives the shipped `compute_windows` for every anchor over a real date range
+and asserts the returned window centre matches the published instant. Level 1 was
+insufficient on its own: an earlier version of it re-derived the residual and the
+root solve inside the test file, and an adversarial mutation audit showed the
+gate still passed with `find_windows` returning an empty list, with
+`solve_injection_consistent` raising, with `nodal_rate_deg_per_day` forced to zero
+and with `gmst_degrees_unwrapped` forced to zero. A gate that re-implements the
+algorithm it is gating cannot detect the algorithm being broken. Level 2 catches
+all four. Both levels are re-verified by mutation audit; the residual table below
+is measured by Level 1 and reproduced independently through Level 2 to within
+0.03 min.
 
 **Residual is the engine's window centre minus the published launch instant:**
 

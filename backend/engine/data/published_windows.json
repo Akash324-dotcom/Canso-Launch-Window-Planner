@@ -1,7 +1,7 @@
 {
-  "description": "GATE G1 anchors: real published launches the engine must reproduce. Each case publishes a target inclination and a local time of the ascending or descending node, and a launch instant. The engine is given ONLY the published inclination, altitude and node time, plus the site coordinates, and must land its window centre within TOLERANCE_MINUTES of the published launch instant. Nothing in this file is a fitted parameter.",
+  "description": "GATE G1 anchors: real published launches the engine must reproduce. Each case supplies only the site coordinates, the PUBLISHED inclination and the PUBLISHED local time of the ascending or descending node, plus the launch date. The engine derives the plane from the node time and must place a window within TOLERANCE_MINUTES of the published launch instant. The published RAAN is never given and never back-solved from the launch time, because back-solving would make the test circular.",
   "tolerance_minutes": 5.0,
-  "tolerance_rationale": "The issue brief sets 5 minutes. Spec III.2 sets 2 minutes with a disclosed standard. The engine meets the tighter 2 minute standard on two of three anchors and passes all three at 5 minutes. The tolerance was NOT widened to make a case pass; the cases that miss were investigated and dropped instead, see README 'Gate G1: what reproduced and what did not'.",
+  "tolerance_rationale": "The issue brief sets 5 minutes; spec III.2 sets 2 minutes as the disclosed standard. Three of the four anchors meet the 2 minute standard and all four meet the 5 minute gate. The tolerance was NOT widened to make a case pass. Cases that miss were dropped with their measured residuals recorded, and a test asserts the tolerance is still 5.0.",
   "accessed": "2026-10-03",
   "cases": [
     {
@@ -12,11 +12,11 @@
       "latitude_deg": 5.2392,
       "longitude_deg": -52.7653,
       "longitude_convention": "east-positive, converted from 52 deg 45 min 55 s W",
-      "altitude_km": 700.0,
-      "altitude_flag": "ASSUMPTION",
-      "altitude_rationale": "The Sentinel-1 mission orbit altitude is not stated in the cited pages, which give inclination and node time only. 700 km is assumed; it changes the SSO INCLINATION only through the engine's altitude coupling, and the test passes the PUBLISHED inclination directly, so the assumed altitude affects nothing in this comparison.",
+      "altitude_km": 693.0,
+      "altitude_flag": "VERIFIED",
+      "altitude_rationale": "eoPortal Sentinel-1 mission page: 'altitude = 693 km, inclination = 98.18'.",
       "inclination_deg": 98.18,
-      "inclination_source": "eoPortal Sentinel-1 mission page",
+      "inclination_source": "eoPortal Sentinel-1 mission page, verbatim: 'Sun-synchronous near-circular dawn-dusk orbit, altitude = 693 km, inclination = 98.18, orbital period = 98.6 minutes ... LTAN (Local Time on Ascending Node) = 18:00 hours'",
       "inclination_url": "https://www.eoportal.org/satellite-missions/copernicus-sentinel-1",
       "ltan_hours": 18.0,
       "ltan_branch": "ascending",
@@ -61,15 +61,15 @@
       "latitude_deg": 62.887,
       "longitude_deg": 40.85,
       "longitude_convention": "east-positive, from 62 deg 53 min 13 s N, 40 deg 51 min 00 s E",
-      "altitude_km": 820.0,
-      "altitude_flag": "ASSUMPTION",
-      "altitude_rationale": "The cited pages give inclination and node time but not altitude. 820 km is assumed. As with Sentinel-1C the test passes the published inclination directly, so the assumed altitude does not enter the comparison.",
+      "altitude_km": 824.0,
+      "altitude_flag": "VERIFIED",
+      "altitude_rationale": "eoPortal Sentinel-5P mission page: 'altitude = 824 km'.",
       "inclination_deg": 98.74,
       "inclination_source": "eoPortal Sentinel-5P mission page",
       "inclination_url": "https://www.eoportal.org/satellite-missions/copernicus-sentinel-5p",
       "ltan_hours": 13.583333333333334,
       "ltan_branch": "ascending",
-      "ltan_source": "eoPortal Sentinel-5P mission page, which writes 'LTAN (Local Time on Ascending Node) = 13.35 hours'",
+      "ltan_source": "eoPortal Sentinel-5P mission page, verbatim: 'Sun-synchronous orbit, altitude = 824 km, inclination = 98.74, LTAN (Local Time on Ascending Node) = 13.35 hours, period = 101 minutes'",
       "ltan_note": "AMBIGUOUS IN THE SOURCE. eoPortal writes '13.35 hours'. Read as hh:mm it is 13:35, which is what this file uses. Read as decimal hours it is 13:21 and the anchor misses by 14 minutes. The ambiguity is worth more than the whole 5 minute tolerance, which is why it is recorded here rather than resolved silently.",
       "published_window": "No window open/close published. ESA, eoPortal, Wikipedia and rocketlaunch.live publish only the instant.",
       "published_liftoff_utc": "2017-10-13T09:27:00Z",
@@ -77,7 +77,19 @@
       "instant_url": "https://en.wikipedia.org/wiki/Sentinel-5_Precursor",
       "timezone_arithmetic": "09:27 UTC = 12:27 Moscow = 11:27 CEST.",
       "why_plane_bound": "Eurockot inserted direct into a sun-synchronous orbit with a published node time.",
-      "why_this_case_is_the_strongest": "A site at 62.9 N with an inclination of 98.74 deg gives a site-to-node offset delta of about -17.5 deg, far from the near-zero offset a low-latitude site produces. This is the anchor that would expose a missing delta term, and it lands within a minute."
+      "why_this_case_is_the_strongest": "A site at 62.9 N with an inclination of 98.74 deg gives a site-to-node offset delta of about -17.5 deg, far from the near-zero offset a low-latitude site produces. This is the anchor that would expose a missing delta term, and it lands within a minute.",
+      "node_time_ambiguous": true,
+      "node_time_ambiguity": {
+        "source_text": "13.35 hours",
+        "chosen_reading": "13:35, that is 13 + 35/60 decimal hours",
+        "chosen_residual_min": 0.914,
+        "rejected_reading": "13:21, that is 13.35 decimal hours",
+        "rejected_residual_min": -13.08,
+        "why_the_chosen_reading": "eoPortal writes every other node time on its Copernicus mission pages with a colon, for example 'LTAN = 18:00 hours' and 'LTDN = 10:00 hours' on the Sentinel-1 and Sentinel-3 pages. The dot in '13.35 hours' is therefore a formatting slip for 13:35, not decimal hours.",
+        "honesty_note": "This is a WEAKER anchor than the other three and is flagged as such in the data. One reading of an ambiguous source string meets the gate and the other misses it by more than twice the tolerance. A test computes BOTH readings so the sensitivity is part of the gate rather than a footnote, and the anchor would be dropped if the source were ever corrected.",
+        "chosen_reading_hours": 13.583333333333334,
+        "rejected_reading_hours": 13.35
+      }
     },
     {
       "id": "sentinel_3c_2026_09_15",
@@ -87,22 +99,26 @@
       "latitude_deg": 5.2392,
       "longitude_deg": -52.7653,
       "longitude_convention": "east-positive, converted from 52 deg 45 min 55 s W",
-      "altitude_km": 810.0,
-      "altitude_flag": "ASSUMPTION",
-      "altitude_rationale": "Avio's launch release states 'about 810 km'. The inclination is passed to the engine directly, so the assumed altitude does not enter the comparison.",
+      "altitude_km": 815.0,
+      "altitude_flag": "VERIFIED",
+      "altitude_rationale": "eoPortal Sentinel-3 mission page: 'mean altitude = 815 km'. EUMETSAT gives both 'about 820 km' and '815 kilometres' for 3C on the same page; 815 km is used and the 5 km spread between the two published figures is inside the altitude's weak influence on the residual.",
       "inclination_deg": 98.6,
-      "inclination_source": "Avio launch press release: 'released into Sun-Synchronous Orbit at an altitude of about 810 km with an inclination of 98.6 deg'; eoPortal agrees",
-      "inclination_url": "https://www.eoportal.org/satellite-missions/copernicus-sentinel-3",
+      "inclination_source": "EUMETSAT 'Launch of Copernicus Sentinel-3C', verbatim: 'The satellite will be released into Sun-Synchronous Orbit at an altitude of about 820 km with an inclination of 98.6 deg'. This source names Sentinel-3C itself, so the inclination is not inherited from the Sentinel-3A/3B documentation.",
+      "inclination_url": "https://www.eumetsat.int/launch-copernicus-sentinel-3c",
       "ltan_hours": 10.0,
       "ltan_branch": "descending",
-      "ltan_source": "eoPortal Sentinel-3 mission page, verbatim: 'inclination = 98.6, LTDN (Local Time on Descending Node) is at 10:00 hours', corroborated by ESA Sentinel Online",
+      "ltan_source": "eoPortal Sentinel-3 mission page, verbatim: 'inclination = 98.6, LTDN (Local Time on Descending Node) is at 10:00 hours', corroborated by ESA Sentinel Online.",
       "ltan_note": "Published as a DESCENDING node time. A descending node at 10:00 and an ascending node at 22:00 are the SAME orbital plane, so the engine converts the published value into one plane and then offers both site crossings of that plane. See the branch note in the README.",
-      "published_window": "Instantaneous. Arianespace, ESA and Avio publish only the instant.",
+      "published_window": "Instantaneous. ESA publishes the mission facts (date, site, launcher, orbit altitude); the launch log publishes the instant. Verified: an earlier ESA press-release URL cited here returned HTTP 404 and was replaced.",
       "published_liftoff_utc": "2026-09-15T01:21:00Z",
-      "published_window_url": "https://www.esa.int/Newsroom/Press_Releases/FLEX_and_Sentinel-3C_launch_re-watch",
-      "instant_url": "https://www.esa.int/Newsroom/Press_Releases/FLEX_and_Sentinel-3C_launch_re-watch",
+      "published_window_url": "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-3",
+      "instant_url": "https://en.wikipedia.org/wiki/Vega_C",
       "timezone_arithmetic": "03:21 CEST (UTC+2) = 01:21 UTC. Kourou local 22:21 on 14 September (UTC-3) = 01:21 UTC.",
-      "why_plane_bound": "Vega-C inserted direct into a sun-synchronous orbit with a published node time, and there is no payload to phase against."
+      "why_plane_bound": "Vega-C inserted direct into a sun-synchronous orbit with a published node time, and there is no payload to phase against.",
+      "instant_quote": "Wikipedia 'Vega-C' launch table, verbatim: 'VV30 15 September 2026 01:21 Vega C ELV Sentinel-3C, FLEX ... SSO ESA Success'.",
+      "above_spec_iii_2_tolerance": true,
+      "above_spec_iii_2_note": "+2.257 min, 0.257 min outside spec III.2's 2 minute band and well inside the 5 minute gate.",
+      "ltan_source_scope_disclosure": "NO MISSION-SPECIFIC SOURCE PUBLISHES A NODE TIME FOR Sentinel-3C. The 10:00 LTDN is the Sentinel-3 MISSION-FAMILY specification and is applied to 3C on the authority of two facts, both published: the same EUMETSAT page states 3C is 'the third satellite of the Sentinel-3 series', and SentiWiki states 3C was released 'matching the existing Sentinel-3A/3B orbit configuration' as a continuity replacement for 3A. The inclination above comes from a 3C-specific source; the node time does not, and this is the weakest link in the anchor."
     }
   ],
   "rejected_candidates": [
@@ -146,5 +162,23 @@
       "mission": "KOMPSAT-7, and any mission with no published node local time",
       "reason": "KOMPSAT-7 has no published node time and eoPortal's altitude (685 km) contradicts Arianespace and CSG (576 km). Any anchor whose plane must be inferred from its launch time is circular and is excluded by a test."
     }
-  ]
+  ],
+  "url_verification": {
+    "checked": "2026-10-03",
+    "method": "HTTP GET with redirects followed, browser user agent, 25 s timeout",
+    "note": "Tests never touch the network, so this is a recorded observation, not an assertion. A link can rot after the date above.",
+    "statuses": {
+      "https://www.eoportal.org/satellite-missions/copernicus-sentinel-1": 200,
+      "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-1/Double_win_for_Europe_Sentinel-1C_and_Vega-C_take_to_the_skies": 200,
+      "https://en.wikipedia.org/wiki/Vega_C": 200,
+      "https://spaceflightnow.com/2024/05/27/live-coverage-spacex-to-launch-esas-earthcare-on-a-falcon-9-launch-from-vandenberg-space-force-base/": 200,
+      "https://www.esa.int/Applications/Observing_the_Earth/FutureEO/EarthCARE/Facts_and_figures": 200,
+      "https://www.eoportal.org/satellite-missions/copernicus-sentinel-5p": 200,
+      "http://esoc.esa.int/content/sentinel-5p": 200,
+      "https://en.wikipedia.org/wiki/Sentinel-5_Precursor": 200,
+      "https://www.eoportal.org/satellite-missions/copernicus-sentinel-3": 200,
+      "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-3": 200,
+      "https://www.eumetsat.int/launch-copernicus-sentinel-3c": 200
+    }
+  }
 }

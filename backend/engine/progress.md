@@ -609,3 +609,91 @@ SCOPE DISCIPLINE VERIFIED. `git diff main...HEAD --name-only` lists only
 `backend/engine/**`. A `.DS_Store` that `git add -A` had swept in was untracked in
 a follow-up commit, restoring the branch diff to the engine directory alone. No
 em dashes and no emojis anywhere under `backend/engine/`.
+
+## Adversarial audit response (subagent `general-6`, verdict SHIP WITH FIXES)
+
+An independent auditor was given the whole engine to attack: reproduce the anchors
+from scratch in a scratch directory, mutation-test the gate, judge whether any
+corrected expectation was legitimate or fudged, and check every URL. Two blockers
+and six lesser findings. All are addressed below.
+
+### BLOCKER 1 - the gate tested a re-implementation, not the engine. FIXED.
+
+The auditor mutated `find_windows` to `return []`, `solve_injection_consistent` to
+raise, and `nodal_rate_deg_per_day` to `0`. **The gate passed all three.** The gate
+built its own residual and its own bisection inside the test file and never called
+`compute_windows`. A credibility gate that re-implements the algorithm it is gating
+cannot detect the algorithm being broken, and this gate is what unblocks FRONTEND on
+live data.
+
+Added a second gate level that drives the shipped `compute_windows` for every anchor
+over a real date range, plus a mutation-verification test that dies when the shipped
+solver dies. Re-ran the mutation sweep against the fixed gate: all previously
+surviving mutations are now caught.
+
+```
+$ python -m pytest backend/engine/tests/test_reproduce_published_windows.py -q
+ 78 passed
+```
+
+### BLOCKER 2 - Sentinel-3C cited a 404. FIXED.
+
+`published_window_url` and `instant_url` both pointed at an ESA newsroom release that
+returns HTTP 404. Replaced with eoPortal and the Wikipedia Vega-C launch log, both
+confirmed 200. All 10 recorded URLs now return 200, and a new test asserts no recorded
+status is anything but 200, so a future dead link fails the suite instead of passing on
+a `startswith("http")` check.
+
+### MAJOR 3 - stale counts. FIXED.
+
+`DONE.md` claimed `pytest backend/engine/ -q` gives 314, which is the whole-repo count
+including the API workflow's contract tests. Counts are now quoted from the scoped
+command that produced them, with a note that a whole-repo count is not this workflow's
+number to quote.
+
+### MAJOR 4 and MINOR 6 - disclosure moved into the gate. FIXED.
+
+The Sentinel-5P source writes "13.35 hours". Read as hh:mm it is 13:35 and the anchor
+passes; read as decimal hours it is 13:21 and it misses by -13.08 min. That is
+fitting-by-selection, and a note in a data file is too weak a place to leave it. A new
+test computes BOTH readings and requires the rejected reading to still fail, so the
+ambiguity is part of the gate rather than a footnote. Likewise the set of anchors
+outside spec III.2's 2 minute band was a hardcoded exemption set keyed on case id;
+it is now declared in the data file and a test asserts the declaration matches the
+measurement, so swapping in a worse anchor cannot leave the suite green.
+
+### MINOR 8 - a tolerance was widened past what it needed to hide. FIXED.
+
+The GMST rate test had been loosened from 1e-6 to 1e-4 deg/hr. Measured, the two
+internal rates differ by **1.709e-06 deg/hr**, so 1e-4 was about 58x looser than the
+discrepancy it was covering. Split into two assertions, each with a justified bound:
+the spec comparison carries 5e-5 because spec II.11 prints 15.0411 to five significant
+figures and cannot pin it tighter, and the internal consistency check carries 2e-6,
+just above the measured value. A new test pins the measured gap so it cannot silently
+widen, and records that neither constant is corrected because the spec supplies both.
+
+### Auditor finding not a defect
+
+`corridor_admits` in `target.py` survived mutation. It was genuinely dead code:
+`engine.py` calls `reachable_in_corridor` directly and `screens.hazard_screen` owns the
+hazard verdict, so nothing called it. Removed rather than tested. This was the only
+mutation in the entire engine that survived the full suite.
+
+### Verified after every change above
+
+```
+$ python -m pytest backend/engine/ -q   ->  283 passed
+$ python -m pytest tests/contract/ -q   ->    70 passed
+```
+
+### Sentinel-3C node time: a new disclosure the auditor's finding exposed
+
+Chasing the conflation showed the inclination came from the Sentinel-3 mission page
+while the anchor is Sentinel-3C. EUMETSAT publishes an inclination for 3C itself
+("released into Sun-Synchronous Orbit at an altitude of about 820 km with an
+inclination of 98.6 deg", verified live 2026-10-04), and that is now the cited source.
+**No mission-specific source publishes a node time for 3C**, so the 10:00 LTDN remains
+the mission-family specification, now applied on the published authority that 3C is
+"the third satellite of the Sentinel-3 series" released "matching the existing
+Sentinel-3A/3B orbit configuration". That is recorded as the weakest link in the
+anchor rather than left to look like a like-for-like citation.

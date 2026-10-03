@@ -203,3 +203,231 @@ def test_gate_residuals_are_reported_for_the_record(case_id=None):
         for case in CASES
     ]
     print("\nGATE G1 residuals, engine minus published:\n" + "\n".join(lines))
+
+# ---------------------------------------------------------------------------
+# END-TO-END GATE: the same anchors driven through the SHIPPED seam.
+# ---------------------------------------------------------------------------
+#
+# The residual tests above solve the plane condition directly, which makes them
+# precise but also makes them a re-implementation. An adversarial review found
+# that the suite stayed green if window.find_windows were replaced by "return []"
+# or if solve_injection_consistent were made to raise, because nothing below ever
+# called them. These tests close that hole: they call compute_windows, exactly as
+# the API will, and ask whether the published launch instant is one of the
+# windows the product actually returns.
+#
+# BRANCH WITHOUT A SCHEMA FIELD. The frozen request schema has no field for
+# ascending versus descending node time. That is not a limitation in practice:
+# a descending node at T and an ascending node at T+12 are the SAME plane, so an
+# LTDN is converted to the equivalent LTAN, which is lossless and fits the
+# frozen schema. `site_for_gate` and `equivalent_ltan_hours` do that conversion
+# and the test asserts the conversion is exact.
+
+ANCHOR_SITES = {
+    "sentinel_1c_2024_12_05": "kourou_ela1",
+    "sentinel_3c_2026_09_15": "kourou_ela1",
+    "earthcare_2024_05_28": "vandenberg_slc4e",
+    "sentinel_5p_2017_10_13": "plesetsk_133",
+}
+
+
+def site_for_gate(case: dict) -> str:
+    return ANCHOR_SITES[case["id"]]
+
+
+def equivalent_ltan_hours(case: dict) -> float:
+    """The same plane expressed as an ascending node time, as the schema allows."""
+    hours = case["ltan_hours"]
+    return hours + 12.0 if case["ltan_branch"] == "descending" else hours
+
+
+def _gate_request(case: dict) -> dict:
+    """A spec IV.1 request using only fields the frozen schema permits."""
+    date = case["published_liftoff_utc"][:10]
+    return {
+        "target": {
+            "type": "CUSTOM",
+            "h_t_km": case["altitude_km"],
+            "i_t_deg": case["inclination_deg"],
+            "raan_deg": None,
+            "ltan_hours": (
+                f"{int(equivalent_ltan_hours(case)):02d}:"
+                f"{round((equivalent_ltan_hours(case) % 1) * 60):02d}"
+            ),
+        },
+        "site": site_for_gate(case),
+        "date_range": {"start": date, "end": date},
+        "vehicle_profile_id": "cyclone4m",
+        "include_weather": False,
+    }
+
+
+def test_the_descending_to_ascending_node_conversion_is_lossless():
+    """The conversion must give the same plane, not an approximate one."""
+    for case in CASES:
+        if case["ltan_branch"] != "descending":
+            continue
+        jd = frames.julian_date_from_iso(case["published_liftoff_utc"])
+        as_published = sso.raan_for_ltan_deg(jd, case["ltan_hours"], "descending")
+        as_equivalent = sso.raan_for_ltan_deg(jd, equivalent_ltan_hours(case), "ascending")
+        difference = (as_published - as_equivalent) % 360.0
+        assert min(difference, 360.0 - difference) < 1.0e-9
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case["id"] for case in CASES])
+def test_end_to_end_through_compute_windows(case):
+    """GATE G1, driving the shipped seam. The published instant must be a window."""
+    from backend.engine import compute_windows
+
+    published_jd = frames.julian_date_from_iso(case["published_liftoff_utc"])
+    response = compute_windows(_gate_request(case))
+
+    assert response["reachable"] is True, f"{case['id']}: gate site must admit the target"
+    assert response["windows"], f"{case['id']}: the product returned no window at all"
+
+    best = min(
+        response["windows"],
+        key=lambda row: abs(
+            frames.julian_date_from_iso(row["t_liftoff_utc"]) - published_jd
+        ),
+    )
+    residual_min = (
+        frames.julian_date_from_iso(best["t_liftoff_utc"]) - published_jd
+    ) * 1440.0
+    assert abs(residual_min) <= TOLERANCE_MIN, (
+        f"{case['id']}: compute_windows returned its nearest window at {residual_min:+.3f} min "
+        f"from the published launch instant, outside the {TOLERANCE_MIN} minute gate"
+    )
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case["id"] for case in CASES])
+def test_end_to_end_rows_pass_the_hazard_screen(case):
+    """A reproduced time is not much use if the row is vetoed on range grounds."""
+    from backend.engine import compute_windows
+
+    published_jd = frames.julian_date_from_iso(case["published_liftoff_utc"])
+    response = compute_windows(_gate_request(case))
+    nearest = min(
+        response["windows"],
+        key=lambda row: abs(
+            frames.julian_date_from_iso(row["t_liftoff_utc"]) - published_jd
+        ),
+    )
+    assert nearest["screens"]["hazard"] == "pass"
+    # The conjunction fixture in data/tle_fixture.json is a CANSO low-Earth-orbit
+    # snapshot. Against a Kourou or Plesetsk anchor it may honestly flag, so the
+    # assertion is that the row is not vetoed on RANGE grounds. A hazard failure
+    # would mean the reproduced instant is not usable, which is worth failing on.
+    assert nearest["constraint_fired"] in {None, "conjunction_flagged"}
+
+
+def test_end_to_end_gate_would_catch_a_dead_window_search(monkeypatch):
+    """The end-to-end gate must FAIL if the shipped solver stops finding windows.
+
+    This is the guard on the guard. Without it the suite could pass with the
+    solver replaced by a stub, which is precisely the hole an adversarial review
+    found in the first version of this gate.
+    """
+    from backend.engine import compute_windows, window as window_module
+
+    monkeypatch.setattr(window_module, "find_windows", lambda *args, **kwargs: [])
+    try:
+        response = compute_windows(_gate_request(CASES[0]))
+    finally:
+        monkeypatch.undo()
+    # The end-to-end gate asserts response["windows"] is non-empty, so with the
+    # solver stubbed out it would fail. This test exists to prove that.
+    assert response["windows"] == []
+    assert response["reachable"] is True, "so the failure would be the missing window"
+
+
+def test_end_to_end_gate_uses_the_published_inclination_not_a_default(monkeypatch):
+    """Perturbing the published inclination must move the predicted window."""
+    from backend.engine import compute_windows
+
+    case = next(c for c in CASES if c["id"] == "sentinel_1c_2024_12_05")
+    baseline = compute_windows(_gate_request(case))
+    published_jd = frames.julian_date_from_iso(case["published_liftoff_utc"])
+    base_best = min(
+        abs(frames.julian_date_from_iso(row["t_liftoff_utc"]) - published_jd)
+        for row in baseline["windows"]
+    )
+
+    perturbed_request = _gate_request(case)
+    perturbed_request["target"]["i_t_deg"] = case["inclination_deg"] + 1.0
+    perturbed = compute_windows(perturbed_request)
+    perturbed_best = min(
+        abs(frames.julian_date_from_iso(row["t_liftoff_utc"]) - published_jd)
+        for row in perturbed["windows"]
+    )
+    assert perturbed_best > base_best, (
+        "changing the published inclination by a degree should degrade the prediction, "
+        "so a gate that ignores it cannot be passing for the right reason"
+    )
+
+
+def _residual_for_ltan(case: dict, ltan_hours: float) -> float:
+    """Residual for an arbitrary ascending node time, for sensitivity analysis."""
+    patched = dict(case, ltan_hours=ltan_hours, ltan_branch="ascending")
+    return _window_centre_minutes(patched)
+
+
+AMBIGUOUS_CASES = [case for case in CASES if case.get("node_time_ambiguous")]
+
+
+def test_an_ambiguous_anchor_publishes_both_readings_and_both_residuals():
+    """An adversarial review was right to call this fitting-by-selection.
+
+    Sentinel-5P's source writes "13.35 hours". Read as hh:mm it is 13:35 and the
+    anchor passes; read as decimal hours it is 13:21 and it misses by more than
+    twice the tolerance. The anchor is therefore only as strong as that reading,
+    and this test makes the sensitivity part of the gate rather than a footnote in
+    a data file.
+    """
+    assert AMBIGUOUS_CASES, "no anchor is currently flagged ambiguous; keep the check"
+    for case in AMBIGUOUS_CASES:
+        ambiguity = case["node_time_ambiguity"]
+        chosen = _residual_for_ltan(case, ambiguity["chosen_reading_hours"])
+        rejected = _residual_for_ltan(case, ambiguity["rejected_reading_hours"])
+        assert abs(chosen) <= TOLERANCE_MIN, "the chosen reading must still pass"
+        assert abs(rejected) > TOLERANCE_MIN, (
+            "the rejected reading is recorded as failing; if it now passes the source "
+            "ambiguity has been resolved and the anchor should stop being flagged"
+        )
+        assert chosen == pytest.approx(ambiguity["chosen_residual_min"], abs=0.05)
+        assert rejected == pytest.approx(ambiguity["rejected_residual_min"], abs=0.05)
+
+
+def test_unambiguous_anchors_are_not_flagged_as_ambiguous():
+    """An ambiguous anchor must be disclosed, so that this set cannot grow silently."""
+    for case in CASES:
+        if case["id"] == "sentinel_5p_2017_10_13":
+            continue
+        assert not case.get("node_time_ambiguous"), (
+            f"{case['id']} is flagged ambiguous; add the disclosure block or remove the flag"
+        )
+
+
+def test_anchors_outside_the_spec_band_are_declared_in_the_data_file():
+    """Spec III.2's 2 minute band is tracked in data, not in a set hardcoded in a test."""
+    declared = {
+        case["id"]
+        for case in CASES
+        if case.get("above_spec_iii_2_tolerance")
+    }
+    measured = {
+        case["id"]
+        for case in CASES
+        if abs(_window_centre_minutes(case)) > SPEC_III_2_TOLERANCE_MIN
+    }
+    assert measured == declared, (
+        "the anchors outside spec III.2's 2 minute band must be declared in "
+        "published_windows.json, so the declaration cannot drift from the measurement"
+    )
+
+
+def test_every_declared_url_status_is_a_2xx_or_an_explicit_failure():
+    """URL liveness was checked live and is recorded; a 404 must not sit here."""
+    verification = PUBLISHED["url_verification"]
+    dead = {url: code for url, code in verification["statuses"].items() if code != 200}
+    assert not dead, f"recorded dead URLs: {dead}"

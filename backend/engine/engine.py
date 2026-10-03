@@ -70,13 +70,16 @@ def compose(request: Mapping[str, Any]) -> dict[str, Any]:
     # Spec II.10 / III.6: the provenance block must name the files THIS run read,
     # not everything read earlier in the process.
     provenance.reset_source_files()
-    resolved = target_module.resolve(request)
+    start_jd = frames.julian_date_from_iso(f"{request['date_range']['start']}T00:00:00Z")
+    resolved = target_module.resolve(request, start_jd)
     profile = injection.load_vehicle(request["vehicle_profile_id"])
     fixture = provenance.load_json("tle_fixture.json")
 
-    start_jd = frames.julian_date_from_iso(f"{request['date_range']['start']}T00:00:00Z")
-    end_jd = frames.julian_date_from_iso(f"{request['date_range']['end']}T00:00:00Z")
-    if end_jd < start_jd:
+    # The end date is INCLUSIVE, so a range of one day means that whole day.
+    # Treating "end" as midnight silently returned nothing for a same-day range,
+    # which is what a caller asking for 5 October to 5 October expects to find.
+    end_jd = frames.julian_date_from_iso(f"{request['date_range']['end']}T00:00:00Z") + 1.0
+    if request["date_range"]["end"] < request["date_range"]["start"]:
         raise ValueError("date_range.end must not precede date_range.start")
 
     geometric = reachability.reachable(resolved.i_t_deg, resolved.lat_deg)
@@ -145,16 +148,19 @@ def _conjunction_settings(resolved: target_module.Target) -> dict[str, Any]:
 def _search_target(
     resolved: target_module.Target, branch: str, nodal_rate: float
 ) -> dict[str, Any]:
-    """Build the search target for one branch.
+    """Build the search target for one SITE crossing.
 
-    For an LTAN-slaved orbit the RAAN is date-indexed, so the plane the site must
-    match is evaluated per candidate rather than fixed. The search uses the
-    RAAN implied at the range start; the injection-consistent solve then refines
-    each root against the date-indexed plane, which is where the coupling belongs.
+    ``branch`` selects which crossing of the plane (II.9) is searched. It must
+    NOT change the plane: for a date-indexed LTAN target the plane comes from the
+    PUBLISHED node branch on the request, and folding the site-crossing branch
+    into it moved EarthCARE by twelve hours, which is the branch trap in its
+    purest form.
     """
     raan = resolved.raan_deg
     if resolved.ltan_hours is not None:
-        raan = sso.raan_for_ltan_deg(resolved.epoch_jd, resolved.ltan_hours, branch)
+        raan = sso.raan_for_ltan_deg(
+            resolved.epoch_jd, resolved.ltan_hours, resolved.ltan_branch
+        )
     return {
         "i_t_deg": resolved.i_t_deg,
         "raan_deg": 0.0 if raan is None else raan,
@@ -185,8 +191,10 @@ def _row(
     solve_target["t_to_inj_s"] = float(profile["t_to_inj_s"])
     solve_target["t_to_inj_flag"] = _t_to_inj_flag(profile)
     if resolved.ltan_hours is not None:
+        # Re-date the plane to the window itself, still using the PUBLISHED node
+        # branch and never the site-crossing branch.
         solve_target["raan_deg"] = sso.raan_for_ltan_deg(
-            entry.centre_jd, resolved.ltan_hours, branch
+            entry.centre_jd, resolved.ltan_hours, resolved.ltan_branch
         )
         solve_target["epoch_jd"] = entry.centre_jd
 

@@ -206,7 +206,13 @@ def _root_of_level(
             lo, f_lo = mid, f_mid
         else:
             hi, f_hi = mid, f_mid
-        if abs(f_mid) < RESIDUAL_TOLERANCE_DEG or (hi - lo) * SECONDS_PER_DAY < STEP_TOLERANCE_S:
+        if abs(f_mid) < RESIDUAL_TOLERANCE_DEG:
+            # ``mid`` is the point whose residual just met the tolerance.
+            # Returning the bracket midpoint instead would hand back a point up to
+            # half a bracket away from the root, which left 3.4e-4 deg of error and
+            # a spurious non-convergence.
+            return mid, step, 0.0
+        if (hi - lo) * SECONDS_PER_DAY < STEP_TOLERANCE_S:
             return 0.5 * (lo + hi), step, (hi - lo) * SECONDS_PER_DAY
     return 0.5 * (lo + hi), MAX_ITERATIONS, (hi - lo) * SECONDS_PER_DAY
 

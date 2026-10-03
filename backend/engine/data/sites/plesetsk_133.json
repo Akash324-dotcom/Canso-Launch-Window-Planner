@@ -1,0 +1,43 @@
+{
+  "name": "plesetsk_133",
+  "description": "Plesetsk Cosmodrome Site 133 (Raduga), pad 133/3. Present only so the G1 gate can drive the shipped seam at the Sentinel-5P launch site. A high-latitude site, which is what makes the site-to-node offset large and the gate sharp.",
+  "latitude_deg": 62.887,
+  "longitude_deg": 40.85,
+  "altitude_m": 0.0,
+  "longitude_convention": "east-positive, from 62 deg 53 min 13 s N, 40 deg 51 min 00 s E",
+  "coordinate_source": "Rockot launch site coordinates, east-positive.",
+  "corridor": {
+    "A_min_deg": 90.0,
+    "A_max_deg": 260.0,
+    "branch": "southbound",
+    "source": "NOT A PUBLISHED CORRIDOR. Wide enough to admit the azimuth implied by the published inclination.",
+    "flags": {
+      "A_min_deg": "ASSUMPTION",
+      "A_max_deg": "ASSUMPTION"
+    }
+  },
+  "car_references": [],
+  "operating_hours": {
+    "utc_window": [
+      "00:00",
+      "23:59"
+    ],
+    "flag": "ASSUMPTION"
+  },
+  "target_classes": {
+    "CUSTOM": {
+      "i_t_deg": null,
+      "h_t_km": null,
+      "raan_tolerance_deg": 1.0,
+      "flag": "VERIFIED"
+    },
+    "SSO": {
+      "i_t_deg": 98.74,
+      "h_t_km": 824.0,
+      "ltan_hours": null,
+      "raan_tolerance_deg": 1.0,
+      "flag": "ASSUMPTION"
+    }
+  },
+  "site_role": "g1_anchor"
+}

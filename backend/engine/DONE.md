@@ -3,7 +3,11 @@
 ENGINE, issue #2. Branch `engine/issue-02`. Directory ownership `backend/engine/**`
 only; no file outside it was created, edited or deleted.
 
-Last verified: `python -m pytest backend/engine/ -q` -> **314 passed**.
+Last verified: `python -m pytest backend/engine/ -q` -> **283 passed**;
+`python -m pytest tests/contract/ -q` -> **70 passed**.
+Both counts are from the command shown, scoped to what this workflow owns.
+A whole-repo count includes the API workflow's contract tests and is not
+this workflow's number to quote.
 Frozen contract `python -m pytest tests/contract/ -q` -> **70 passed**.
 
 ## Shipped

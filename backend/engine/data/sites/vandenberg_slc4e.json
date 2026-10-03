@@ -1,0 +1,43 @@
+{
+  "name": "vandenberg_slc4e",
+  "description": "Vandenberg Space Force Base, SLC-4E. Present only so the G1 gate can drive the shipped seam at the EarthCARE launch site.",
+  "latitude_deg": 34.6327,
+  "longitude_deg": -120.6103,
+  "altitude_m": 0.0,
+  "longitude_convention": "east-positive, converted from 120 deg 36 min 50 s W",
+  "coordinate_source": "Falcon launch site coordinates, east-positive.",
+  "corridor": {
+    "A_min_deg": 90.0,
+    "A_max_deg": 260.0,
+    "branch": "southbound",
+    "source": "NOT A PUBLISHED CORRIDOR. Wide enough to admit the azimuth implied by the published inclination.",
+    "flags": {
+      "A_min_deg": "ASSUMPTION",
+      "A_max_deg": "ASSUMPTION"
+    }
+  },
+  "car_references": [],
+  "operating_hours": {
+    "utc_window": [
+      "00:00",
+      "23:59"
+    ],
+    "flag": "ASSUMPTION"
+  },
+  "target_classes": {
+    "CUSTOM": {
+      "i_t_deg": null,
+      "h_t_km": null,
+      "raan_tolerance_deg": 1.0,
+      "flag": "VERIFIED"
+    },
+    "SSO": {
+      "i_t_deg": 97.05,
+      "h_t_km": 393.0,
+      "ltan_hours": null,
+      "raan_tolerance_deg": 1.0,
+      "flag": "ASSUMPTION"
+    }
+  },
+  "site_role": "g1_anchor"
+}

@@ -22,7 +22,7 @@ class Target:
     orbit_class: str
     i_t_deg: float
     altitude_km: float
-    raan_deg: float
+    raan_deg: float | None
     raan_tolerance_deg: float
     lat_deg: float
     lon_deg: float
@@ -39,12 +39,22 @@ class Target:
 
 
 def load_site(site_name: str) -> dict[str, Any]:
-    """Read a named site from configuration. Only "canso" is defined."""
-    if site_name != DEFAULT_SITE:
-        raise ValueError(
-            f"unknown site {site_name!r}; the engine ships configuration for {DEFAULT_SITE!r} only"
-        )
-    return provenance.load_json("site_canso.json")
+    """Read a named site from configuration.
+
+    ``canso`` is the product site and lives at ``site_canso.json`` as the
+    integration contract names it. The other names resolve under ``sites/`` and
+    exist so the G1 credibility gate can drive the shipped seam at the launch
+    sites of the published anchors; they carry ``site_role: g1_anchor`` and are
+    not product configuration.
+    """
+    if site_name == DEFAULT_SITE:
+        return provenance.load_json("site_canso.json")
+    if not site_name or any(character in site_name for character in "/\\."):
+        raise ValueError(f"invalid site name {site_name!r}")
+    try:
+        return provenance.load_json(f"sites/{site_name}.json")
+    except FileNotFoundError as error:
+        raise ValueError(f"unknown site {site_name!r}") from error
 
 
 def _parse_ltan(text: str) -> float:
@@ -56,8 +66,14 @@ def _parse_ltan(text: str) -> float:
     return value
 
 
-def resolve(request: Mapping[str, Any]) -> Target:
-    """Resolve type, altitude, inclination, plane and tolerance per spec IV.1."""
+def resolve(request: Mapping[str, Any], epoch_jd: float) -> Target:
+    """Resolve type, altitude, inclination, plane and tolerance per spec IV.1.
+
+    ``epoch_jd`` is the start of the requested range and is the date the target
+    plane is referenced to. An LTAN-slaved orbit has a DATE-INDEXED plane, so a
+    search that does not know the epoch derives its RAAN from the wrong date and
+    returns windows on the wrong days.
+    """
     site = load_site(request.get("site") or DEFAULT_SITE)
     target = request["target"]
     orbit_class = target["type"]
@@ -71,19 +87,24 @@ def resolve(request: Mapping[str, Any]) -> Target:
 
     if altitude_km is None:
         altitude_km = defaults["h_t_km"]
-    if inclination is None:
-        inclination = (
-            sso.required_inclination_deg(altitude_km) if orbit_class == "SSO"
-            else defaults["i_t_deg"]
-        )
 
+    # An inclination stated in the request always WINS over a derived one. Spec
+    # II.6 says the engine accepts either an LTAN or an explicit inclination and
+    # derives the other, and a request may state both. Deriving over a stated
+    # value made the window time independent of the published inclination, which
+    # would let the G1 gate pass without using the number it claims to use.
     if ltan_hours is not None:
-        inclination = sso.required_inclination_deg(altitude_km)
-        raan_deg = None  # date-indexed through the LTAN; see sso.raan_for_ltan_deg
+        raan_deg: float | None = None  # date-indexed through the node time
+        if inclination is None:
+            inclination = sso.required_inclination_deg(altitude_km)
     else:
         raan_deg = target.get("raan_deg")
-        if raan_deg is None and orbit_class == "SSO":
-            inclination = sso.required_inclination_deg(altitude_km)
+        if inclination is None:
+            inclination = (
+                sso.required_inclination_deg(altitude_km)
+                if orbit_class == "SSO"
+                else defaults["i_t_deg"]
+            )
 
     tolerance = request.get("raan_tolerance_deg")
     if tolerance is None:
@@ -100,7 +121,7 @@ def resolve(request: Mapping[str, Any]) -> Target:
         orbit_class=orbit_class,
         i_t_deg=float(inclination),
         altitude_km=float(altitude_km),
-        raan_deg=None if raan_deg is None else float(raan_deg),
+        raan_deg=None if raan_deg is None else float(raan_deg),  # noqa: E501
         raan_tolerance_deg=float(tolerance),
         lat_deg=float(site["latitude_deg"]),
         lon_deg=float(site["longitude_deg"]),
@@ -108,15 +129,10 @@ def resolve(request: Mapping[str, Any]) -> Target:
         ltan_branch=ltan_branch,
         site_name=site["name"],
         corridor=request.get("corridor") or site["corridor"],
-        epoch_jd=0.0,
+        epoch_jd=epoch_jd,
         warning=warning,
     )
 
 
 def azimuth_for(target: Target) -> float | None:
     return reachability.launch_azimuth_deg(target.i_t_deg, target.lat_deg)
-
-
-def corridor_admits(target: Target) -> bool:
-    beta = azimuth_for(target)
-    return beta is not None and reachability.azimuth_in_corridor(beta, target.corridor)

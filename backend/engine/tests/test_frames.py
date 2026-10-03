@@ -91,13 +91,43 @@ def test_gmst_advances_by_one_full_turn_per_sidereal_day():
 
 
 def test_gmst_advances_at_the_sidereal_rate_per_hour():
-    """Spec II.11 quotes 15.0411 deg/hr; the series and omega_sid agree to 1e-7."""
+    """The spec's printed precision bounds the spec comparison; nothing else may.
+
+    Spec II.11 quotes 15.0411 deg/hr, which is five significant figures and so
+    pins the rate only to +/- 5e-5 deg/hr. Measured against the IAU 1982 series
+    the two internal rates differ by 1.709e-06 deg/hr (1.1e-7 relative). The
+    spec comparison therefore carries the spec's own precision limit, and the
+    internal consistency check carries the measured discrepancy plus a margin,
+    rather than both being widened to one convenient number.
+    """
     jd = 2461316.5
     one_hour_later = frames.gmst_degrees(jd + 1.0 / 24.0)
     advance = (one_hour_later - frames.gmst_degrees(jd)) % 360.0
-    assert advance == pytest.approx(15.0411, abs=1.0e-4)
+    assert advance == pytest.approx(15.0411, abs=5.0e-5)
     from_constant = provenance.OMEGA_SID_RAD_S * DEG_PER_RAD * 3600.0
-    assert advance == pytest.approx(from_constant, abs=1.0e-4)
+    assert advance == pytest.approx(from_constant, abs=2.0e-6)
+
+
+def test_the_two_sidereal_rates_disagree_only_by_the_documented_amount():
+    """The spec quotes both a series and a rate, and they are not the same number.
+
+    Neither is corrected here: the spec supplies both, so the gap is a property
+    of the spec rather than of this engine. What this test does is stop the gap
+    from silently widening, and stop anyone from later "fixing" one side without
+    saying so.
+    """
+    jd = 2461316.5
+    total = 0.0
+    previous = frames.gmst_degrees(jd)
+    for k in range(1, 3601):
+        current = frames.gmst_degrees(jd + k / 86400.0)
+        total += (current - previous) % 360.0
+        previous = current
+    series_rate = total
+    constant_rate = provenance.OMEGA_SID_RAD_S * DEG_PER_RAD * 3600.0
+    assert series_rate == pytest.approx(15.0410685847, abs=1.0e-6)
+    assert constant_rate == pytest.approx(15.0410668761, abs=1.0e-6)
+    assert abs(series_rate - constant_rate) == pytest.approx(1.709e-06, abs=1.0e-7)
 
 
 def test_sidereal_day_is_about_23h56m_s():
