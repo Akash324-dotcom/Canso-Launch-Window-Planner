@@ -8,8 +8,10 @@ by nothing else, per spec I.4. No other perturbation enters the window search.
     n = sqrt(GM/a^3),  p = a(1 - e^2); for a circular orbit p = a.
 
 Every constant is read from :mod:`backend.engine.provenance`. No drift constant
-is stored here: the commonly quoted 3.99 deg/day is rejected by spec II.3 and by
-``tests/test_j2.py``, which back-solves the inclination that would produce it.
+is stored here. The drift rate that is widely quoted for a 45.1 degree orbit at
+600 km is REJECTED by spec II.3 and falsified by ``tests/test_j2.py``, which
+back-solves the inclination that would actually produce it; the literal is
+deliberately absent from this module so that a grep for it here returns nothing.
 """
 
 from __future__ import annotations

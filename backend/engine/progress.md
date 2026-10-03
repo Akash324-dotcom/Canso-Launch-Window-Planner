@@ -285,3 +285,152 @@ MEASURED: half width 23.93447 s, full width 47.86894 s, fixed-plane recurrence
 0.99727 day (the spec's own quoted figure), SSO recurrence 1.000000 day.
 
 ---
+
+---
+
+### E6 Injection-consistent fixed point (the Vehicle Duration bonus) - DONE
+
+Delivered `backend/engine/injection.py`, `backend/engine/data/vehicles/cyclone4m.json`,
+`backend/engine/data/vehicles/cyclone4m_coast.json`, `backend/engine/tests/test_injection.py`.
+
+Predictions of (II.18), reproduced from the formula:
+SSO with T = 30 min gives **+4.928 s** (spec's +4.9 s). A precessing target at
+-5.0 deg/day with T = 45 min gives **-36.88 s** (spec's "about 38 s"), NEGATIVE,
+because the target plane regresses while the vehicle is still climbing.
+
+Contraction factor (II.17), evaluated rather than assumed on every solve:
+0.014024 for the LEO-class case, against the spec's bound of 0.017. With
+dT/dt = 0.2 it grows; with dT/dt = 500 it exceeds 1, and the solver reports that
+instead of hiding it behind more iterations.
+
+TWO REAL SOLVER BUGS FOUND HERE. Both produced plausible-looking wrong answers,
+which is exactly why they were worth chasing.
+
+1. A UNIT ERROR of 1000x. `predicted_shift_s` multiplied by 3600 at the end,
+   giving +17740 s instead of +4.928 s. Numerator and denominator are both deg
+   per hour and the result is seconds, so the two hours-to-seconds conversions
+   cancel. Caught by the spec's own worked example.
+
+2. NEWTON LANDED ON THE WRONG PERIOD AND STILL "CONVERGED". This is the serious
+   one. The step clamp was symmetric at a quarter period, so a seed needing to
+   move forward by more than that got pushed BACKWARD past the root onto the
+   neighbouring root of the same equation, and the solver reported convergence on
+   a liftoff time one whole day wrong. The residual was legitimately near zero.
+
+   The fix came from noticing that the period-stepping itself was ill-founded: the
+   unwrapped residual is strictly increasing, so `unwrapped(t) = level` has
+   exactly ONE solution. Adding a period to the seed does not step to the next
+   opportunity, it changes the equation. Successive opportunities come from the
+   residual returning to the same value modulo a full turn, so the level must be
+   raised by 360 instead. The solver now steps the level and solves by bracketed
+   bisection, which cannot overshoot.
+
+   HONEST NOTE ON THE PROVED CLAIM. Claim (i) of spec II.9 proves that the
+   RELAXATION map is a contraction and therefore converges. This engine solves by
+   bisection, not relaxation, so it does not use that proof and does not need it.
+   Claim (i) is NOT upgraded: the contraction factor of (II.17) is still computed
+   and reported on every solve, which is what the claim asserts, while the root
+   finder has the strictly stronger guarantee that a bracketed monotone solve
+   converges unconditionally. The spec's "2 to 3 iterations from the analytic
+   start" expectation belongs to relaxation; this solver takes 24 bisection
+   steps, inside the spec's own 50-iteration cap.
+
+Convergence for the reachable classes: 24 steps, bracket 5.15e-3 s, well inside
+the spec's |Delta t| < 0.01 s criterion. The residual alone settles at 1.6e-6 to
+4.0e-6 deg rather than 1e-6, because the unwrapped residual has magnitude 3.5e6
+deg where float64 resolves about 5e-10 deg. Both spec criteria are reported and
+the disjunction is what is asserted.
+
+The 45.1 deg advertised class is NOT in the convergence set and that is the
+correct outcome, not an omission: there is no real azimuth, so delta of (II.10)
+does not exist and (II.16) has no root. The solver raises, and compute_windows is
+what turns that into reachable false with the penalty. A test pins this.
+
+Vehicle profiles: cyclone4m T_to_inj = 540 s, flagged ASSUMPTION because the
+Abbreviated User's Guide publishes a flight TIMELINE (T+9 s first motion, T+12 s
+azimuth acquisition, T+75 s cross range, T+261 s stage 1 separation) but no time
+to orbit. cyclone4m_coast T_to_inj = 1800 s for the sensitivity case. Tripling
+T_to_inj triples the window-centre shift exactly, which is how the tests prove the
+parameter flows through instead of being a constant in the solver.
+
+---
+
+### E7 SSO specifics - DONE
+
+Delivered `backend/engine/sso.py`, `backend/engine/tests/test_sso.py`.
+
+THE MOST IMPORTANT DECISION IN THE ENGINE, MADE BY MEASUREMENT NOT DERIVATION.
+Spec (II.19) describes alpha_sun as advancing at 0.9856 deg/day, which is the MEAN
+sun. A published LTAN is referenced to the Sun as observed. Rather than argue it,
+both conventions were run against the three published anchors:
+
+    convention          Sentinel-1C     EarthCARE     Sentinel-5P
+    mean longitude        +7.51 min    -717.94 min   +14.73 min
+    apparent Sun (used)   -1.55 min      -0.55 min    +0.91 min
+
+So the apparent Sun is used, from the standard low-precision solar coordinates
+series (mean longitude, equation of centre, aberration and nutation, projected
+onto the true equator of date), accurate to about 0.01 deg.
+
+THE SERIES IS VALIDATED AGAINST FOUR INDEPENDENT ANCHORS, all published to the
+minute, and it lands on every one:
+
+    March 2024 equinox     expected   0.0 deg    computed   0.0011 deg
+    June 2024 solstice     expected  90.0 deg    computed  90.0011 deg
+    September 2024 equinox expected 180.0 deg    computed 180.0042 deg
+    December 2024 solstice expected 270.0 deg    computed 270.0051 deg
+
+An earlier attempt derived alpha_sun as GMST minus 180 deg. That is the mean Sun
+in name only and it fails all four anchors by 45 to 180 deg; it was removed
+rather than kept as a convenience.
+
+The equation of time between the two suns reaches about 4 deg, which is 16
+minutes of launch time, so the choice is not academic. A test asserts that
+distinction quantitatively.
+
+BRANCH TRAP RECORDED. "Local time of the DESCENDING node" is not the ascending
+node time; they differ by 12 h. EarthCARE publishes LTDN 14:00, and reading it
+as LTAN moves every window half a day. The engine carries the branch explicitly
+and a test asserts the 180 deg separation.
+
+---
+
+### E8 Screens - DONE
+
+Delivered `backend/engine/screens.py`, `backend/engine/tests/test_screens.py`.
+
+`data/tle_fixture.json` holds THREE REAL TLEs fetched from CelesTrak this session,
+group `active`, at fetched_utc 2026-10-03T22:29:12Z, covering three altitude
+bands: ISS 25544 at 426.8 km (400 to 550), TIANQIN 1 44879 at 591.5 km
+(550 to 700), SENTINEL-3A 41335 at 814.4 km (700 to 1000). Altitudes were
+SGP4-propagated over one period. All six TLE lines are byte-exact copies of the
+CelesTrak response and the modulo-10 checksums are verified by test.
+
+TESTS NEVER TOUCH THE NETWORK. Every test reads the committed fixture. The screen
+is deterministic and is asserted deterministic by repeated evaluation.
+
+Hazard is a deterministic pass or fail feeding P_range_clear as 0 or 1, and it is
+documented as such rather than dressed up as a probability. NOTAM is a stub that
+returns "none", keeps the field present, and is marked display_only so it can
+never gate a window. Conjunction is an altitude-band and plane-proximity filter
+over the fixture, and it reports itself as a pre_screen, not a CSpOC product.
+
+---
+
+### E9 Composition - DONE
+
+Delivered `backend/engine/engine.py`, `backend/engine/target.py`.
+
+Composition is thin: no arithmetic in the call path, every number from a module,
+every site/vehicle value from data/*.json. The response carries exactly the six
+engine-owned keys and nothing else, so the frozen schema's additionalProperties
+false still holds once the API adds its fields.
+
+DEFECT FOUND HERE: DUPLICATED WINDOWS. find_windows searches BOTH branches of
+(II.9) internally, and engine.py was calling it once per branch, so every window
+was emitted twice and one copy was then solved against the wrong branch's plane,
+producing a spurious fixed_point_no_convergence. Fixed by giving find_windows an
+explicit branch selector and calling it once per branch. This is why the corridor
+case emitted 4 rows for a 2 day range instead of 2.
+
+---
