@@ -219,3 +219,5 @@ difference is recorded here.
     this issue does not list, and the consumer tests `tests/contract/test_engine_schema.py` and
     `tests/contract/test_weather_schema.py`, which are the obligation of ENGINE and WEATHER under
     Seam 2 and not of this issue.
+### Update to interpretation 26
+`pip install -e .` verified by the lead: `uv venv` in a fresh temp dir, `uv pip install -e .`, then `python -c "import backend.api, fastapi, httpx, pydantic, uvicorn"` run from `/tmp` printed `install ok`.
