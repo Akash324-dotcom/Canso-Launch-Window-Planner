@@ -11,6 +11,23 @@ export const INITIAL_STATE = {
   inputError: null,
   fixtureFailures: [],
   fetchedAt: null,
+  selectedRowIndex: null,
+  selectedRowOrigin: null,
+  siteResponse: null,
+  siteOrigin: null,
+  siteError: null,
+  ephemerisResponse: null,
+  ephemerisOrigin: null,
+  ephemerisError: null,
+  weatherResponse: null,
+  weatherOrigin: null,
+  weatherError: null,
+  skillResponse: null,
+  skillOrigin: null,
+  skillError: null,
+  centres: null,
+  centresOrigin: null,
+  centresError: null,
 };
 
 export function createStore(initialState = INITIAL_STATE) {

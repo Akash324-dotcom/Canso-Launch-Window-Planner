@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { vi } from 'vitest';
-import { API_BASE, FIXTURES } from '../src/config.js';
+import { API_BASE, CENTRES_FILE, FIXTURES } from '../src/config.js';
 import { createApp } from '../src/app.js';
 
 const PROJECT_ROOT = pathToFileURL(`${process.cwd()}${path.sep}`);
@@ -17,8 +17,14 @@ export const FIXTURE_EXAMPLES = {
   [FIXTURES.ephemeris]: 'ephemeris_response_good_leo45.json',
 };
 
+export const CENTRES_URL_PART = CENTRES_FILE;
+
 export function loadExample(fileName) {
   return JSON.parse(readFileSync(new URL(fileName, EXAMPLES_DIR), 'utf8'));
+}
+
+export function loadCentresDocument() {
+  return JSON.parse(readFileSync(new URL('src/data/centres.json', PROJECT_ROOT), 'utf8'));
 }
 
 export function jsonResponse(body, status = 200) {
@@ -37,6 +43,9 @@ export function isApiUrl(url) {
 
 export function fixtureResponseFor(url) {
   const file = String(url).split('/').pop();
+  if (file === CENTRES_URL_PART) {
+    return jsonResponse(loadCentresDocument());
+  }
   const exampleName = FIXTURE_EXAMPLES[file];
   if (exampleName === undefined) {
     return jsonResponse({ detail: 'no example registered for this fixture' }, 404);
@@ -59,6 +68,20 @@ export function installWindowsApi(handler) {
   });
 }
 
+/**
+ * Routes every GET of the /v1 contract to handler(url), and every fixture and data file
+ * read to the frozen examples. The handler receives the URL so a test can answer an
+ * ephemeris request differently per window row.
+ */
+export function installContractApi(handler) {
+  return installFetch(async (url, init) => {
+    if (isApiUrl(url)) {
+      return handler(url, init);
+    }
+    return fixtureResponseFor(url);
+  });
+}
+
 export function mountIndexMarkup() {
   const html = readFileSync(INDEX_URL, 'utf8');
   const body = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
@@ -66,13 +89,23 @@ export function mountIndexMarkup() {
   return {
     root: document.getElementById('screen-window-engine'),
     bannerHost: document.getElementById('mode-banner'),
+    trajectoryHost: document.getElementById('screen-trajectory'),
+    weatherHost: document.getElementById('screen-weather'),
+    viewingHost: document.getElementById('screen-viewing'),
   };
 }
 
 export function boot(overrides = {}) {
-  const { root, bannerHost } = mountIndexMarkup();
-  const app = createApp({ root, bannerHost, ...overrides });
-  return { app, root, bannerHost };
+  const { root, bannerHost, trajectoryHost, weatherHost, viewingHost } = mountIndexMarkup();
+  const app = createApp({
+    root,
+    bannerHost,
+    trajectoryHost,
+    weatherHost,
+    viewingHost,
+    ...overrides,
+  });
+  return { app, root, bannerHost, trajectoryHost, weatherHost, viewingHost };
 }
 
 export function flush() {

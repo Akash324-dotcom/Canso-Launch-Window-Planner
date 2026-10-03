@@ -1,5 +1,6 @@
-export function el(tag, attributes = {}, children = []) {
-  const node = document.createElement(tag);
+export const SVG_NS = 'http://www.w3.org/2000/svg';
+
+export function applyAttributes(node, attributes) {
   for (const [name, value] of Object.entries(attributes)) {
     if (value === null || value === undefined || value === false) {
       continue;
@@ -9,11 +10,32 @@ export function el(tag, attributes = {}, children = []) {
       continue;
     }
     if (name === 'class') {
-      node.className = value;
+      if (node instanceof SVGElement) {
+        node.setAttribute('class', String(value));
+      } else {
+        node.className = value;
+      }
       continue;
     }
     node.setAttribute(name, value === true ? '' : String(value));
   }
+}
+
+export function el(tag, attributes = {}, children = []) {
+  const node = document.createElement(tag);
+  applyAttributes(node, attributes);
+  for (const child of [].concat(children)) {
+    if (child === null || child === undefined) {
+      continue;
+    }
+    node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
+export function svgEl(tag, attributes = {}, children = []) {
+  const node = document.createElementNS(SVG_NS, tag);
+  applyAttributes(node, attributes);
   for (const child of [].concat(children)) {
     if (child === null || child === undefined) {
       continue;

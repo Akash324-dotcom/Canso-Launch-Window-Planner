@@ -10,6 +10,16 @@ const atlanticParts = new Intl.DateTimeFormat('en-US', {
   timeZoneName: 'short',
 });
 
+const issueParts = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+
 function partOf(parts, type) {
   const found = parts.find((entry) => entry.type === type);
   return found === undefined ? '' : found.value;
@@ -71,6 +81,21 @@ export function percent(value) {
 
 export function isoDate(date) {
   return date.toISOString().slice(0, 10);
+}
+
+export function formatIssueTime(instant) {
+  if (instant === null || instant === undefined) {
+    return 'no forecast issue time';
+  }
+  const date = new Date(instant);
+  if (Number.isNaN(date.getTime())) {
+    return `issue time not readable: ${String(instant)}`;
+  }
+  const parts = issueParts.formatToParts(date);
+  return `issued ${partOf(parts, 'hour')}:${partOf(parts, 'minute')}Z, ${partOf(
+    parts,
+    'day',
+  )} ${partOf(parts, 'month')} ${partOf(parts, 'year')}`;
 }
 
 export function addDays(date, days) {

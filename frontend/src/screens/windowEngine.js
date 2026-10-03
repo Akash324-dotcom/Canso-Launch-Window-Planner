@@ -258,15 +258,18 @@ function constraintCell(row) {
   return el('td', {}, children);
 }
 
-function windowRow(row, index) {
+function windowRow(row, index, selectedIndex) {
   const rejected = isHazardRejected(row);
-  return el(
+  const selected = selectedIndex === index;
+  const node = el(
     'tr',
     {
       'data-liftoff-utc': row.t_liftoff_utc,
       'data-index': String(index),
       'data-hazard-rejected': String(rejected),
-      class: rejected ? 'row-rejected' : 'row',
+      'data-selected': String(selected),
+      tabindex: '0',
+      class: [rejected ? 'row-rejected' : 'row', selected ? 'row-selected' : ''].filter(Boolean).join(' '),
     },
     [
       el('td', {}, [
@@ -285,13 +288,14 @@ function windowRow(row, index) {
       constraintCell(row),
     ],
   );
+  return node;
 }
 
 function emptyRow(message, columnCount = WINDOW_TABLE_COLUMNS.length) {
   return el('tr', { class: 'row-empty' }, [el('td', { colspan: String(columnCount), text: message })]);
 }
 
-function renderTable(state, tbody) {
+function renderTable(state, tbody, onRowSelected) {
   const response = state.engineResponse;
   const rows = windowRows(response);
   if (response === null) {
@@ -302,7 +306,23 @@ function renderTable(state, tbody) {
     replaceChildren(tbody, emptyRow('No windows returned for this request.'));
     return;
   }
-  replaceChildren(tbody, rows.map((row, index) => windowRow(row, index)));
+  replaceChildren(
+    tbody,
+    rows.map((row, index) => {
+      const node = windowRow(row, index, state.selectedRowIndex);
+      const select = () => {
+        onRowSelected(index);
+      };
+      node.addEventListener('click', select);
+      node.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          select();
+        }
+      });
+      return node;
+    }),
+  );
 }
 
 function renderHonesty(state, panel) {
@@ -390,7 +410,7 @@ function renderProvenance(state, footer) {
   );
 }
 
-export function createWindowEngineScreen({ root, store, onInputsChanged }) {
+export function createWindowEngineScreen({ root, store, onInputsChanged, onRowSelected = () => {} }) {
   const { form, controls } = buildForm(onInputsChanged);
   const countdownHost = buildCountdownHost();
   const honestyPanel = buildHonestyPanel();
@@ -400,6 +420,10 @@ export function createWindowEngineScreen({ root, store, onInputsChanged }) {
     el('div', { class: 'panel-head' }, [
       el('h2', { text: 'Windows' }),
       el('p', { class: 'hint', id: 'window-table-sub' }),
+    ]),
+    el('p', { class: 'hint', id: 'window-table-hint' }, [
+      'Selecting a row fetches its ground track from GET /v1/orbits/{id}/ephemeris between its liftoff and its ' +
+      'injection instant, and highlights it on the map of Screen 2 and the visibility table of Screen 4.',
     ]),
     buildTable(tbody),
   ]);
@@ -423,14 +447,17 @@ export function createWindowEngineScreen({ root, store, onInputsChanged }) {
     renderInputError(state, controls.inputError);
     renderVehicle(state, controls);
     renderHonesty(state, honestyPanel);
-    renderTable(state, tbody);
+    renderTable(state, tbody, onRowSelected);
     renderProvenance(state, footer);
     const rows = windowRows(state.engineResponse);
     const usable = rows.filter((row) => !isHazardRejected(row));
     tablePanel.querySelector('#window-table-sub').textContent =
       state.engineResponse === null
         ? ''
-        : `${rows.length} windows returned, ${usable.length} not rejected by the hazard screen`;
+        : `${rows.length} windows returned, ${usable.length} not rejected by the hazard screen` +
+          (state.selectedRowIndex === null
+            ? ''
+            : `, row ${state.selectedRowIndex} selected for the trajectory and viewing screens`);
   }
 
   function readInputs() {

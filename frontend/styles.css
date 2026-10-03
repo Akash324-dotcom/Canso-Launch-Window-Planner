@@ -279,3 +279,270 @@ main {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+
+#screen-trajectory,
+#screen-weather,
+#screen-viewing {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1rem 1.1rem;
+}
+
+#screen-trajectory {
+  margin-top: 1rem;
+}
+
+h3 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.row-selected {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.row-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.map {
+  height: 380px;
+  margin: 0.5rem 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--page);
+}
+
+.vertex-list {
+  margin: 0;
+  padding-left: 1.4rem;
+  max-height: 190px;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.vertex-empty {
+  color: var(--muted);
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+}
+
+.chip {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.indicator {
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.indicator[data-band='GREEN'] {
+  border-color: var(--ok);
+}
+
+.indicator[data-band='YELLOW'] {
+  border-color: var(--caution);
+}
+
+.indicator[data-band='RED'] {
+  border-color: var(--bad);
+}
+
+.indicator-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.indicator-band {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.indicator-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.indicator-probability {
+  color: var(--muted);
+}
+
+.swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.swatch-green {
+  background: var(--ok);
+}
+
+.swatch-yellow {
+  background: var(--caution);
+}
+
+.swatch-red {
+  background: var(--bad);
+}
+
+.swatch-grey {
+  background: var(--muted);
+}
+
+.badge-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.issue-time {
+  display: inline;
+}
+
+.badge-verified {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.badge-proxy {
+  border-style: dashed;
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.criteria {
+  margin: 0.6rem 0;
+}
+
+.criteria summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.chart {
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  display: block;
+}
+
+.chart-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart-axis {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.chart-zero {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.chart-mask {
+  stroke: var(--caution);
+  stroke-width: 1;
+  stroke-dasharray: 6 3;
+}
+
+.chart-horizon {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.chart-point {
+  fill: var(--panel);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.chart-tick,
+.chart-note,
+.chart-axis-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.chart-axis-label {
+  font-size: 11px;
+}
+
+.chart-empty,
+.chart-host {
+  color: var(--muted);
+}
+
+.layer-corridor {
+  stroke: var(--accent);
+  fill: var(--accent);
+}
+
+.layer-buffer {
+  stroke: var(--caution);
+  fill: var(--caution);
+}
+
+.layer-track {
+  stroke: var(--accent);
+}
+
+.layer-site {
+  stroke: var(--ink);
+  fill: var(--panel);
+}
+
+.layer-centre {
+  stroke: var(--ok);
+  fill: var(--panel);
+}
+
+.layer-centre-visible {
+  stroke: var(--ok);
+  fill: var(--ok);
+}
+
+.layer-centre-dark {
+  stroke: var(--muted);
+  fill: var(--muted);
+}
