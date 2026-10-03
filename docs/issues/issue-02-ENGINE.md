@@ -2,6 +2,8 @@
 
 **Assigned to:** Anand (GitHub: @anandlo).
 
+**Credential dependency (crosses workflows):** Het (@HetJivani04) holds the **Space-Track** account, which the conjunction screen (E8) can consume for a deeper pre-screen than CelesTrak alone. **Do not block E8 on it.** Build the screen against CelesTrak first, which needs no key, and switch the Space-Track path on only if Het's key arrives and the screen is already passing. Ask Het in the issue thread rather than waiting on it. Record which source the screen used in the provenance block either way.
+
 **Owner role:** ENGINE developer. **Depends on:** G0 contract (schemas). **Blocks:** live frontend data, API composition.
 **You own:** `backend/engine/**` and nothing else. Do not touch `backend/weather/`, `backend/api/`, `frontend/`.
 

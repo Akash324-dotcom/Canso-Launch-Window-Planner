@@ -5,6 +5,8 @@
 **This workflow is split across two issues.** This issue (#3) covers the operational probability layer: the criteria table, forecast and ensemble acquisition, P(L|d) for days 0 to 10, climatology beyond, and the horizon configuration. **The hindcast validation, Brier skill and reliability work now lives in issue #7, which is also yours.** #3 must land first because #7 consumes its criteria version and its probability function.
 
 **Owner role:** WEATHER developer. **Depends on:** G0 contract. **Blocks:** API composition; carries the Originality rubric row.
+
+**Credentials (important):** Het holds the **ERA5 / Copernicus CDS** account and the **Space-Track** account. The ERA5 account is the day-one dependency of this workflow: request the API key in hour one and record in `progress.md` the moment it becomes usable. The Space-Track key is not needed here, but see issue #2: Het owns that credential too, and the ENGINE conjunction screen consumes it.
 **You own:** `backend/weather/**` and nothing else.
 
 **Read first:** `docs/00_INTEGRATION_CONTRACT.md`, then spec Parts **II.7, II.10**, **III.4**, **VII.1**. Do not read Parts II.1-II.6, III.1-III.3, IV, V.
