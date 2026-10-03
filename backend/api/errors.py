@@ -57,9 +57,11 @@ class UnknownResourceError(ApiError):
     status_code = 404
     error = UNKNOWN_RESOURCE
 
-    def __init__(self, resource_kind: str, resource_id: str) -> None:
+    def __init__(
+        self, resource_kind: str, resource_id: str, detail: str | None = None
+    ) -> None:
         super().__init__(
-            f"unknown {resource_kind} id {resource_id!r}",
+            detail or f"unknown {resource_kind} id {resource_id!r}",
             resource_kind=resource_kind,
             resource_id=resource_id,
         )

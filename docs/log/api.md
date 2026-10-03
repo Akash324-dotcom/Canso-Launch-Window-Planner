@@ -441,3 +441,705 @@ Numbering continues from the G0 list above.
 46. **`git status` was not clean before this session.** The working tree already carried
     `.oc-brief-contract.md` and `.oc-brief-api1.md` from the lead. Neither was edited here, and
     nothing was committed.
+
+## A4-A7 weather, ephemeris, citation, cache and rate limits
+
+Issue: `docs/issues/issue-04-API.md`, tasks A4, A5, A6 and A7 only. A8 to A11 are untouched and
+nothing was committed by this session. Each test file was written before the module it tests, and
+the red observations are quoted below in the order they happened.
+
+### What shipped
+
+| Path | Purpose |
+|---|---|
+| `backend/api/cache.py` | the three in-memory TTL caches of spec IV.8, the cache keys, the registry; a lifetime of zero switches a cache off |
+| `backend/api/limits.py` | the sliding-window per-client budget of spec IV.8, with `enabled` to switch it off |
+| `backend/api/middleware.py` | the read cache wrapper and the rate-limit route dependency |
+| `backend/api/weather.py` | the WEATHER seam: cache, then the live module, then the recorded document, then a 503; and the window-weather composition with its outage policy |
+| `backend/api/ephemeris.py` | the propagation seam probe and its contract check, the resampler, the documented closed form, and the query contract of spec IV.2 |
+| `backend/api/orbits.py` | orbit identifiers, the preset matching, the in-process registry and the resolution order |
+| `backend/api/citation.py` | the stored run records, the spec II.10 table serialised, and the citation read |
+| `backend/api/site.py` | the spec IV.5 body assembled from the site document that was read |
+| `backend/api/publish.py` | publishing the frozen schemas in the OpenAPI document for every route |
+| `backend/api/routes/weather.py`, `ephemeris.py`, `site.py`, `citation.py` | the four new routers |
+| `backend/api/data/provenance_table.json` | the spec II.10 table, in configuration, because the rule of construction says a result must be traceable to a row of it |
+| `backend/api/data/ephemeris/polar879.json`, `sso981.json` | recorded offline ground-track segments for the polar and sun-synchronous classes |
+| `backend/api/data/service.json` | the `cache`, `rate_limit`, `skill`, `orbits`, `ephemeris`, `site` and `runs_dir` sections, each value with its source |
+| `backend/api/data/runs/.gitkeep` | the marker that keeps the ignored store directory in the repository |
+| `backend/api/data/ephemeris/leo45.json` | the full-revolution leo45 record, alongside `polar879.json` and `sso981.json`; see interpretation 52 |
+| `backend/api/README.md` | how to run it, the endpoint table, the error model, how to get a citation id, the fixture path, and the stub-versus-real statement |
+| `backend/api/tests/test_weather.py` | A4, 26 tests |
+| `backend/api/tests/test_ephemeris.py` | A5, 57 tests |
+| `backend/api/tests/test_site.py` | A5, 20 tests |
+| `backend/api/tests/test_citation.py` | A6, 25 tests |
+| `backend/api/tests/test_cache_and_limits.py` | A7, 38 tests |
+| `.gitignore` | the store directory, except its marker |
+
+`tests/contract/` was not touched. Its suite is unchanged and still green.
+
+### Commands run and their output
+
+The A4 tests, before the module they import existed:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_weather.py -q
+==================================== ERRORS ====================================
+______________ ERROR collecting backend/api/tests/test_weather.py ______________
+ImportError while importing test module '/Users/rafathossain/MDA_Mission_Accepted_Hackathon/backend/api/tests/test_weather.py'.
+Traceback:
+../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+backend/api/tests/test_weather.py:29: in <module>
+    from backend.api import weather as weather_layer
+E   ImportError: cannot import name 'weather' from 'backend.api' (/Users/rafathossain/MDA_Mission_Accepted_Hackathon/backend/api/__init__.py)
+1 error in 0.05s
+```
+
+The A4 tests, after the modules existed but before the window route passed the cache registry and
+before the neutral weather values were separated from the excluded ones:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_weather.py -q
+7 failed, 18 passed, 1 skipped, 1 warning in 0.10s
+```
+
+The A5 tests, before the ephemeris module existed:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_ephemeris.py backend/api/tests/test_site.py -q
+ERROR backend/api/tests/test_ephemeris.py
+!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+E   ImportError: cannot import name 'ephemeris' from 'backend.api'
+1 warning, 1 error in 0.06s
+```
+
+The A6 tests, before the run store was written on every POST:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_citation.py -q
+2 failed, 22 passed, 1 warning in 0.16s
+```
+
+The A7 tests, before the caches and the limiter were wired into the routes:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_cache_and_limits.py -q
+21 failed, 17 passed, 1 warning in 0.19s
+```
+
+The whole repository after the A4 wiring, which caught a real determinism defect: the weather origin
+was resolved once per row, so the first response listed the weather record in `source_files` and the
+second, served from the cache, did not. A3's
+`test_same_request_twice_gives_the_same_citation_id` caught it.
+
+```
+$ .venv/bin/python -m pytest -q
+1 failed, 207 passed, 2 skipped, 1 warning in 0.79s
+FAILED backend/api/tests/test_windows.py::test_same_request_twice_gives_the_same_citation_id
+```
+
+The whole repository after the A5 and A6 modules existed, before the ephemeris units were fixed. The
+defects were a degrees-per-second multiplied by an argument in radians when anchoring a segment on
+the site, and a modulo that mapped the last recorded sample onto the first.
+
+```
+$ .venv/bin/python -m pytest -q
+3 failed, 231 passed, 2 skipped, 1 warning in 0.78s
+```
+
+The A5 ownership tests, written after the lead corrected the fixture edit and before the record was
+moved. The two failures are the two halves of the correction: the leo45 base track resolved into
+`backend/fixtures`, and that two-point record is not a full revolution.
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_ephemeris.py -q
+E       AssertionError: ('leo45', 'backend/fixtures/ephemeris.json')
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x7f...>('backend/api/')
+E        +    where 'backend/api/'.startswith = <built-in method startswith of str object at 0x7f...>
+E       AssertionError: assert PosixPath('.../backend/fixtures/ephemeris.json') not in {PosixPath('.../backend/api/data/ephemeris/polar879.json'), PosixPath('.../backend/api/data/ephemeris/sso981.json'), PosixPath('.../backend/fixtures/ephemeris.json')}
+E       AssertionError: assert 45.28 < 0.0
+E        +  where 45.28 = min([45.28, 48.11])
+E       AssertionError: assert 48.11 == 45.1 +- 0.2
+4 failed, 54 passed, 1 skipped, 1 warning in 0.33s
+```
+
+Per-module summaries of the final state:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_provenance.py -q
+36 passed, 1 warning in 0.03s
+$ .venv/bin/python -m pytest backend/api/tests/test_error_model.py -q
+45 passed, 1 warning in 0.15s
+$ .venv/bin/python -m pytest backend/api/tests/test_windows.py -q
+23 passed, 1 skipped, 1 warning in 0.09s
+$ .venv/bin/python -m pytest backend/api/tests/test_fixtures.py -q
+15 passed, 1 warning in 0.01s
+$ .venv/bin/python -m pytest backend/api/tests/test_weather.py -q
+25 passed, 1 skipped, 1 warning in 0.10s
+$ .venv/bin/python -m pytest backend/api/tests/test_ephemeris.py -q
+56 passed, 1 skipped, 1 warning in 0.35s
+$ .venv/bin/python -m pytest backend/api/tests/test_site.py -q
+20 passed, 1 warning in 0.08s
+$ .venv/bin/python -m pytest backend/api/tests/test_citation.py -q
+25 passed, 1 warning in 0.11s
+$ .venv/bin/python -m pytest backend/api/tests/test_cache_and_limits.py -q
+38 passed, 1 warning in 1.18s
+```
+
+The API suite, the acceptance command for this issue:
+
+```
+$ .venv/bin/python -m pytest backend/api -q
+283 passed, 3 skipped, 1 warning in 2.17s
+```
+
+The contract suite, unchanged by this session and still green:
+
+```
+$ .venv/bin/python -m pytest tests/contract -q
+70 passed in 0.08s
+```
+
+The whole repository with the configured testpaths, which is the done condition:
+
+```
+$ .venv/bin/python -m pytest -q
+353 passed, 3 skipped, 1 warning in 2.44s
+```
+
+The three skips, each the assertion that checks a live path the day its workflow lands:
+
+```
+$ .venv/bin/python -m pytest -q -rs
+SKIPPED [1] backend/api/tests/test_ephemeris.py:543: backend.engine.ephemeris has not landed yet
+SKIPPED [1] backend/api/tests/test_weather.py:348: backend.weather.probability has not landed yet
+SKIPPED [1] backend/api/tests/test_windows.py:338: backend.engine.compute_windows has not landed yet
+```
+
+The application object imports the way uvicorn will import it:
+
+```
+$ .venv/bin/python -c "from backend.api.app import app; print(app.title)"
+Launch window decision engine
+```
+
+The whole surface, exercised once end to end on the offline floor, which is what the A10 harness will
+do: SSO 200 with three rows, POLAR 200 with the informative empty result, LEO 200 with
+`reachable: false` and 26.38 m/s, site, weather, skill and all three ephemeris classes 200, a citation
+with 24 items of the II.10 table, an unknown orbit 404 and a malformed body 422.
+
+### Interpretations
+
+Numbering continues from the G0 list and the A1-A3 list above.
+
+46a. **Which offline documents the service reads changed in this session, and interpretation 45 is
+    superseded on that point.** A4 to A7 add four readers of `backend/fixtures/`: `weather.json` on
+    both the weather endpoint and the window route, `skill.json` on the validation endpoint,
+    `windows.json` on the window route, as before. Two are still unread: `site.json`, because
+    `GET /v1/site` is assembled from the site configuration document rather than from the demo-floor
+    copy, and `ephemeris.json`, because the base tracks are API-owned records under
+    `backend/api/data/ephemeris` and the demo-floor document is not a record this workflow resamples.
+    Interpretation 44 of the A1-A3 list still stands for `site.json`: the frozen `site_response.json`
+    leaves its root open, so the schema needs no change, but the names to settle with ENGINE are the
+    ones named in interpretation 56.
+47. **The chosen weather failure behaviour is that windows still return, and null is available for
+    one of the four weather fields only.** The task offers "windows still return with null weather
+    fields" and asks for the schema to be checked. Checked: `windows_response.json` types `p_success`,
+    `p_success_components.weather` and `horizon_label` as non-nullable and leaves only
+    `forecast_issue_time` nullable. So case three of the behaviour, a dead layer with nothing cached,
+    sets `forecast_issue_time` to null and the other three to the neutral set already used when
+    `include_weather` is false: `weather` 1.0, `p_success` the product of the two deterministic
+    pre-screens, `horizon_label` CLIMATOLOGY. This is the same reading interpretation 32 reached for
+    the excluded case, applied to the outage case. The choice, the reasoning and the three tests that
+    hold it are in `backend/api/README.md`.
+48. **A weather GET does not get the neutral fallback.** The window route cannot answer without the
+    weather fields, so it degrades. The weather endpoints exist only to report weather, and a body of
+    neutral values would answer a question nobody asked, so they degrade to the recorded document and
+    then to a 503. A day or a verification period the record does not cover is a 503 naming the record
+    rather than a 200 with the requested date printed on a forecast issued for another one. Both are
+    tested; the reasoning is in the README.
+49. **The weather cache key is the request, and the issue time is stored in the entry.** Spec IV.8
+    keys the weather cache by date, site and source and stores `forecast_issue_time` with the entry;
+    the A4 task says "cached on forecast_issue_time". Both are honoured by keying on what identifies
+    the request, the date, the site and the criteria version, and carrying `forecast_issue_time` in
+    the entry so that a served answer is echoed with the issue time it was produced under and is never
+    presented as a fresh fetch. The criteria version joins the key because a different criteria table
+    is a different answer for the same day, which
+    `test_the_weather_cache_is_not_shared_across_criteria_versions` asserts.
+50. **`source_files` lists the weather record only when the weather fields came from it.** A run whose
+    weather fields were excluded or degraded did not read the document, and listing it anyway would be
+    the provenance gap requirement 1 exists to prevent. The origin is resolved once per response, not
+    once per row: resolving it per row made the first response and the second, cache-served, response
+    disagree, which A3's determinism test caught. Fixed, and the fix is what makes two identical
+    requests byte-identical.
+51. **Spec IV.2 asks for a custom orbit id in the window response, and the frozen schema has no field
+    for it.** `windows_response.json` closes `additionalProperties`, so there is nowhere in the spec
+    IV.1 body for an `orbit_id`, and that schema is frozen at G0 and is not edited from here. The
+    identifier is therefore recorded where the API owns it, in two places: the in-process orbit
+    registry that every POST adds to, and the stored run record of A6. The ephemeris route reads both,
+    so an id created by a POST resolves before and after a restart, which
+    `test_a_custom_id_is_found_in_the_stored_run_record_after_a_restart` asserts. A schema change to
+    add the field is a Seam 2 announcement and is not made here.
+52. **`backend/fixtures/ephemeris.json` is FRONTEND content and was not edited.** An earlier pass of
+    this session regenerated that file as a full-revolution leo45 record. The lead corrected it:
+    contract section 0 gives this workflow the `backend/fixtures/` directory and FRONTEND its content,
+    and Seam 3 makes the files hand-frozen. The edit was reverted and the record now lives at
+    `backend/api/data/ephemeris/leo45.json`, generated by the same closed form as `polar879.json` and
+    `sso981.json`, with `ephemeris.base_tracks.leo45` in `service.json` pointing at it. All three
+    records are therefore documents this workflow owns, and
+    `test_every_base_track_is_a_document_this_workflow_owns` holds that every configured base track
+    resolves under `backend/api/`. `backend/fixtures/ephemeris.json` stays on disk, stays
+    schema-valid, and is read as the demo floor of spec V.5 and nothing else;
+    `test_the_offline_fallback_document_is_still_served_as_the_demo_floor` asserts both that it is
+    valid and that no base track resolves to it. `git status backend/fixtures/` is empty. The A3
+    assertions over the file, schema validity and no trailing content, are untouched and green.
+    What the earlier pass got right is kept: the two-point, five-minute record could not answer a
+    one-day request without repeating itself, which is why a full-revolution record was needed.
+53. **The ground tracks are a closed form, not propagation, and the record is where the specification
+    allows one.** Spec IV.2 says propagation for the named classes uses the secular-J2 model of Part
+    II and that full force models are not offered. Neither ENGINE nor that model exists, so the three
+    named classes are served from recorded segments and a custom id from the same closed form at
+    request time. The closed form is the ground track of a circular orbit and nothing more: latitude
+    from the inclination and the argument of latitude, longitude advancing at the orbital rate less
+    the Earth's, altitude constant. No J2 precession, no perturbation. It is written out in
+    `backend/api/ephemeris.py` and in `backend/api/README.md`, marked as a stand-in rather than a
+    claim, and it is replaced the day `backend.engine.ephemeris` lands. Every number in it comes from
+    `constants.json` or from configuration.
+
+    The delegation to `backend.engine.ephemeris` is written now and is checked before its answer is
+    served: delegation alone would put an unvalidated live answer in front of a client, and a live
+    answer that breaks the contract is a worse outcome than the offline floor. The seam is asked first
+    and its points are validated against the frozen `ephemeris_response.json`; a seam that raises,
+    answers with something that is not a track, or answers with points the contract does not describe,
+    falls through to the record. Three tests hold that, and the seam's call is asserted to carry the
+    orbit id, the requested instants and the requested step.
+54. **A recorded segment is repeated beyond its span, and `ground_track_valid` is the flag that says
+    so.** Spec IV.2 gives no instruction for a request longer than the record. Repeating the segment is
+    what a ground track does; truncating it would leave the frontend map with a five-minute stub for a
+    one-day request. The repetition is a property of the offline floor, the flag is false beyond the
+    three-day horizon on every id, and the README says so. Two further details: the recorded interval
+    is a whole number of seconds so that the resampler can land on a recorded sample exactly, and the
+    instant one span after the start is the last recorded sample rather than the first, which is what
+    makes `test_the_resampler_reproduces_a_recorded_segment_exactly` hold at second resolution.
+55. **`leo45` cannot overfly the site, and that is reachability rather than a defect.** The extreme
+    latitude of the advertised low-Earth class is south of the site latitude, so no recorded track of
+    that class crosses Canso. Spec II.4 makes the same statement algebraically, and spec III.5 makes
+    that class the flagship honesty case. `test_the_leo45_track_cannot_reach_the_site_latitude` asserts
+    it, and the polar and sun-synchronous classes are asserted to cross the site within 0.2 deg on the
+    descending branch.
+56. **`/v1/site` states two gaps instead of filling them.** Spec IV.5 asks for the environmental
+    assessment reference URLs and the corridor polygon vertices used by the hazard test. No value for
+    either appears in the specification, in the integration contract, or in any document this workflow
+    owns. An invented URL is the phantom citation requirement 1 exists to prevent, so neither is
+    returned, a `spec_gaps` field says which two are absent and why, and
+    `test_the_two_items_the_repository_does_not_supply_are_absent_not_invented` holds that. The names
+    to settle with ENGINE are `environmental_assessment_urls` and `corridor_polygon`. The launch rate
+    cap of 8 per year and the coordinate-variant source string are returned, because spec IV.5 and
+    spec II.10 give their values. The frozen `site_response.json` leaves its root open, so this needs
+    no schema change; the names are still a proposal for the Seam 2 conversation.
+57. **The weather response cannot carry a constants block, and that is a contract gap.** Spec IV says
+    the block is "always present on result-bearing responses", and requirement 1 needs it. The frozen
+    `weather_probability_response.json` closes `additionalProperties` and does not list it, so
+    `GET /v1/weather/probability` cannot return one without breaking the contract. The frozen schema
+    wins and no block is added. A schema change to add `constants_block` to
+    `weather_probability_response.json` should be proposed through Seam 2; it is raised here and
+    nowhere else, because `tests/contract/` is not edited from here. The other four result-bearing
+    responses all carry one: the window response and the ephemeris response have it required by their
+    schemas, the skill response has it required by its schema, and the site response carries it
+    because that schema is open.
+58. **A citation response schema should be proposed.** Spec IV.6 has no file in the G0 issue's list
+    and none exists, and `tests/contract/` is frozen, so `GET /v1/citation` is validated by
+    `backend/api/tests/test_citation.py` field by field instead: the five fields spec IV.6 names, the
+    seven the A6 task requires, and the five fields of every spec II.10 item. A
+    `tests/contract/schemas/citation_response.json` should be proposed through Seam 2 at the next gate,
+    with `record_schema`, `request`, `request_body`, `constants_sources` and `provenance_block` among
+    the fields to decide. Until then this response is the one body of the service that no frozen
+    schema describes.
+59. **A citation identifier for a read with no date in the request carries a zero date.** The window,
+    weather, skill and ephemeris reads all have a date in the request and use it, which keeps the
+    identifier of a run reproducible from the run. `GET /v1/site` has none, and a clock-derived date
+    could not be reproduced, so its identifier is content addressed with the date part `00000000`,
+    which is not a calendar date. A reader can therefore tell a configuration read from a dated run
+    without a second field, and neither kind of value is invented from the clock.
+60. **A citation identifier is validated before the store is touched.** The store is looked up by path,
+    so an identifier carrying a separator or a parent reference could address a document outside the
+    runs directory. Such an identifier is a malformed request, 422, not a miss, which is the reading
+    of spec IV.7 rule 2 that does not treat a traversal attempt as a resource question. A containment
+    check on the resolved path is kept as well, so the guarantee does not rest on the pattern alone.
+61. **A cache replay returns the stored body byte for byte, including `computation_ms`.** The
+    alternative, rewriting the timing field on replay, would make a cached answer differ from the
+    fresh one it replaces. The consequence is the one interpretation 42 recorded: the determinism
+    comparison of spec III.6 test 6 excludes `computation_ms`, because a wall-clock duration is not a
+    function of the request. Every other field is compared, and
+    `test_a_cached_replay_is_byte_identical_including_the_timing_field` states the stronger property
+    that the replay is identical, timing included.
+62. **The cache hit is asserted by a counter, not by a clock.** The A7 task says identical requests
+    within the lifetime "hit cache and are faster". A timing assertion is flaky on a loaded machine and
+    fails for reasons that have nothing to do with this code, so the tests assert the hit and miss
+    counters, which state the same fact deterministically. This is recorded because it is a deliberate
+    departure from the workflow wording, not an oversight.
+63. **`/v1/openapi.json` and `/v1/health` are not charged against the read budget.** A client reading
+    the contract or polling for liveness is not using the research budget, and charging it would let a
+    monitoring system deny service to a researcher. Both are served by the application object rather
+    than by a router, so they carry neither the cache nor the limiter.
+64. **The window is sliding rather than fixed.** Spec IV.8 gives a per-minute budget and does not say
+    how the minute is measured. A fixed window lets a client spend a whole budget at the end of one
+    minute and another at the start of the next, so the counter forgets stamps older than the window
+    and the `Retry-After` names the time until the oldest stamp falls out. `retry_after_s` in the
+    configuration is the value reported when the whole window is still to run.
+65. **A forwarded address is a separate budget.** The service is expected to run behind a reverse proxy,
+    where every request would otherwise arrive from the proxy and share one budget of 60 a minute. The
+    socket address is the primary key and `X-Forwarded-For` is honoured when present. A deployment that
+    does not want this can set `enabled: false` and put a limiter in front.
+66. **Not delivered, deliberately.** No Python client (A8), no `scripts/integration_test.py` (A10), no
+    `DONE.md` (A11). No `tests/contract/schemas/citation_response.json`, for the reason in
+    interpretation 58. No vehicle row is reported, because ENGINE owns
+    `backend/engine/data/vehicles/*.json` and the file does not exist; the citation reads the path so
+    that the rows appear the day it does, and nothing is invented in the meantime, which is
+    interpretation 38 applied to the new endpoint. No TLE is fetched and no NOTAM screen reads a live
+    feed, because ENGINE owns both; the citation records that state rather than leaving a reader to
+    assume a live source.
+67. **`git status` was not clean before this session, and the store was verified to be ignored.** The
+    working tree already carried `.oc-brief-contract.md` and `.oc-brief-api1.md` from the lead; neither
+    was edited here. The root `.gitignore` gained five lines, which is outside the paths this workflow
+    owns and was required by the A6 task; nothing else outside `backend/api/`,
+    `backend/fixtures/` and this log was touched. `git check-ignore -v
+    backend/api/data/runs/somefile.json` reports `.gitignore:8`, and
+    `git status --untracked-files=all backend/api/data/runs` lists only `.gitkeep`.
+
+## A8 the public Python client of spec IV.9
+
+Issue: `docs/issues/issue-04-API.md`, task A8 only. A1 to A7 were already committed and
+were not rewritten; A9 to A11 are untouched and nothing was committed by this session. The
+tests and the client were written in one pass and the runs are quoted below in the order they
+happened, the first of which is a collection error rather than a failing assertion, and the
+last of which is green.
+
+### What shipped
+
+| Path | Purpose |
+|---|---|
+| `backend/client/launchwin.py` | the six public functions of spec IV.9, the DataFrame shapes, `LaunchwinError` and the base URL resolution |
+| `backend/client/__init__.py` | the in-repository package form of the same module, re-exporting the one public surface |
+| `backend/api/tests/test_client.py` | A8, 54 tests, of which 52 run here and 2 skip because the distribution is not installed in this environment |
+| `pyproject.toml` | `pandas` as a hard dependency, the top level `launchwin` module mapping, and the `pythonpath` entry that lets the suite import the module before it is installed |
+| `docs/log/api.md` | this section |
+
+`backend/api/**` was not modified, `tests/contract/` was not touched, and `backend/fixtures`
+was not touched. `git status --short` lists the four paths above and nothing else.
+
+The public surface, in the words of spec IV.9 plus the shapes this task named:
+
+```python
+import launchwin
+
+frame = launchwin.windows(target="SSO", site="canso", dates=("2026-10-05", "2026-10-15"))
+document = launchwin.weather("2026-10-06")
+series = launchwin.skill("2026-05-01", "2026-08-31", lead_max=10)
+site = launchwin.site()
+track = launchwin.ephemeris("sso981", "2026-10-05T00:00:00Z", "2026-10-05T01:00:00Z")
+provenance = launchwin.citation(frame.attrs["response"]["constants_block"]["citation_id"])
+```
+
+`windows` returns one row per window with the columns of `launchwin.WINDOW_COLUMNS` and the
+whole spec IV.1 response in `frame.attrs["response"]`. `ephemeris` returns one row per point
+with the columns of `launchwin.POINT_COLUMNS` and the whole response in
+`frame.attrs["response"]`. The four reads return the response document as a JSON object.
+Every function takes `base_url` and `client`; `client` is anything with the
+`httpx.Client` interface, which is how a FastAPI `TestClient` is passed in.
+
+### The packaging decision
+
+`import launchwin` has to resolve to `backend/client/launchwin.py`, and the file has to stay
+where this workflow owns it. Three things in the root `pyproject.toml` do that:
+
+```toml
+[tool.setuptools]
+py-modules = ["launchwin"]
+
+[tool.setuptools.package-dir]
+launchwin = "backend/client"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "backend"]
+pythonpath = ["backend/client"]
+```
+
+`py-modules` with a per module `package-dir` key is the smallest mapping setuptools offers:
+`build_py.get_package_dir` resolves a top level module name through `package_dir` before it
+falls back to the project root, so the module is built from `backend/client/launchwin.py`
+with no copy of the file anywhere else, and the editable finder resolves `launchwin` to the
+same path. The alternatives were rejected for stated reasons:
+
+* a top level `launchwin.py` at the repository root that re-exported from `backend.client`
+  would be a second name for one file and a file outside the paths this task may create;
+* a `launchwin` package directory would need the module to become a package, which the
+  task names as a file;
+* `[tool.setuptools.packages.find] where` cannot mix a package root with the existing
+  `include = ["backend*"]` discovery, and the service packages must keep resolving as they do.
+
+`pythonpath` is the pytest `pythonpath` ini option, not a conftest hook and not an
+`import` in the test module. It is what lets the suite exercise the module by the name a
+user writes, `import launchwin`, before the distribution has been installed, and it is
+asserted by `test_the_test_suite_can_reach_the_client_without_it_being_installed` so that
+removing it is a failing test rather than a collection error.
+
+`pandas` is a hard dependency in `[project].dependencies` rather than an optional import.
+The A8 task allowed either, and the choice is recorded in interpretation 70.
+
+### Commands run and their output
+
+The A8 tests on their first run, with the client written and nothing corrected. The
+collection failed rather than the tests, on a construct this interpreter's tokenizer rejects:
+an f-string followed by `+ (` holding a multi-line conditional expression. It reproduces in
+isolation with no other code present, and both files now avoid the shape.
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+==================================== ERRORS ====================================
+______________ ERROR collecting backend/api/tests/test_client.py ______________
+...
+E     File ".../backend/api/tests/test_client.py", line 83
+E       f'`{VENV_PYTHON} -c "{IMPORT_PROBE}"` + (
+E   SyntaxError: unterminated f-string literal (detected at line 83)
+1 warning, 1 error in 0.06s
+```
+
+The same suite on the next run. Seven of the eleven failures were the test asserting the
+wrong thing, one was a decision about an empty environment variable that the module now
+documents and the test now pins, and three were the harness: two a recorder built on an
+asynchronous ASGI transport and one an import scan by regular expression.
+Interpretation 78 lists all eleven.
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+11 failed, 40 passed, 2 skipped, 1 warning in 0.84s
+```
+
+The same suite after those eleven were addressed:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+6 failed, 46 passed, 2 skipped, 1 warning in 0.81s
+```
+
+and after the last six, which were the frozen schema's column order read wrongly, the
+recorded rows carrying 98.08 rather than the requested 98.0, the recorded stub rows being
+compared field by field, a track count that includes both ends of the grid, and the recorder
+itself:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q
+52 passed, 2 skipped, 1 warning in 0.68s
+```
+
+The API suite, the acceptance command for this issue:
+
+```
+$ .venv/bin/python -m pytest backend/api -q
+335 passed, 5 skipped, 1 warning in 2.73s
+```
+
+The contract suite, unchanged by this session and still green:
+
+```
+$ .venv/bin/python -m pytest tests/contract -q
+70 passed in 0.08s
+```
+
+The whole repository with the configured testpaths, which is the done condition:
+
+```
+$ .venv/bin/python -m pytest -q
+405 passed, 5 skipped, 1 warning in 3.07s
+```
+
+The five skips, each the assertion that checks a live path the day its workflow lands or, for
+the first two, a distribution that has not been installed in this environment:
+
+```
+$ .venv/bin/python -m pytest -q -rs
+SKIPPED [1] backend/api/tests/test_client.py:781: launchwin is not importable in the virtual environment: the interpreter at .../.venv/bin/python cannot import it from /var/folders/.../launchwin-outside-repo-ep7_9mql, exiting 1 with 'Traceback (most recent call last):\n  File "<string>", line 1, in <module>\nModuleNotFoundError: No module named \'launchwin\'; run pip install -e . in that environment first
+SKIPPED [1] backend/api/tests/test_client.py:793: launchwin is not importable in the virtual environment: ... as above
+SKIPPED [1] backend/api/tests/test_ephemeris.py:566: backend.engine.ephemeris has not landed yet
+SKIPPED [1] backend/api/tests/test_weather.py:348: backend.weather.probability has not landed yet
+SKIPPED [1] backend/api/tests/test_windows.py:338: backend.engine.compute_windows has not landed yet
+```
+
+Why the two client tests skip is a property of this workspace, and it is stated rather than
+worked around. Neither `pip` nor `setuptools` is present in the virtual environment and there
+is no network, so `pip install -e .` cannot be run here at all:
+
+```
+$ .venv/bin/python -m pip --version
+/Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python: No module named pip
+$ .venv/bin/python -c "import setuptools"
+ModuleNotFoundError: No module named 'setuptools'
+```
+
+What was verified instead. The two probe statements were run by hand from a temporary
+directory outside the repository, with `PYTHONPATH` set to the two paths an editable install
+of this repository would provide, `backend/client` for the `launchwin` module and the
+repository root for the `backend` packages. Both statements are the ones the two skipped
+tests run. The import probe printed the module path, and the call probe built the
+application in the temporary directory, pointed the run store at a directory there as well,
+and printed the summary the test asserts:
+
+```
+import launchwin; print(launchwin.__file__)
+/Users/rafathossain/MDA_Mission_Accepted_Hackathon/backend/client/launchwin.py
+```
+
+```
+import launchwin
+from fastapi.testclient import TestClient
+from backend.api.app import create_app
+from backend.api.config import Settings
+settings = Settings.load().with_runs_dir("<temporary directory>/runs")
+with TestClient(create_app(settings)) as service:
+    frame = launchwin.windows(
+        target="SSO", site="canso", dates=("2026-10-04", "2027-01-01"),
+        client=service,
+    )
+summary = "rows=%d engine=%s" % (len(frame), frame.attrs["response"]["engine_version"])
+print(summary)
+rows=3 engine=stub
+```
+
+And the five static assertions that hold the parts of the installation contract a change to
+this workflow's own files could break:
+
+```
+$ .venv/bin/python -m pytest backend/api/tests/test_client.py -q -k "layout or discovered or pandas or nothing_from_the_repository or without_it_being_installed" -v
+================= 5 passed, 49 deselected, 1 warning in 0.50s ==================
+```
+
+The pandas version the suite ran against, for the record:
+
+```
+$ .venv/bin/python -c "import pandas; print(pandas.__version__)"
+3.0.6
+```
+
+### Interpretations
+
+Numbering continues from the G0 list, the A1-A3 list and the A4-A7 list above.
+
+67. **The first clause of interpretation 66 is superseded.** It read "Not delivered,
+    deliberately. No Python client (A8), no `scripts/integration_test.py` (A10), no `DONE.md`
+    (A11)". The A8 task is delivered by this section. The A10 and A11 clauses stand.
+68. **The DataFrame carries the window rows and the response stays whole.** A spec IV.1
+    response is more than a table: it also carries `reachable`, `plane_change_dv_ms`,
+    `sso_consistency_warning`, the constants block and the provenance block. A client that
+    returned only the rows would make the provenance of a number unreachable from the number
+    itself, which requirement 1 exists to prevent, so `windows` returns one row per window
+    and the untouched response in `frame.attrs["response"]`. An empty result is the same
+    shape with no rows, so a caller can read `reachable` and the penalty without a special
+    case, and the columns are declared even when there are no rows so that a downstream
+    selection does not raise on a column that is missing only because the answer was empty.
+69. **The two nested objects of a row are flattened with distinguishing prefixes.**
+    `p_success_components` becomes `p_weather`, `p_range` and `p_conjunction`; `screens`
+    becomes `screen_hazard`, `screen_conjunction` and `screen_notam`. The prefix on the
+    screen columns is forced: both objects of a spec IV.1 row hold a key called
+    `conjunction`, so one column name cannot hold both without losing a field. The mapping
+    is published as `COMPONENT_COLUMNS` and `SCREEN_COLUMNS` and the whole order as
+    `WINDOW_COLUMNS`, and `test_the_columns_are_the_frozen_window_fields_with_two_objects_flattened`
+    derives the expected order from the frozen `windows_response.json` rather than restating
+    it, so a change to the contract at gate G0 fails this suite rather than passing quietly.
+70. **`pandas` is a hard dependency, and the A8 task's either-or is resolved that way.** The
+    task allowed "import launchwin succeeds without pandas installed, or pandas is a declared
+    hard dependency". The declared hard dependency was chosen because two of the six public
+    functions return a `DataFrame` by specification, so the import cannot be made lazy
+    without turning the documented return type into a conditional one: a caller who omitted
+    the dependency would get an `ImportError` at the moment they asked for an answer rather
+    than at the moment they installed anything. `test_pandas_is_a_declared_hard_dependency`
+    asserts it in `pyproject.toml` and asserts that it is not also an optional extra, which
+    would read as an unresolved choice.
+71. **Only two of the six functions return a frame.** `windows` and `ephemeris` return
+    `pandas.DataFrame` objects because both are series. `weather`, `skill`, `site` and
+    `citation` return the response document as a JSON object, because each is one answer
+    with its evidence beside it: the components, the horizon label, the forecast issue time
+    and the source of a probability are part of the answer, and a one row frame would invite
+    a caller to drop them. Spec IV.9 names the methods and not their return types beyond the
+    window call, so this is a choice and it is recorded here rather than left to be
+    discovered.
+72. **`dates` is required, and its order is not checked.** Spec IV.1 gives defaults for
+    `site`, `criteria_version`, `raan_tolerance_deg` and `include_weather`, and gives no
+    default date range, so a default would have been invented. Whether a range whose end
+    precedes its start is an empty answer or a 422 is the service's decision to make from the
+    frozen schema: the client checks the shape of its own argument, a pair or a mapping with
+    `start` and `end`, and leaves the meaning to the contract.
+73. **`LaunchwinError` carries a status for the four conditions of spec IV.7 rule 2, and no
+    status for a request that never completed.** A 422, 404, 429 or 503 response raises with
+    `status_code`, `detail`, `payload` and `retry_after_s` populated, the last because spec
+    IV.7 and spec IV.8 require a `Retry-After` on 429 and on 503 and a caller should not have
+    to parse it out of a message. A transport failure raises with `status_code` of `None`,
+    because there is no status to report and inventing one would make an unreachable service
+    look like a service that answered. Nothing else raises: an unreachable target, an empty
+    window list and a fired constraint are answers and produce an empty frame with the
+    response intact.
+74. **The base URL is the argument, then `LAUNCHWIN_URL`, then
+    `http://localhost:8000/v1`.** Trailing slashes are removed so that a value from a
+    configuration file and one from a shell produce the same request URL. An empty
+    environment variable reads as unset, because that is how a shell spells unset, while an
+    empty argument raises: a caller who passed one made a mistake worth seeing. The request
+    URL is built as an absolute string rather than handed to `httpx.Client` as a `base_url`
+    to be joined, because the `client` a test passes has its own base URL, here
+    `http://testserver`, and a relative path would have been resolved against that instead of
+    against the configured service.
+75. **Not delivered, and not verified, stated plainly.** The client exists and its whole
+    surface is tested; two things about it could not be exercised in this workspace. The
+    first is the editable install itself: `.venv/bin/python -m pip install -e .` cannot run
+    here, because the environment has neither `pip` nor `setuptools` and has no network, so
+    `test_launchwin_imports_from_a_directory_outside_the_repository` and
+    `test_launchwin_imports_and_calls_from_a_directory_outside_the_repository` skip. They
+    skip with the interpreter's own error in the reason, and they will run as written the
+    moment the distribution is installed; nothing about them was weakened to make the suite
+    green. What was verified is the part a change to this workflow's files could break: the
+    mapping in `pyproject.toml`, the hard `pandas` dependency, the absence of any import from
+    the repository in the client module, and the probe statements themselves, which were run
+    from a temporary directory with the paths an editable install would provide and which
+    printed `rows=3 engine=stub`. The second is the two skipped skips of the A8 acceptance
+    list that depend on that install; they are the only parts of A8 this commit does not
+    demonstrate.
+79. **Two lines of `backend/api/README.md` are now stale and were left alone.** The
+    "Known gaps" section ends with "No Python client (A8), no integration harness (A10) and
+    no `DONE.md` (A11)", and the opening paragraph reads "Tasks A1 to A7 of
+    `docs/issues/issue-04-API.md` are complete. A8 to A11 are not." Both are true of the
+    commit before this one and false of this one. The A8 task did not include the README in
+    the paths it may edit, so neither line was changed here; A11 owns that file and both
+    lines are its to correct. The client is documented where it lives instead, in the module
+    docstring of `backend/client/launchwin.py`, in the packaging decision above, and in this
+    section.
+76. **`import launchwin` and `import backend.client.launchwin` are one file loaded twice.**
+    `backend/client/__init__.py` exists so that `backend.client` is a package, and the
+    distribution maps the same file as the top level module `launchwin`, so an interpreter
+    that can reach both gives two module objects with two copies of every constant. Nothing
+    in the client depends on the difference, and the suite therefore compares `__all__` and
+    `__file__` rather than object identity. A caller must not either: two imports of the same
+    module through two names are two modules, and an `is` comparison between objects from
+    them fails for a reason that has nothing to do with the client.
+77. **A client owned transport is opened and closed per call.** Without a `client`, the
+    module builds an `httpx.Client` with the documented 30 s timeout, sends the request and
+    closes it. A module level client would be faster for a caller making many calls, and it
+    would also leave a connection pool alive in a notebook or a short lived script, so the
+    cost was taken per call and the trade is stated here rather than left implicit.
+    `test_the_module_opens_a_transport_of_its_own_and_closes_it` asserts the branch, the
+    arguments and the closed state.
+78. **Seven of the eleven failures of the first A8 run were the test asserting the wrong
+    thing, and that is recorded rather than tidied away.** They were: an identity comparison
+    between the two module objects of interpretation 76; a helper that appended a nested
+    object field name as well as its flattened columns; two tests that read a
+    `request_body` the frozen `windows_response` does not carry; an expectation that a null
+    `constraint_fired` stays `None` in a frame rather than becoming `NaN`; an expectation
+    that the message of an error carries the query string, which the message does not; and a
+    track request of one day asserted to be beyond the three day propagation horizon, which
+    it is not. The eighth was a decision rather than a mistake: an environment variable set
+    to nothing was expected to raise where the module reads it as unset, so the behaviour was
+    documented and split into two tests, one for each reading. The last three were the
+    harness, twice a recorder built on an asynchronous ASGI transport that has no `close` and
+    no `handle_request`, and once an import scan by regular expression that found the
+    module's own name in its own docstring examples, replaced by a walk of the parse tree.
+    No test was weakened: each expectation was either corrected to the contract or, where the
+    contract was silent, replaced by an assertion of the documented decision.

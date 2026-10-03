@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api import stubs
+from backend.api import weather
 from backend.api.config import Settings
 from backend.api.errors import UpstreamUnavailable
 from backend.api.provenance import canonical_json
@@ -368,9 +369,14 @@ def test_an_unreadable_window_document_raises_the_outage_error(settings: Setting
 
 
 def test_an_unreadable_weather_document_raises_the_outage_error(settings: Settings) -> None:
+    """The offline floor itself is the last resort, so failing to read it is a 503.
+
+    The composition moved to ``backend.api.weather`` in task A4; the assertion is the
+    same one, driven through the seam the route now uses.
+    """
     broken = settings.with_fixture_overrides(weather="backend/fixtures/absent.json")
     with pytest.raises(UpstreamUnavailable) as caught:
-        stubs.compose_weather(
+        weather.compose_window_weather(
             broken,
             {"include_weather": True},
             {"p_success_components": {"range": 1.0, "conjunction": 1.0}},

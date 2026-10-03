@@ -1,0 +1,148 @@
+{
+  "orbit_id": "sso981",
+  "frame": "ECEF",
+  "points": [
+    {
+      "t_utc": "2026-10-05T13:40:00Z",
+      "lat_deg": 0.0,
+      "lon_deg": 174.060052,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T13:44:55Z",
+      "lat_deg": 17.833235,
+      "lon_deg": -169.153408,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T13:49:50Z",
+      "lat_deg": 35.623358,
+      "lon_deg": -152.366868,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T13:54:45Z",
+      "lat_deg": 53.276138,
+      "lon_deg": -135.580327,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T13:59:40Z",
+      "lat_deg": 70.385916,
+      "lon_deg": -118.793787,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:04:35Z",
+      "lat_deg": 81.899442,
+      "lon_deg": -102.007247,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:09:30Z",
+      "lat_deg": 70.212653,
+      "lon_deg": -85.220706,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:14:25Z",
+      "lat_deg": 53.090763,
+      "lon_deg": -68.434166,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:19:20Z",
+      "lat_deg": 35.435516,
+      "lon_deg": -51.647626,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:24:15Z",
+      "lat_deg": 17.644611,
+      "lon_deg": -34.861085,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:29:10Z",
+      "lat_deg": -0.188819,
+      "lon_deg": -18.074545,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:34:05Z",
+      "lat_deg": -18.021854,
+      "lon_deg": -1.288005,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:39:00Z",
+      "lat_deg": -35.811186,
+      "lon_deg": 15.498536,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:43:55Z",
+      "lat_deg": -53.461466,
+      "lon_deg": 32.285076,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:48:50Z",
+      "lat_deg": -70.558865,
+      "lon_deg": 49.071616,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:53:45Z",
+      "lat_deg": -81.894983,
+      "lon_deg": 65.858157,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T14:58:40Z",
+      "lat_deg": -70.039084,
+      "lon_deg": 82.644697,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T15:03:35Z",
+      "lat_deg": -52.905342,
+      "lon_deg": 99.431237,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T15:08:30Z",
+      "lat_deg": -35.247661,
+      "lon_deg": 116.217778,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T15:13:25Z",
+      "lat_deg": -17.455983,
+      "lon_deg": 133.004318,
+      "alt_km": 674.0
+    },
+    {
+      "t_utc": "2026-10-05T15:18:20Z",
+      "lat_deg": 0.377638,
+      "lon_deg": 149.790858,
+      "alt_km": 674.0
+    }
+  ],
+  "ground_track_valid": true,
+  "constants_block": {
+    "J2": 0.00108262668,
+    "GM": 398600441800000.0,
+    "R_e": 6378137.0,
+    "omega_sid_rad_s": 7.292115e-05,
+    "gmst_model": "IAU_1982",
+    "citation_id": "run_00000000_8191caecc6dc",
+    "source": {
+      "J2": "EGM2008 second zonal harmonic, value as recorded in SCIENCE Sec A.2; spec II.10 constants table",
+      "GM": "Earth gravitational parameter, NASA GSFC GDC Orbit Primer October 2018 (formula set VERIFIED, SCIENCE Sec F.7), value SCIENCE Sec A.2; spec II.10 constants table",
+      "R_e": "Earth equatorial radius, EGM2008 and WGS84, SCIENCE Sec A.2; spec II.10 constants table",
+      "omega_sid_rad_s": "Earth sidereal rotation rate, SCIENCE Sec A.4; spec II.10 constants table",
+      "gmst_model": "IAU 1982 sidereal time with nutation omitted, model choice and precision note SCIENCE Sec G.11; spec IV constants_block"
+    }
+  }
+}

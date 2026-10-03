@@ -29,8 +29,11 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from backend.api.cache import cache_registry
 from backend.api.config import Settings, get_settings
 from backend.api.errors import INTERNAL_ERROR, ApiError, ContractViolation, UnknownResourceError
+from backend.api.limits import RateLimiter
+from backend.api.orbits import OrbitRegistry
 from backend.api.routes import ROUTERS
 from backend.api.schemas import contract_schema_dir
 
@@ -120,6 +123,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
     )
     application.dependency_overrides[get_settings] = lambda: resolved
+    application.state.settings = resolved
+    application.state.cache_registry = cache_registry(resolved.cache_config)
+    application.state.rate_limiter = RateLimiter(resolved.rate_limit_config)
+    application.state.orbits = OrbitRegistry()
     for router in ROUTERS:
         application.include_router(router, prefix=prefix)
     register_exception_handlers(application)
