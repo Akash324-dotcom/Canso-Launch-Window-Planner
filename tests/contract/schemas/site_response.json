@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "site_response.json",
+  "title": "GET /v1/site response body",
+  "description": "Spec IV.5. Geometry field names are the spec names phi_s_deg, lambda_s_deg and h_s_m, not the issue names lat, lon and alt_m. The spec enumerates the rest of the body in prose without field names, so this object stays open rather than inventing names. operating_hours is untyped in both sources, so it admits a string or an object.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Site name as configured.",
+      "type": "string"
+    },
+    "phi_s_deg": {
+      "description": "Site latitude in degrees. Spec value 45.3.",
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "lambda_s_deg": {
+      "description": "Site longitude in degrees, negative west. Spec value -61.0.",
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "h_s_m": {
+      "description": "Site altitude in metres.",
+      "type": "number"
+    },
+    "corridor": {
+      "type": "object",
+      "properties": {
+        "A_min_deg": {"type": "number"},
+        "A_max_deg": {"type": "number"},
+        "source": {
+          "description": "Source of the corridor bounds, requirement 1 provenance.",
+          "type": "string"
+        },
+        "flag": {
+          "description": "ASSUMPTION where the environmental assessment is qualitative.",
+          "type": "string"
+        }
+      },
+      "required": ["A_min_deg", "A_max_deg", "source", "flag"],
+      "additionalProperties": false
+    },
+    "operating_hours": {
+      "description": "Nominal operating hours, 07:00 to 12:00 local. Type left open: neither source states it.",
+      "type": ["string", "object"]
+    },
+    "car_references": {
+      "description": "Canadian Aviation Regulations references. The spec names 602.43 and 602.44; the list is not frozen so that a further citation does not break the contract.",
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": [
+    "name",
+    "phi_s_deg",
+    "lambda_s_deg",
+    "h_s_m",
+    "corridor",
+    "operating_hours",
+    "car_references"
+  ],
+  "additionalProperties": true
+}

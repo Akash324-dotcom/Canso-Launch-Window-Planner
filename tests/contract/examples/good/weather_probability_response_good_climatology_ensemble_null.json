@@ -1,0 +1,22 @@
+{
+  "date": "2027-01-15",
+  "site": "canso",
+  "p_launch": 0.44,
+  "horizon_label": "CLIMATOLOGY",
+  "forecast_issue_time": null,
+  "ensemble_size": null,
+  "criteria_version": "v1",
+  "components": [
+    {
+      "criterion_id": "wind_850hPa",
+      "p_violation": 0.27,
+      "flag": "PROXY"
+    },
+    {
+      "criterion_id": "lightning_3h",
+      "p_violation": 0.19,
+      "flag": "PROXY"
+    }
+  ],
+  "source": "era5_climatology"
+}

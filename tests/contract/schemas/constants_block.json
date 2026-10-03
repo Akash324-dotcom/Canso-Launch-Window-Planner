@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "constants_block.json",
+  "title": "constants_block",
+  "description": "Spec IV shared building block, always present on result-bearing responses. Values shown are the spec values and are not frozen as constants, so a corrected constant is not a contract break. The source map is written as {...} in the issue, so it stays open.",
+  "type": "object",
+  "properties": {
+    "J2": {
+      "description": "Second zonal harmonic. Spec value 1.08262668e-3.",
+      "type": "number"
+    },
+    "GM": {
+      "description": "Earth gravitational parameter in m^3/s^2. Spec value 3.986004418e14.",
+      "type": "number"
+    },
+    "R_e": {
+      "description": "Earth equatorial radius in m. Spec value 6378137.0.",
+      "type": "number"
+    },
+    "omega_sid_rad_s": {
+      "description": "Sidereal rotation rate in rad/s. Spec value 7.292115e-5.",
+      "type": "number"
+    },
+    "gmst_model": {
+      "description": "Greenwich mean sidereal time model.",
+      "enum": ["IAU_1982"]
+    },
+    "citation_id": {
+      "description": "Run identifier of the form run_YYYYMMDD_..., resolvable through GET /v1/citation.",
+      "type": "string"
+    },
+    "source": {
+      "description": "Source document per constant, as required by spec II.10 provenance.",
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "J2",
+    "GM",
+    "R_e",
+    "omega_sid_rad_s",
+    "gmst_model",
+    "citation_id",
+    "source"
+  ],
+  "additionalProperties": false
+}

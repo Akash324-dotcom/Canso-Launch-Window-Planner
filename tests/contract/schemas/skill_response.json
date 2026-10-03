@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skill_response.json",
+  "title": "GET /v1/validation/skill response body",
+  "description": "Spec IV.4 response, transcribed from the spec including roc_points, skill_horizon_measured_days and constants_block, which the issue field list omits. verification_source and reference_forecast appear in the spec as single quoted values, so they are frozen as single value enums.",
+  "type": "object",
+  "properties": {
+    "period": {
+      "type": "object",
+      "properties": {
+        "start": {"type": "string", "format": "date"},
+        "end": {"type": "string", "format": "date"}
+      },
+      "required": ["start", "end"],
+      "additionalProperties": false
+    },
+    "verification_source": {"enum": ["era5"]},
+    "reference_forecast": {"enum": ["climatology_base_rate"]},
+    "base_rate": {"type": "number", "minimum": 0, "maximum": 1},
+    "skill_series": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lead_time_days": {"type": "number", "minimum": 0},
+          "bs": {"type": "number", "minimum": 0, "maximum": 1},
+          "bs_ref": {"type": "number", "minimum": 0, "maximum": 1},
+          "bss": {"type": "number"},
+          "n_cases": {"type": "integer", "minimum": 0}
+        },
+        "required": [
+          "lead_time_days",
+          "bs",
+          "bs_ref",
+          "bss",
+          "n_cases"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "reliability_bins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "p_center": {"type": "number", "minimum": 0, "maximum": 1},
+          "observed_freq": {"type": "number", "minimum": 0, "maximum": 1},
+          "n": {"type": "integer", "minimum": 0}
+        },
+        "required": ["p_center", "observed_freq", "n"],
+        "additionalProperties": false
+      }
+    },
+    "roc_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "threshold": {"type": "number"},
+          "pod": {"type": "number", "minimum": 0, "maximum": 1},
+          "far": {"type": "number", "minimum": 0, "maximum": 1}
+        },
+        "required": ["threshold", "pod", "far"],
+        "additionalProperties": false
+      }
+    },
+    "skill_horizon_measured_days": {
+      "type": ["number", "null"]
+    },
+    "constants_block": {"$ref": "constants_block.json"}
+  },
+  "required": [
+    "period",
+    "verification_source",
+    "reference_forecast",
+    "base_rate",
+    "skill_series",
+    "reliability_bins",
+    "roc_points",
+    "skill_horizon_measured_days",
+    "constants_block"
+  ],
+  "additionalProperties": false
+}

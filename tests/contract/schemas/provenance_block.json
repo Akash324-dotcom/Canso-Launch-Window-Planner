@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "provenance_block.json",
+  "title": "provenance_block",
+  "description": "Spec IV shared building block. The spec writes site, corridor and row_flags as bare objects, so those three stay open and their contents are filled by ENGINE and WEATHER.",
+  "type": "object",
+  "properties": {
+    "site": {
+      "description": "Site object as read from the site configuration. Open by specification.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "corridor": {
+      "description": "Corridor object as read from the site configuration. Open by specification.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "criteria_version": {
+      "type": "string"
+    },
+    "vehicle_profile_id": {
+      "type": "string"
+    },
+    "row_flags": {
+      "description": "Per-row VERIFIED or ASSUMPTION flags as read from the data files. Open by specification.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "source_files": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": [
+    "site",
+    "corridor",
+    "criteria_version",
+    "vehicle_profile_id",
+    "row_flags",
+    "source_files"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,12 @@
+{
+  "site": {
+    "name": "canso"
+  },
+  "corridor": {
+    "A_min_deg": 100.0,
+    "A_max_deg": 140.0
+  },
+  "vehicle_profile_id": "cyclone4m",
+  "row_flags": {},
+  "source_files": []
+}

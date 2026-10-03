@@ -1,0 +1,16 @@
+{
+  "target": {
+    "type": "CUSTOM",
+    "h_t_km": 700.0,
+    "i_t_deg": 97.6,
+    "raan_deg": null,
+    "ltan_hours": null
+  },
+  "site": "canso",
+  "date_range": {
+    "start": "2026-11-01",
+    "end": "2026-11-20"
+  },
+  "vehicle_profile_id": "cyclone4m",
+  "include_weather": false
+}

@@ -1,0 +1,21 @@
+{
+  "target": {
+    "type": "SSO",
+    "h_t_km": 550.0,
+    "raan_deg": 45.0,
+    "ltan_hours": "10:30"
+  },
+  "site": "canso",
+  "date_range": {
+    "start": "2026-10-05",
+    "end": "2026-10-15"
+  },
+  "vehicle_profile_id": "cyclone4m",
+  "corridor": {
+    "A_min_deg": 100.0,
+    "A_max_deg": 140.0
+  },
+  "criteria_version": "v1",
+  "raan_tolerance_deg": 2.0,
+  "include_weather": true
+}

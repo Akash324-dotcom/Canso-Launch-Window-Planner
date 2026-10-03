@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "windows_request.json",
+  "title": "POST /v1/windows request body",
+  "description": "Spec IV.1 request body. Field names and types transcribed from the spec. Fields the spec gives a default for are optional; target, date_range and vehicle_profile_id are required.",
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "LEO, POLAR, SSO and CUSTOM resolve as described in spec IV.1 type mapping.",
+          "enum": ["LEO", "POLAR", "SSO", "CUSTOM"]
+        },
+        "h_t_km": {
+          "description": "Target altitude in km. Required and non-null when type is CUSTOM.",
+          "type": ["number", "null"]
+        },
+        "i_t_deg": {
+          "description": "Target inclination in degrees. Required and non-null when type is CUSTOM.",
+          "type": ["number", "null"]
+        },
+        "raan_deg": {
+          "description": "Right ascension of the ascending node in degrees. Null means any reachable plane.",
+          "type": ["number", "null"]
+        },
+        "ltan_hours": {
+          "description": "Local time of the ascending node, for example \"10:30\". SSO only.",
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false,
+      "if": {
+        "properties": {"type": {"const": "CUSTOM"}},
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "h_t_km": {"type": "number"},
+          "i_t_deg": {"type": "number"}
+        },
+        "required": ["h_t_km", "i_t_deg"]
+      }
+    },
+    "site": {
+      "description": "Named site in config/. Defaults to \"canso\".",
+      "type": "string",
+      "default": "canso"
+    },
+    "date_range": {
+      "type": "object",
+      "properties": {
+        "start": {"type": "string", "format": "date"},
+        "end": {"type": "string", "format": "date"}
+      },
+      "required": ["start", "end"],
+      "additionalProperties": false
+    },
+    "vehicle_profile_id": {
+      "description": "Vehicle profile identifier, for example \"cyclone4m\".",
+      "type": "string"
+    },
+    "corridor": {
+      "description": "Optional corridor override. Without it the environmental assessment configuration is used.",
+      "type": "object",
+      "properties": {
+        "A_min_deg": {"type": ["number", "null"]},
+        "A_max_deg": {"type": ["number", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "criteria_version": {
+      "description": "Weather criteria version. Null means the current data/criteria_v*.json.",
+      "type": ["string", "null"]
+    },
+    "raan_tolerance_deg": {
+      "description": "RAAN tolerance in degrees. Null means the default for the target class.",
+      "type": ["number", "null"]
+    },
+    "include_weather": {
+      "description": "Whether the weather layer contributes to p_success.",
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": ["target", "date_range", "vehicle_profile_id"],
+  "additionalProperties": false
+}

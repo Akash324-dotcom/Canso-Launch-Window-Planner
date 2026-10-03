@@ -1,0 +1,12 @@
+{
+  "target": {
+    "type": "CUSTOM",
+    "h_t_km": 700.0,
+    "i_t_deg": null
+  },
+  "date_range": {
+    "start": "2026-10-05",
+    "end": "2026-10-15"
+  },
+  "vehicle_profile_id": "cyclone4m"
+}

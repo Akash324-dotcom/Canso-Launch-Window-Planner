@@ -1,0 +1,24 @@
+{
+  "period": {
+    "start": "2026-05-01",
+    "end": "2026-06-30"
+  },
+  "verification_source": "era5",
+  "reference_forecast": "climatology_base_rate",
+  "base_rate": 0.231,
+  "skill_series": [],
+  "reliability_bins": [],
+  "roc_points": [],
+  "skill_horizon_measured_days": null,
+  "constants_block": {
+    "J2": 0.000108262668,
+    "GM": 398600441800000.0,
+    "R_e": 6378137.0,
+    "omega_sid_rad_s": 7.292115e-05,
+    "gmst_model": "IAU_1982",
+    "citation_id": "run_20261003_7f3a91c2",
+    "source": {
+      "J2": "spec II.10 constants table"
+    }
+  }
+}
