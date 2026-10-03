@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "windows_response.json",
+  "title": "POST /v1/windows response body",
+  "description": "Spec IV.1 response. HTTP 200 for every well-formed request, including unreachable targets. Unreachable, empty windows and constraint_fired are domain answers and never HTTP errors (spec IV.7 rules 1 and 3). constants_block and provenance_block are referenced, not copied.",
+  "type": "object",
+  "properties": {
+    "reachable": {"type": "boolean"},
+    "plane_change_dv_ms": {
+      "description": "Plane change cost in m/s. Non-null when reachable is false and the penalty is computable.",
+      "type": ["number", "null"]
+    },
+    "sso_consistency_warning": {
+      "description": "SSO consistency warning. The spec writes it as a bare object, so it stays open.",
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "windows": {
+      "description": "Empty is a valid informative result: no crossing in the date range within tolerance.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/window"}
+    },
+    "constants_block": {"$ref": "constants_block.json"},
+    "provenance_block": {"$ref": "provenance_block.json"},
+    "engine_version": {
+      "description": "Engine version string. Stub responses carry \"stub\".",
+      "type": "string"
+    },
+    "computation_ms": {"type": "number"}
+  },
+  "required": [
+    "reachable",
+    "plane_change_dv_ms",
+    "sso_consistency_warning",
+    "windows",
+    "constants_block",
+    "provenance_block",
+    "engine_version",
+    "computation_ms"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "window": {
+      "type": "object",
+      "properties": {
+        "t_liftoff_utc": {
+          "description": "Liftoff instant, ISO-8601 UTC with a Z suffix.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "t_injection_utc": {
+          "description": "Injection instant, ISO-8601 UTC with a Z suffix.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "raan_deg": {"type": "number"},
+        "azimuth_deg": {
+          "description": "Inertial azimuth, spec II.2.",
+          "type": "number"
+        },
+        "azimuth_compass_deg": {
+          "description": "Azimuth in the rotating frame, spec II.6.",
+          "type": "number"
+        },
+        "reached_inclination_deg": {"type": "number"},
+        "window_width_s": {
+          "description": "Window width from spec II.12.",
+          "type": "number"
+        },
+        "window_center_shift_s": {
+          "description": "Fixed point term, spec II.18.",
+          "type": "number"
+        },
+        "liftoff_instant_error_min": {
+          "description": "Term 2 of spec II.5, the Vehicle Duration bonus quantified.",
+          "type": "number"
+        },
+        "p_success": {
+          "description": "Chance constrained success probability, spec II.23.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_success_components": {"$ref": "#/$defs/p_success_components"},
+        "horizon_label": {"enum": ["FORECAST", "CLIMATOLOGY"]},
+        "forecast_issue_time": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "constraint_fired": {
+          "description": "Null unless a screen or the fixed point stopped this row.",
+          "type": ["string", "null"],
+          "enum": [
+            "fixed_point_no_convergence",
+            "hazard_area",
+            "conjunction_flagged",
+            "criteria_version_missing",
+            null
+          ]
+        },
+        "screens": {"$ref": "#/$defs/screens"}
+      },
+      "required": [
+        "t_liftoff_utc",
+        "t_injection_utc",
+        "raan_deg",
+        "azimuth_deg",
+        "azimuth_compass_deg",
+        "reached_inclination_deg",
+        "window_width_s",
+        "window_center_shift_s",
+        "liftoff_instant_error_min",
+        "p_success",
+        "p_success_components",
+        "horizon_label",
+        "forecast_issue_time",
+        "constraint_fired",
+        "screens"
+      ],
+      "additionalProperties": false
+    },
+    "p_success_components": {
+      "type": "object",
+      "properties": {
+        "weather": {"type": "number", "minimum": 0, "maximum": 1},
+        "range": {"type": "number", "minimum": 0, "maximum": 1},
+        "conjunction": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "required": ["weather", "range", "conjunction"],
+      "additionalProperties": false
+    },
+    "screens": {
+      "type": "object",
+      "properties": {
+        "hazard": {"enum": ["pass", "fail"]},
+        "conjunction": {"enum": ["clear", "flagged"]},
+        "notam": {"enum": ["none", "active"]}
+      },
+      "required": ["hazard", "conjunction", "notam"],
+      "additionalProperties": false
+    }
+  }
+}

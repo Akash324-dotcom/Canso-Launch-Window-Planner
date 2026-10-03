@@ -1,0 +1,68 @@
+{
+  "reachable": true,
+  "plane_change_dv_ms": null,
+  "sso_consistency_warning": null,
+  "windows": [
+    {
+      "t_liftoff_utc": "2026-10-05T13:42:11Z",
+      "t_injection_utc": "2026-10-05T13:47:26Z",
+      "raan_deg": 45.0,
+      "azimuth_deg": 118.4,
+      "azimuth_compass_deg": 104.9,
+      "reached_inclination_deg": 98.1,
+      "window_width_s": 620.0,
+      "window_center_shift_s": 41.5,
+      "liftoff_instant_error_min": 2.5,
+      "p_success": 0.62,
+      "p_success_components": {
+        "weather": 0.62,
+        "range": 1.0,
+        "conjunction": 1.0
+      },
+      "horizon_label": "FORECAST",
+      "forecast_issue_time": "2026-10-03T09:00:00Z",
+      "constraint_fired": null,
+      "screens": {
+        "hazard": "unknown",
+        "conjunction": "clear",
+        "notam": "none"
+      }
+    }
+  ],
+  "constants_block": {
+    "J2": 0.000108262668,
+    "GM": 398600441800000.0,
+    "R_e": 6378137.0,
+    "omega_sid_rad_s": 7.292115e-05,
+    "gmst_model": "IAU_1982",
+    "citation_id": "run_20261003_7f3a91c2",
+    "source": {
+      "J2": "spec II.10 constants table",
+      "GM": "spec II.10 constants table",
+      "R_e": "spec II.10 constants table",
+      "omega_sid_rad_s": "spec II.10 constants table",
+      "gmst_model": "spec IV constants_block"
+    }
+  },
+  "provenance_block": {
+    "site": {
+      "name": "canso"
+    },
+    "corridor": {
+      "A_min_deg": 100.0,
+      "A_max_deg": 140.0
+    },
+    "criteria_version": "v1",
+    "vehicle_profile_id": "cyclone4m",
+    "row_flags": {
+      "corridor_A_min_deg": "ASSUMPTION",
+      "corridor_A_max_deg": "ASSUMPTION"
+    },
+    "source_files": [
+      "backend/engine/data/site_canso.json",
+      "backend/weather/data/criteria_v1.json"
+    ]
+  },
+  "engine_version": "engine-0.1.0",
+  "computation_ms": 8.7
+}

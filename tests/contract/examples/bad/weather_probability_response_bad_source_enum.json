@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-05",
+  "site": "canso",
+  "p_launch": 0.58,
+  "horizon_label": "FORECAST",
+  "forecast_issue_time": "2026-10-03T09:00:00Z",
+  "ensemble_size": 51,
+  "criteria_version": "v1",
+  "components": [
+    {
+      "criterion_id": "wind_850hPa",
+      "p_violation": 0.12,
+      "flag": "VERIFIED"
+    },
+    {
+      "criterion_id": "lightning_3h",
+      "p_violation": 0.21,
+      "flag": "PROXY"
+    },
+    {
+      "criterion_id": "cloud_ceiling",
+      "p_violation": 0.08,
+      "flag": "VERIFIED"
+    }
+  ],
+  "source": "open-meteo"
+}

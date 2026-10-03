@@ -1,0 +1,18 @@
+{
+  "site": {
+    "name": "canso",
+    "phi_s_deg": 45.3,
+    "lambda_s_deg": -61.0
+  },
+  "corridor": {
+    "A_min_deg": 100.0,
+    "A_max_deg": 140.0,
+    "flag": "ASSUMPTION"
+  },
+  "criteria_version": "v1",
+  "vehicle_profile_id": "cyclone4m",
+  "row_flags": {
+    "wind_850hPa": "PROXY"
+  },
+  "source_files": []
+}

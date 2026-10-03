@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "weather_probability_response.json",
+  "title": "GET /v1/weather/probability response body",
+  "description": "Spec IV.3 response. site is typed as a string with the documented default \"canso\" because the endpoint takes a site id (spec IV.1 and spec IV.7 rule 2 reserve a 404 for an unknown site id).",
+  "type": "object",
+  "properties": {
+    "date": {"type": "string", "format": "date"},
+    "site": {"type": "string", "default": "canso"},
+    "p_launch": {"type": "number", "minimum": 0, "maximum": 1},
+    "horizon_label": {"enum": ["FORECAST", "CLIMATOLOGY"]},
+    "forecast_issue_time": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "ensemble_size": {
+      "description": "Ensemble member count. Null in CLIMATOLOGY mode.",
+      "type": ["number", "null"]
+    },
+    "criteria_version": {"type": "string"},
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterion_id": {"type": "string"},
+          "p_violation": {"type": "number", "minimum": 0, "maximum": 1},
+          "flag": {"enum": ["VERIFIED", "PROXY"]}
+        },
+        "required": ["criterion_id", "p_violation", "flag"],
+        "additionalProperties": false
+      }
+    },
+    "source": {
+      "enum": ["open_meteo", "gdps", "era5_climatology", "snapshot_cache"]
+    }
+  },
+  "required": [
+    "date",
+    "site",
+    "p_launch",
+    "horizon_label",
+    "forecast_issue_time",
+    "ensemble_size",
+    "criteria_version",
+    "components",
+    "source"
+  ],
+  "additionalProperties": false
+}

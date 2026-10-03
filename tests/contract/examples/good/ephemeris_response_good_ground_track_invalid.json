@@ -1,0 +1,17 @@
+{
+  "orbit_id": "conj-2026-0142",
+  "frame": "ECEF",
+  "points": [],
+  "ground_track_valid": false,
+  "constants_block": {
+    "J2": 0.000108262668,
+    "GM": 398600441800000.0,
+    "R_e": 6378137.0,
+    "omega_sid_rad_s": 7.292115e-05,
+    "gmst_model": "IAU_1982",
+    "citation_id": "run_20261003_7f3a91c2",
+    "source": {
+      "J2": "spec II.10 constants table"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ephemeris_response.json",
+  "title": "GET /v1/orbits/{id}/ephemeris response body",
+  "description": "Spec IV.2 response. Valid ids are leo45, polar879, sso981 and custom ids created implicitly by POST /v1/windows.",
+  "type": "object",
+  "properties": {
+    "orbit_id": {"type": "string"},
+    "frame": {"enum": ["ECEF"]},
+    "points": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/point"}
+    },
+    "ground_track_valid": {
+      "description": "False beyond the 3-day TLE or propagation horizon for conjunction-derived tracks.",
+      "type": "boolean"
+    },
+    "constants_block": {"$ref": "constants_block.json"}
+  },
+  "required": [
+    "orbit_id",
+    "frame",
+    "points",
+    "ground_track_valid",
+    "constants_block"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "point": {
+      "type": "object",
+      "properties": {
+        "t_utc": {
+          "description": "Epoch of the sample, ISO-8601 UTC with a Z suffix.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "lat_deg": {"type": "number", "minimum": -90, "maximum": 90},
+        "lon_deg": {"type": "number", "minimum": -180, "maximum": 180},
+        "alt_km": {"type": "number"}
+      },
+      "required": ["t_utc", "lat_deg", "lon_deg", "alt_km"],
+      "additionalProperties": false
+    }
+  }
+}

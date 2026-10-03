@@ -1,0 +1,10 @@
+{
+  "target": {
+    "type": "LEO"
+  },
+  "date_range": {
+    "start": "05-10-2026",
+    "end": "2026-10-15"
+  },
+  "vehicle_profile_id": "cyclone4m"
+}
