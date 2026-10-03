@@ -567,3 +567,45 @@ Verified with `git diff main...HEAD --stat`. No file in backend/weather/,
 backend/api/, backend/fixtures/, frontend/, tests/contract/, scripts/ or
 pyproject.toml was created, edited or deleted. Issue #6, final integration, is NOT
 started, as instructed.
+
+---
+
+### Acceptance criteria, verified on a clean clone
+
+Clean clone of `engine/issue-02` into /tmp, `pip install -e ".[dev]"`:
+
+```
+python -m pytest backend/engine/ -q    ->  244 passed
+python -m pytest tests/contract/ -q     ->   70 passed
+```
+
+1. `pytest backend/engine/ -q` green on a clean clone. **MET.**
+2. `pytest tests/contract/test_engine_schema.py -q` green. **NOT MET BY ME, AND
+   IT CANNOT BE.** That file lives in `tests/contract/`, which is API-owned, and
+   it does not exist. Creating it would be editing another workflow's directory.
+   Instead the engine's half of the same obligation is implemented in
+   `backend/engine/tests/test_schema_conformance.py`: it composes the API's five
+   fields onto the engine's output and validates the RESULT against the frozen
+   `windows_response.json`, over five request shapes and both horizon labels, with
+   `p_success` at 0.0 and 1.0. It includes two guards against being vacuous: one
+   asserts an invented top-level field is REJECTED, and one asserts the reachable
+   cases actually produce a window. 23 passed. This is an issue for the API owner,
+   recorded in DONE.md.
+3. G1 credibility test passes with a recorded result. **MET.** Four anchors,
+   table above.
+4. The 45.1 honesty test returns `reachable: false` with the penalty. **MET.**
+   Observed directly: `reachable = False`, `plane_change_dv_ms = 26.768304`
+   against the spec's 26.8, `windows = []`, and no exception: a domain answer
+   with HTTP 200 semantics, never a 4xx.
+5. `grep -rn "3.99" backend/engine/*.py` returns 0. **MET.** `grep` exits 1, that
+   is zero hits. The rejected constant appears only in `tests/test_j2.py`, where
+   it is the subject of the falsification assertion, and in a prose note in
+   `j2.py` that was reworded so the literal is absent from the module too.
+6. README and DONE.md exist. **MET.**
+
+FULL SUITE: `python -m pytest backend/engine/ tests/contract/ -q` -> `337 passed`.
+
+SCOPE DISCIPLINE VERIFIED. `git diff main...HEAD --name-only` lists only
+`backend/engine/**`. A `.DS_Store` that `git add -A` had swept in was untracked in
+a follow-up commit, restoring the branch diff to the engine directory alone. No
+em dashes and no emojis anywhere under `backend/engine/`.
