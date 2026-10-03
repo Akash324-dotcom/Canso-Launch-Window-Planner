@@ -83,17 +83,24 @@ def load_weather_document(settings: Settings) -> dict[str, Any]:
 
 
 def fixture_sources(
-    settings: Settings, effective_request: dict[str, Any], engine_is_live: bool
+    settings: Settings,
+    effective_request: dict[str, Any],
+    engine_is_live: bool,
+    weather_origin: str | None = None,
 ) -> list[str]:
     """The offline documents this request will read, for the provenance block.
 
-    The provenance block reports the files that were actually read, so the route asks
-    the stub layer which files that will be rather than guessing them.
+    The provenance block reports the files that were actually read, so the route
+    asks the stub layer which files that will be rather than guessing them. The
+    weather snapshot is listed only when the weather fields actually came from it:
+    a run whose weather fields were excluded or degraded to the neutral set did not
+    read it, and claiming otherwise would be the sort of gap requirement 1 exists
+    to prevent.
     """
     if engine_is_live:
         return []
     sources = [settings.relative(settings.fixture_path("windows"))]
-    if bool(effective_request.get("include_weather", True)):
+    if weather_origin in ("record", "cache"):
         sources.append(settings.relative(settings.fixture_path("weather")))
     return sources
 
@@ -320,39 +327,3 @@ def document_corridor(site: dict[str, Any], override: dict[str, Any] | None) -> 
         if override and override.get(bound) is not None:
             corridor[bound] = override[bound]
     return corridor
-
-
-# ---------------------------------------------------------------------- weather
-
-
-def compose_weather(
-    settings: Settings, effective_request: dict[str, Any], window: dict[str, Any]
-) -> dict[str, Any]:
-    """The four weather-derived fields of one window row, spec IV.1.
-
-    With ``include_weather`` false the schema forbids null for three of the four, so
-    the schema-valid neutral value is used instead and recorded in the log: weather
-    imposes no penalty because it was excluded, the probability is the product of the
-    two deterministic pre-screens, and the horizon label is CLIMATOLOGY with no
-    forecast issue time, which is the honest label for a value no forecast produced.
-    """
-    components = dict(window.get("p_success_components", {}))
-    deterministic = float(components.get("range", 1.0)) * float(components.get("conjunction", 1.0))
-    if not bool(effective_request.get("include_weather", True)):
-        components["weather"] = 1.0
-        return {
-            "p_success": deterministic,
-            "p_success_components": components,
-            "horizon_label": "CLIMATOLOGY",
-            "forecast_issue_time": None,
-        }
-
-    snapshot = load_weather_document(settings)
-    weather = float(snapshot["p_launch"])
-    components["weather"] = weather
-    return {
-        "p_success": weather * deterministic,
-        "p_success_components": components,
-        "horizon_label": snapshot["horizon_label"],
-        "forecast_issue_time": snapshot["forecast_issue_time"],
-    }

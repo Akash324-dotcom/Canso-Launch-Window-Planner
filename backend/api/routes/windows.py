@@ -18,11 +18,16 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Request
 
+from backend.api import citation as run_store
 from backend.api import stubs
+from backend.api.cache import CacheRegistry, cache_key
 from backend.api.config import Settings, get_settings
 from backend.api.errors import ContractViolation
+from backend.api.limits import POST_WINDOWS_BUCKET
+from backend.api.middleware import rate_limited
+from backend.api.orbits import RegisteredOrbit, orbit_id_for_target
 from backend.api.request_model import effective_request
 from backend.api.schemas import load_schemas, validation_message
 from backend.api.schemas import errors_for as schema_errors
@@ -103,27 +108,101 @@ def windows_openapi_extra() -> dict[str, Any]:
     }
 
 
-@router.post("/windows", openapi_extra=windows_openapi_extra())
+WINDOWS_CACHE = "windows"
+
+
+@router.post(
+    "/windows",
+    openapi_extra=windows_openapi_extra(),
+    dependencies=[Depends(rate_limited(POST_WINDOWS_BUCKET))],
+)
 def create_windows(
     body: dict[str, Any] = Body(...),
+    http_request: Request = None,  # type: ignore[assignment]
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """Compute launch windows for one target, site, date range and vehicle."""
     validate_request_body(body)
     request = effective_request(body, settings)
+    registry = _cache_registry(http_request)
+
+    key = cache_key(WINDOWS_CACHE, request)
+    entry = registry[WINDOWS_CACHE].get(key) if registry is not None else None
+    if entry is not None:
+        return copy.deepcopy(entry.value)
 
     compute_windows = _engine_compute_windows()
     if compute_windows is not None:
         engine_body = copy.deepcopy(compute_windows(copy.deepcopy(request)))
         engine_version = str(engine_body.get("engine_version") or "engine")
-        sources: list[str] = []
+        engine_is_live = True
     else:
         engine_body = stubs.compute_windows(settings, request)
         engine_version = stubs.STUB_ENGINE_VERSION
-        sources = stubs.fixture_sources(settings, request, engine_is_live=False)
+        engine_is_live = False
 
-    composed = compose_response(engine_body, engine_version, request, settings, sources)
+    composed = compose_response(
+        engine_body, engine_version, request, settings, registry=registry, engine_is_live=engine_is_live
+    )
+    store_run(settings, body, request, composed, http_request)
+    if registry is not None:
+        registry[WINDOWS_CACHE].put(key, composed)
     return composed
+
+
+def store_run(
+    settings: Settings,
+    body: dict[str, Any],
+    request: dict[str, Any],
+    composed: dict[str, Any],
+    http_request: Request | None = None,
+) -> RegisteredOrbit:
+    """Record the run and the orbit id it created, spec IV.6.
+
+    The record is the durable half of the identifier: it is what
+    ``GET /v1/citation`` reads and what makes a custom orbit id resolvable after a
+    restart, because spec IV.2 expects a POST to create orbit ids implicitly and the
+    frozen response schema has no field in which to return one.
+    """
+    orbit = _record_orbit(settings, request, composed)
+    run_store.write_run(
+        settings,
+        run_store.build_run_record(
+            settings=settings,
+            body=body,
+            effective_request=request,
+            constants_block=composed["constants_block"],
+            provenance_block=composed["provenance_block"],
+            engine_version=composed["engine_version"],
+            orbit_id=orbit.orbit_id if orbit is not None else None,
+        ),
+    )
+    if orbit is not None and http_request is not None:
+        http_request.app.state.orbits.register(orbit)
+    return orbit
+
+
+def _record_orbit(
+    settings: Settings, request: dict[str, Any], composed: dict[str, Any]
+) -> RegisteredOrbit | None:
+    """The orbit this run describes, or None when the target could not be resolved."""
+    try:
+        resolved = stubs.resolve_target(settings, request["target"])
+    except (KeyError, ValueError, TypeError):
+        return None
+    return RegisteredOrbit(
+        orbit_id=orbit_id_for_target(settings, resolved),
+        i_t_deg=float(resolved["i_t_deg"]),
+        h_t_km=None if resolved.get("h_t_km") is None else float(resolved["h_t_km"]),
+        preset=None,
+        citation_id=str(composed["constants_block"]["citation_id"]),
+        source_files=tuple(composed["provenance_block"]["source_files"]),
+    )
+
+
+def _cache_registry(request: Request) -> CacheRegistry | None:
+    """The application's cache registry, when the application has one."""
+    return getattr(request.app.state, "cache_registry", None)
 
 
 def compose_response(
@@ -131,6 +210,8 @@ def compose_response(
     engine_version: str,
     request: dict[str, Any],
     settings: Settings,
+    registry: CacheRegistry | None = None,
+    engine_is_live: bool = False,
     sources: list[str] | None = None,
 ) -> dict[str, Any]:
     """Compose the full spec IV.1 response from the engine body.
@@ -140,6 +221,7 @@ def compose_response(
     configuration, which is the only place the constants and the site record live.
     """
     from backend.api.provenance import stamp_provenance
+    from backend.api.weather import compose_window_row, window_weather
 
     body: dict[str, Any] = {
         "reachable": bool(engine_body["reachable"]),
@@ -149,16 +231,22 @@ def compose_response(
         "engine_version": engine_version,
         "computation_ms": engine_body.get("computation_ms", 0.0),
     }
+    document, weather_origin = window_weather(settings, request, registry)
     for window in engine_body.get("windows", []):
         row = copy.deepcopy(window)
-        row.update(stubs.compose_weather(settings, request, window))
+        row.update(compose_window_row(document, window))
         body["windows"].append(row)
+
+    if sources is None:
+        sources = stubs.fixture_sources(
+            settings, request, engine_is_live=engine_is_live, weather_origin=weather_origin
+        )
 
     stamped, _ = stamp_provenance(
         {key: value for key, value in body.items() if key != "computation_ms"},
         settings=settings,
         effective_request=request,
-        source_files=sources or [],
+        source_files=sources,
     )
     body["constants_block"] = stamped["constants_block"]
     body["provenance_block"] = stamped["provenance_block"]

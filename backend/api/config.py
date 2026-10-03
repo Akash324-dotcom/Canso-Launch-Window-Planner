@@ -58,6 +58,7 @@ class Settings:
     data_dir: Path
     root: Path
     sites: dict[str, Path] = field(default_factory=dict)
+    runs_dir_override: Path | None = None
 
     # ------------------------------------------------------------------ load
 
@@ -77,6 +78,14 @@ class Settings:
     def with_fixture_overrides(self, **fixtures: str) -> "Settings":
         """A copy whose offline fixture paths are replaced. Used by tests."""
         return replace(self, service={**self.service, "fixtures": {**self.fixture_paths, **fixtures}})
+
+    def with_service_overrides(self, section: str, **values: Any) -> "Settings":
+        """A copy with one configuration section partially replaced. Used by tests."""
+        return replace(self, service={**self.service, section: {**self.service[section], **values}})
+
+    def with_runs_dir(self, path: Path | str) -> "Settings":
+        """A copy whose stored run records go elsewhere. Used by tests."""
+        return replace(self, runs_dir_override=Path(path))
 
     # ----------------------------------------------------------- accessors
 
@@ -120,6 +129,45 @@ class Settings:
     def retry_after_s(self) -> dict[str, int]:
         return {key: int(value) for key, value in self.service["retry_after_s"].items()}
 
+    @property
+    def cache_config(self) -> dict[str, Any]:
+        """Spec IV.8 cache lifetimes, in seconds. Zero means that cache is off."""
+        return dict(self.service["cache"])
+
+    @property
+    def rate_limit_config(self) -> dict[str, Any]:
+        """Spec IV.8 request budgets. Never a literal in source."""
+        return dict(self.service["rate_limit"])
+
+    @property
+    def ephemeris_config(self) -> dict[str, Any]:
+        return dict(self.service["ephemeris"])
+
+    @property
+    def skill_config(self) -> dict[str, Any]:
+        return dict(self.service["skill"])
+
+    @property
+    def orbits_config(self) -> dict[str, Any]:
+        return dict(self.service["orbits"])
+
+    @property
+    def site_config(self) -> dict[str, Any]:
+        return dict(self.service["site"])
+
+    @property
+    def provenance_table(self) -> dict[str, Any]:
+        """The spec II.10 provenance table, serialised by GET /v1/citation."""
+        return json.loads((self.data_dir / "provenance_table.json").read_text(encoding="utf-8"))
+
+    def base_track_path(self, orbit_id: str) -> Path:
+        """Path of the recorded offline ground-track segment for one orbit id."""
+        return self.resolve(self.ephemeris_config["base_tracks"][orbit_id])
+
+    def run_record_path(self, citation_id: str) -> Path:
+        """Path of one stored run record, spec IV.6."""
+        return self.runs_dir / f"{citation_id}.json"
+
     def fixture_path(self, name: str) -> Path:
         """Absolute path of one offline fixture document."""
         return self.resolve(self.fixture_paths[name])
@@ -153,6 +201,11 @@ class Settings:
 
     def site_document(self, site_id: str) -> dict[str, Any]:
         return json.loads(self.site_path(site_id).read_text(encoding="utf-8"))
+
+    @property
+    def runs_dir(self) -> Path:
+        """Directory the stored run records are written to."""
+        return self.runs_dir_override or self.resolve(self.service["runs_dir"])
 
     def vehicle_profile_path(self, vehicle_profile_id: str) -> Path:
         """Path of the vehicle profile document, which ENGINE owns.

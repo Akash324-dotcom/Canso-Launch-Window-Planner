@@ -28,6 +28,7 @@ from backend.api.config import Settings
 citation_id_prefix = "run_"
 CITATION_ID_DATE_FORMAT = "%Y%m%d"
 CITATION_ID_HEX_LENGTH = 12
+CONFIGURATION_ID_DATE = "00000000"
 
 CONSTANT_NAMES = ("J2", "GM", "R_e", "omega_sid_rad_s", "gmst_model")
 REQUIRED_CONSTANTS_FIELDS = (*CONSTANT_NAMES, "citation_id", "source")
@@ -123,6 +124,18 @@ def make_citation_id(
     return f"{citation_id_prefix}{day}_{digest[:CITATION_ID_HEX_LENGTH]}"
 
 
+def make_configuration_id(kind: str, constants_payload: Any, config_payload: Any) -> str:
+    """Identifier for a dated-free configuration read, such as ``GET /v1/site``.
+
+    The shape of a run identifier is kept so that a client parses one form, and
+    the date part is ``00000000``, which is not a calendar date. That is the point:
+    a reader can tell a content-addressed configuration read from a dated run
+    without a second field, and neither kind of value is invented from the clock.
+    """
+    digest = sha256_of({"constants": constants_payload, "config": config_payload, "kind": kind})
+    return f"{citation_id_prefix}{CONFIGURATION_ID_DATE}_{digest[:CITATION_ID_HEX_LENGTH]}"
+
+
 # ------------------------------------------------------------------- the blocks
 
 
@@ -133,6 +146,34 @@ def build_constants_block(constants: Constants, citation_id: str) -> dict[str, A
         "citation_id": citation_id,
         "source": {name: constants.sources[name] for name in CONSTANT_NAMES},
     }
+
+
+def constants_block_for(
+    settings: Settings,
+    *,
+    date_start: str | None = None,
+    request_payload: Any = None,
+    kind: str = "configuration",
+) -> dict[str, Any]:
+    """The spec IV ``constants_block`` for a response that is not a window run.
+
+    Spec IV requires the block on every result-bearing response, and its
+    ``citation_id`` is required, so the read endpoints carry one too. A read that
+    has a date in the request, such as the weather and ephemeris endpoints, is
+    dated by that request; a read that has none, such as ``GET /v1/site``, is
+    content addressed and takes the ``00000000`` date part.
+    """
+    constants = load_constants(settings)
+    if date_start is None:
+        citation_id = make_configuration_id(kind, constants.as_payload(), settings.service)
+    else:
+        citation_id = make_citation_id(
+            effective_request=request_payload or {},
+            constants_payload=constants.as_payload(),
+            config_payload=settings.service,
+            date_start=date_start,
+        )
+    return build_constants_block(constants, citation_id=citation_id)
 
 
 def build_provenance_block(

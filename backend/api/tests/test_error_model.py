@@ -93,6 +93,55 @@ def test_openapi_success_response_is_the_frozen_response_schema(client: TestClie
     assert served == frozen
 
 
+FROZEN_RESPONSE_SCHEMAS = {
+    ("/v1/weather/probability", "get"): "weather_probability_response",
+    ("/v1/validation/skill", "get"): "skill_response",
+    ("/v1/site", "get"): "site_response",
+    ("/v1/orbits/{orbit_id}/ephemeris", "get"): "ephemeris_response",
+}
+
+
+def test_every_endpoint_is_served_under_the_versioned_prefix(client: TestClient) -> None:
+    document = client.get("/v1/openapi.json").json()
+    assert sorted(document["paths"]) == sorted(
+        [
+            "/v1/citation",
+            "/v1/health",
+            "/v1/orbits/{orbit_id}/ephemeris",
+            "/v1/site",
+            "/v1/validation/skill",
+            "/v1/weather/probability",
+            "/v1/windows",
+        ]
+    )
+
+
+@pytest.mark.parametrize(("path", "method"), sorted(FROZEN_RESPONSE_SCHEMAS))
+def test_every_read_endpoint_publishes_its_frozen_schema(
+    client: TestClient, path: str, method: str
+) -> None:
+    """Seam 2 holds for the readers of the OpenAPI document as well."""
+    document = client.get("/v1/openapi.json").json()
+    served = document["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
+    frozen = json.loads(
+        (app_module.REPO_ROOT / "tests" / "contract" / "schemas" / f"{FROZEN_RESPONSE_SCHEMAS[(path, method)]}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert served == frozen
+
+
+def test_every_endpoint_documents_the_four_statuses_of_rule_two(client: TestClient) -> None:
+    document = client.get("/v1/openapi.json").json()
+    for path, operations in document["paths"].items():
+        if path == "/v1/health":
+            continue
+        for method, operation in operations.items():
+            responses = operation["responses"]
+            for status in ("404", "422", "429", "503"):
+                assert status in responses, (path, method, status)
+
+
 # --------------------------------------------------------------------------
 # Rule 1: physics answers are 200
 # --------------------------------------------------------------------------
