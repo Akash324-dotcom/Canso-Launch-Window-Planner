@@ -1,4 +1,4 @@
-# Integration Contract — read this first, every workflow
+# Integration Contract - read this first, every workflow
 
 Challenge 2 "Mission Control". Launch Window Decision Engine, Spaceport Nova Scotia (Canso, 45.3 N, 61.0 W). Four developers, four parallel workflows, one final `git pull`. This document is the binding interface between the four. Nothing in your workflow may contradict it.
 
@@ -101,12 +101,12 @@ A schema file may only be changed by API, and a change is announced in the issue
 
 | Gate | Owner | Test that defines it |
 |---|---|---|
-| **G0 — contract frozen** | API | `pytest tests/contract/` green with schemas only, no implementations |
-| **G1 — engine credible** | ENGINE | spec III.2: reproduces 3-5 published launch windows within 5 minutes |
-| **G2 — weather honest** | WEATHER | spec III.4: hindcast Brier skill > 0 against climatology, reliability diagram produced |
-| **G3 — API live** | API | spec III.6: determinism and provenance echo on every response |
-| **G4 — frontend complete** | FRONTEND | spec V.7 requirements mapping table, all slide features present, works on fixtures with network off |
-| **G5 — final integration** | you (final touch) | `python scripts/integration_test.py` green on a clean clone |
+| **G0 - contract frozen** | API | `pytest tests/contract/` green with schemas only, no implementations |
+| **G1 - engine credible** | ENGINE | spec III.2: reproduces 3-5 published launch windows within 5 minutes |
+| **G2 - weather honest** | WEATHER | spec III.4: hindcast Brier skill > 0 against climatology, reliability diagram produced |
+| **G3 - API live** | API | spec III.6: determinism and provenance echo on every response |
+| **G4 - frontend complete** | FRONTEND | spec V.7 requirements mapping table, all slide features present, works on fixtures with network off |
+| **G5 - final integration** | you (final touch) | `python scripts/integration_test.py` green on a clean clone |
 
 **G1 blocks frontend work on real data.** FRONTEND proceeds on fixtures from hour zero and switches to live data when G1 and G3 pass.
 
@@ -117,7 +117,7 @@ A schema file may only be changed by API, and a change is announced in the issue
 | Weather forecast, 16 d hourly | Open-Meteo | free, no key, probed HTTP 200 | WEATHER |
 | Ensemble members | Open-Meteo ensemble, GEFS/NOMADS fallback | free, no key | WEATHER |
 | Official Canadian model | ECCC GeoMet (probed 200), Datamart `dd.weather.gc.ca` | free, anonymous | WEATHER |
-| Hindcast / climatology | ERA5 via Copernicus CDS, fallback Open-Meteo historical archive | **free account required — request day one** | WEATHER |
+| Hindcast / climatology | ERA5 via Copernicus CDS, fallback Open-Meteo historical archive | **free account required - request day one** | WEATHER |
 | Space objects | CelesTrak (HTTP 200, no key); Space-Track account optional | free | ENGINE |
 | Site geometry, corridor | Canso environmental assessment PDFs, CARs 602.43/602.44 | public | ENGINE |
 | Vehicle ascent profiles | Cyclone-4M user guide; each row VERIFIED or ASSUMPTION | public | ENGINE |

@@ -1,6 +1,6 @@
-# [WEATHER] Probabilistic launch-weather layer: P(L|d), climatology, hindcast validation — GATE G2
+# [WEATHER] Probabilistic launch-weather layer: P(L|d), climatology, hindcast validation - GATE G2
 
-**Assigned to:** Het (GitHub: TBD) — holds the data-API accounts.
+**Assigned to:** Het (GitHub: TBD) - holds the data-API accounts.
 
 **Owner role:** WEATHER developer. **Depends on:** G0 contract. **Blocks:** API composition; carries the Originality rubric row.
 **You own:** `backend/weather/**` and nothing else.
@@ -29,10 +29,10 @@ def hindcast(period_start: str, period_end: str, lead_max: int = 10) -> dict
 ## Task backlog (TDD)
 
 ### W0 Scaffold (30 min)
-- [ ] TEST: `probability("2026-10-07", "canso")` imports and returns the spec IV.3 key set — RED, then stub — GREEN
+- [ ] TEST: `probability("2026-10-07", "canso")` imports and returns the spec IV.3 key set - RED, then stub - GREEN
 - [ ] Commit the first version of `backend/fixtures/weather.json` (FRONTEND consumes it)
 
-### W1 Criteria table — do this early, everything depends on it (1.5 h)
+### W1 Criteria table - do this early, everything depends on it (1.5 h)
 - [ ] TEST: `criteria_v1.json` loads; every row has `criterion_id`, `parameter`, `limit`, `unit`, `source_citation`, `flag` (VERIFIED|PROXY), `comparison` (lt|gt|between)
 - [ ] TEST: **every row flagged VERIFIED has a non-empty source.** A row without a verifiable source must be PROXY. Enforce it in a test, not a convention
 - [ ] DATA: write `data/criteria_v1.json` from the spec's 27-row variable inventory: surface wind speed and gusts, direction, visibility, precipitation type and rate, ceiling, temperature, lightning, upper-level wind at 850/700/500/300/200 hPa, cloud cover, and the rest of the inventory
@@ -45,20 +45,20 @@ def hindcast(period_start: str, period_end: str, lead_max: int = 10) -> dict
 - [ ] TEST: every fetch result carries `forecast_issue_time`; a missing issue time is a bug
 - [ ] TEST: unit conversion is explicit and one worked value is asserted end to end (km/h to m/s and back)
 - [ ] IMPLEMENT `fetch.py` with cache keyed `(site, forecast_issue_time)`
-- [ ] DATA: probe and record in `data/sources.json` with HTTP status and access date: Open-Meteo forecast (HTTP 200 confirmed), Open-Meteo ensemble (HTTP 200 confirmed), ECCC GeoMet (HTTP 200), ECCC Datamart (root is date-partitioned, `model_gem_global` 404'd in our probes — record exactly what you find), GEFS via NOMADS, EC ADS. Define the fallback order
+- [ ] DATA: probe and record in `data/sources.json` with HTTP status and access date: Open-Meteo forecast (HTTP 200 confirmed), Open-Meteo ensemble (HTTP 200 confirmed), ECCC GeoMet (HTTP 200), ECCC Datamart (root is date-partitioned, `model_gem_global` 404'd in our probes - record exactly what you find), GEFS via NOMADS, EC ADS. Define the fallback order
 - [ ] TEST: primary unreachable falls back to the next source and the response `source` field says which answered
 
-### W3 Ensemble P(L|d) for days 0-10 — FORECAST mode (2 h)
-- [ ] TEST: with a mock ensemble of N members, `p_launch` equals the fraction satisfying all criteria — worked case N=10, 6 pass, expect 0.6
+### W3 Ensemble P(L|d) for days 0-10 - FORECAST mode (2 h)
+- [ ] TEST: with a mock ensemble of N members, `p_launch` equals the fraction satisfying all criteria - worked case N=10, 6 pass, expect 0.6
 - [ ] TEST: `horizon_label == "FORECAST"` within 10 days of the issue time
 - [ ] TEST: `components[]` has one row per criterion with `p_violation` and the row's flag
 - [ ] TEST: `ensemble_size` is reported; **if only a deterministic forecast exists, do not fabricate a probability.** Either return `p_launch: null` with a `source` explaining why and let CLIMATOLOGY carry those days, or apply a documented single-member method and say so. Encode whichever you choose as a test
 - [ ] IMPLEMENT `ensemble.py`
 
-### W4 Climatology beyond day 10 — CLIMATOLOGY mode (2 h)
+### W4 Climatology beyond day 10 - CLIMATOLOGY mode (2 h)
 - [ ] TEST: `horizon_label == "CLIMATOLOGY"` beyond day 10; `ensemble_size` and `forecast_issue_time` are null
 - [ ] DATA: build `data/climatology_canso.json` = P(L | month, hour of day). Preferred source ERA5 (the account you requested); fallback Open-Meteo historical archive (`archive-api.open-meteo.com`, HTTP 200, since 2021). Minimum 3 full years; state the period in the file metadata
-- [ ] Method: for each (month, hour) bin, the fraction of historical hours satisfying all criteria for the chosen version. Document the binning. **Any bin with fewer than 30 samples is flagged `low_confidence: true`** — a thin bin is not a probability
+- [ ] Method: for each (month, hour) bin, the fraction of historical hours satisfying all criteria for the chosen version. Document the binning. **Any bin with fewer than 30 samples is flagged `low_confidence: true`** - a thin bin is not a probability
 - [ ] TEST: every bin carries `n` and either passes the 30-sample floor or is flagged
 - [ ] TEST: no bin returns exactly 0 or exactly 1 without a flag
 - [ ] The JSON carries `source`, `period_start`, `period_end`, `criteria_version_used`, `generated_at`
@@ -67,22 +67,22 @@ def hindcast(period_start: str, period_end: str, lead_max: int = 10) -> dict
 - [ ] TEST: the 10-day boundary comes from `data/skill_horizon.json` (`{"max_forecast_lead_days": 10, "source": "...", "flag": "SKETCHED"}`)
 - [ ] Cite the skill-decay literature in the JSON: Lorenz 1982; Tellus A 2013 (doi 10.3402/tellusa.v65i0.19022); Buizza and Leutbecher 2015. **The boundary is SKETCHED in spec II.9 until your own hindcast supports or kills it. Do not claim it as established for Canso before the hindcast runs.**
 
-### W6 Hindcast and skill — GATE G2 (3 h)
+### W6 Hindcast and skill - GATE G2 (3 h)
 - [ ] TEST (pure): given `(p, outcome)` pairs, `hindcast()` returns `BS = mean((p - o)^2)` matching a hand computation
 - [ ] TEST: `BSS = 1 - BS/BS_ref` with the climatological base rate as reference; a perfect forecast gives 1, the base rate gives 0
 - [ ] TEST: `reliability_bins` are equal-width over [0,1] with `p_center`, `observed_freq`, `n`; empty bins are dropped, not zero-filled
 - [ ] DATA: historical forecasts for leads 1-10 days (Open-Meteo historical forecast archive, or GEFS reforecasts) plus verification outcomes for the same days evaluated against the same criteria version
 - [ ] METHOD: for each issue date `d` and lead `L`: forecast issued at `d` for `d+L` gives `p`; observed weather at `d+L` evaluated against criteria gives `o` in {0,1}; accumulate per lead
-- [ ] REPORT `backend/weather/HINDCAST.md`: the BSS table by lead, the reliability table, `n` per cell, and the honest reading — at what lead does skill die? **If BSS <= 0 at every lead, write that.** A negative result reported is a finding; a hidden one is a project failure
+- [ ] REPORT `backend/weather/HINDCAST.md`: the BSS table by lead, the reliability table, `n` per cell, and the honest reading - at what lead does skill die? **If BSS <= 0 at every lead, write that.** A negative result reported is a finding; a hidden one is a project failure
 - [ ] GATE definition: `hindcast()` runs end to end on real data, emits the spec IV.4 shape, and HINDCAST.md states the result with its sample sizes and caveats
 - [ ] TEST: the spec IV.4 response shape is produced exactly
 
 ### W7 Contract integration (1 h)
 - [ ] TEST: your outputs validate against `tests/contract/` (schema from the API workflow). If the schema does not exist yet, validate against the spec text and note it for API
-- [ ] TEST: `source` is one of `open_meteo | gdps | era5_climatology | snapshot_cache`. If you need another, open an issue — do not emit unlisted values silently
+- [ ] TEST: `source` is one of `open_meteo | gdps | era5_climatology | snapshot_cache`. If you need another, open an issue - do not emit unlisted values silently
 
 ### W8 Offline fixtures (1 h)
-- [ ] `backend/fixtures/weather.json` and `skill.json`, realistic and valid — the demo runs on these if the network fails at judging
+- [ ] `backend/fixtures/weather.json` and `skill.json`, realistic and valid - the demo runs on these if the network fails at judging
 - [ ] **The skill fixture is generated by your own hindcast via a committed script** (`scripts/build_skill_fixture.py`), never hand-typed, so the demo number has provenance
 - [ ] TEST: both fixtures validate against the schemas
 
@@ -105,11 +105,11 @@ def hindcast(period_start: str, period_end: str, lead_max: int = 10) -> dict
 
 | Hours | Work |
 |---|---|
-| 0-1 | W0, W1 — and **request the ERA5 account in this hour** |
+| 0-1 | W0, W1 - and **request the ERA5 account in this hour** |
 | 1-3 | W2 |
 | 3-5 | W3 |
 | 5-7 | W4, W5 |
-| 7-11 | **W6 — GATE G2** |
+| 7-11 | **W6 - GATE G2** |
 | 11-12 | W7, W8, W9 |
 
 ## What will go wrong

@@ -13,15 +13,15 @@ We are building a launch-window decision engine for Spaceport Nova Scotia (Canso
 
 ## What you deliver
 
-1. `tests/contract/schemas/*.json` — JSON Schema files for all six endpoints, transcribed **verbatim** from spec Part IV.
-2. `tests/contract/test_schemas.py` — tests proving the schemas accept good examples and reject bad ones.
-3. `docs/00_INTEGRATION_CONTRACT.md` — committed to the repo (a copy exists in the team drive).
-4. Root `pyproject.toml` — package `launchwin`, python >=3.11, deps fastapi, uvicorn, pydantic, httpx, pytest.
+1. `tests/contract/schemas/*.json` - JSON Schema files for all six endpoints, transcribed **verbatim** from spec Part IV.
+2. `tests/contract/test_schemas.py` - tests proving the schemas accept good examples and reject bad ones.
+3. `docs/00_INTEGRATION_CONTRACT.md` - committed to the repo (a copy exists in the team drive).
+4. Root `pyproject.toml` - package `launchwin`, python >=3.11, deps fastapi, uvicorn, pydantic, httpx, pytest.
 5. Tag `g0-contract-frozen` on the merge commit.
 
 ## The six schemas, with the fields you must include
 
-### 1. `windows_request.json` — POST /v1/windows body
+### 1. `windows_request.json` - POST /v1/windows body
 ```
 target: { type: "LEO"|"POLAR"|"SSO"|"CUSTOM", h_t_km: number|null,
           i_t_deg: number|null, raan_deg: number|null, ltan_hours: string|null }
@@ -35,7 +35,7 @@ include_weather: boolean          (default true)
 ```
 `h_t_km` and `i_t_deg` required when type=CUSTOM. All numerics are JSON numbers (float64). Dates are ISO strings.
 
-### 2. `windows_response.json` — POST /v1/windows response (HTTP 200 ALWAYS for well-formed requests, including unreachable targets)
+### 2. `windows_response.json` - POST /v1/windows response (HTTP 200 ALWAYS for well-formed requests, including unreachable targets)
 ```
 reachable: boolean
 plane_change_dv_ms: number|null          (non-null iff reachable=false and penalty computable)
@@ -65,7 +65,7 @@ computation_ms: number
 ```
 Semantics to encode in tests: empty `windows` with `reachable: true` means "no crossing in range within tolerance" and is a valid result, not an error.
 
-### 3. `constants_block.json` — shared object, on every result-bearing response
+### 3. `constants_block.json` - shared object, on every result-bearing response
 ```
 J2: 1.08262668e-3
 GM: 3.986004418e14
@@ -76,13 +76,13 @@ citation_id: "run_YYYYMMDD_..."
 source: { each constant: source document }
 ```
 
-### 4. `provenance_block.json` — shared object
+### 4. `provenance_block.json` - shared object
 ```
 site: object, corridor: object, criteria_version: string,
 vehicle_profile_id: string, row_flags: object, source_files: [string]
 ```
 
-### 5. `ephemeris_response.json` — GET /v1/orbits/{id}/ephemeris?start=&end=&step_s=300
+### 5. `ephemeris_response.json` - GET /v1/orbits/{id}/ephemeris?start=&end=&step_s=300
 ```
 orbit_id: string
 frame: "ECEF"
@@ -92,7 +92,7 @@ constants_block: {...}
 ```
 Valid ids: `leo45`, `polar879`, `sso981`, plus custom ids created implicitly by POST /v1/windows.
 
-### 6. `weather_probability_response.json` — GET /v1/weather/probability?date=&site=
+### 6. `weather_probability_response.json` - GET /v1/weather/probability?date=&site=
 ```
 date: "YYYY-MM-DD", site: "canso"
 p_launch: number
@@ -104,7 +104,7 @@ components: [ { criterion_id: string, p_violation: number, flag: "VERIFIED"|"PRO
 source: "open_meteo"|"gdps"|"era5_climatology"|"snapshot_cache"
 ```
 
-### 7. `skill_response.json` — GET /v1/validation/skill?period_start=&period_end=&lead_max=10
+### 7. `skill_response.json` - GET /v1/validation/skill?period_start=&period_end=&lead_max=10
 ```
 period: { start, end }
 verification_source: "era5"
@@ -114,7 +114,7 @@ skill_series: [ { lead_time_days: number, bs: number, bs_ref: number, bss: numbe
 reliability_bins: [ { p_center: number, observed_freq: number, n: number } ]
 ```
 
-### 8. `site_response.json` — GET /v1/site
+### 8. `site_response.json` - GET /v1/site
 ```
 name, lat, lon, alt_m,
 corridor: { A_min_deg, A_max_deg, source, flag }    (flag ASSUMPTION where the EA is qualitative)
@@ -129,7 +129,7 @@ operating_hours, car_references: [ "602.43", "602.44" ]
 
 ## The three seams (these are the compatibility guarantees)
 
-**Seam 1 — function signatures, frozen:**
+**Seam 1 - function signatures, frozen:**
 ```python
 # backend/engine/__init__.py
 def compute_windows(request: dict) -> dict:
@@ -141,12 +141,12 @@ def compute_windows(request: dict) -> dict:
 def probability(date_iso: str, site: str, criteria_version: str | None = None) -> dict
 def hindcast(period_start: str, period_end: str, lead_max: int = 10) -> dict
 ```
-**Seam 2 — the schemas above are the source of truth.** ENGINE and WEATHER validate their own output against them; schema changes are announced before merge.
-**Seam 3 — fixtures.** `backend/fixtures/{windows,weather,skill,site,ephemeris}.json` are the demo floor. API owns the directory, FRONTEND owns the content, ENGINE/WEATHER keep them representative.
+**Seam 2 - the schemas above are the source of truth.** ENGINE and WEATHER validate their own output against them; schema changes are announced before merge.
+**Seam 3 - fixtures.** `backend/fixtures/{windows,weather,skill,site,ephemeris}.json` are the demo floor. API owns the directory, FRONTEND owns the content, ENGINE/WEATHER keep them representative.
 
 ## Task list (TDD)
 
-- [ ] Create `tests/contract/` and a failing test that loads a schema file — RED
+- [ ] Create `tests/contract/` and a failing test that loads a schema file - RED
 - [ ] Write all schema files from the spec, section by section. Commit in two batches: windows first (blocks ENGINE), then the rest
 - [ ] Write `good/*.json` and `bad/*.json` examples per schema; tests assert accept/reject
 - [ ] Root `pyproject.toml`; verify `pip install -e .` in a clean venv
@@ -162,7 +162,7 @@ def hindcast(period_start: str, period_end: str, lead_max: int = 10) -> dict
 4. Tag pushed; a comment on this issue states the tag and lists interpretations.
 5. `docs/00_INTEGRATION_CONTRACT.md` is in the repo.
 
-## Time budget: 1.5 hours. This is the first task of the whole project — do it before anything else.
+## Time budget: 1.5 hours. This is the first task of the whole project - do it before anything else.
 
 ## Rules
 

@@ -1,4 +1,4 @@
-# [ENGINE] Orbital mechanics: reachability, J2 windows, injection-consistent solve, screens — GATE G1
+# [ENGINE] Orbital mechanics: reachability, J2 windows, injection-consistent solve, screens - GATE G1
 
 **Assigned to:** Anand (GitHub: @anandlo).
 
@@ -7,7 +7,7 @@
 
 **Read first:** `docs/00_INTEGRATION_CONTRACT.md`, then spec Parts **II.1-II.6, II.8, II.10** and **III.1, III.2, III.3, III.5, III.6** (`C2_framework_and_build_spec.md`). Do not read Parts V-VIII.
 
-**Maintain:** `backend/engine/progress.md` — append after every task, so a session restart loses nothing.
+**Maintain:** `backend/engine/progress.md` - append after every task, so a session restart loses nothing.
 
 ---
 
@@ -29,13 +29,13 @@ def compute_windows(request: dict) -> dict:
 ## Task backlog (TDD: failing test first, always)
 
 ### E0 Scaffold (30 min)
-- [ ] `backend/engine/tests/test_smoke.py` asserting `compute_windows` imports — RED
-- [ ] `backend/engine/__init__.py` stub returning a well-formed empty response — GREEN
+- [ ] `backend/engine/tests/test_smoke.py` asserting `compute_windows` imports - RED
+- [ ] `backend/engine/__init__.py` stub returning a well-formed empty response - GREEN
 - [ ] `conftest.py` if shared fixtures are needed
 
 ### E1 Constants and their sources (1 h)
 - [ ] TEST: a helper returns the constants block with exactly J2=1.08262668e-3, GM=3.986004418e14, R_e=6378137.0, omega_sid_rad_s=7.292115e-5, gmst_model="IAU_1982", each with a `source` string
-- [ ] TEST (the hard rule): the literal `1.08262668` appears in exactly one file under `backend/engine/`, and that file is the constants/provenance module — enforce by test, not convention
+- [ ] TEST (the hard rule): the literal `1.08262668` appears in exactly one file under `backend/engine/`, and that file is the constants/provenance module - enforce by test, not convention
 - [ ] Implement `provenance.py`
 
 ### E2 Frames and GMST (1 h)
@@ -54,24 +54,24 @@ def compute_windows(request: dict) -> dict:
 - [ ] DATA: write `data/site_canso.json` from the Canso environmental assessment: lat, lon, alt_m, `corridor.A_min_deg`, `corridor.A_max_deg`, `corridor.source` (which figure or section), `car_references` (602.43, 602.44), `operating_hours`. **If a corridor bound is not published as a number, mark it `"flag": "ASSUMPTION"` and state what you assumed and why. Never fabricate a bound and label it verified.**
 
 ### E4 J2 secular dynamics (1 h)
-- [ ] TEST: nodal drift at 600 km, i=45.1 is **-5.14 deg/day** within 1 percent — and explicitly assert the function does NOT return the commonly quoted 3.99 (that constant is wrong for this orbit; the spec recomputed it)
-- [ ] TEST: the SSO table from spec II.6 — i=**97.8** at 600 km, **98.08** at 674 km, **98.19** at 700 km, **99.0** at 900 km — all within 0.01 deg (this is the first assertion of spec III.1)
+- [ ] TEST: nodal drift at 600 km, i=45.1 is **-5.14 deg/day** within 1 percent - and explicitly assert the function does NOT return the commonly quoted 3.99 (that constant is wrong for this orbit; the spec recomputed it)
+- [ ] TEST: the SSO table from spec II.6 - i=**97.8** at 600 km, **98.08** at 674 km, **98.19** at 700 km, **99.0** at 900 km - all within 0.01 deg (this is the first assertion of spec III.1)
 - [ ] TEST: drift changes sign as i crosses 90 deg
 - [ ] Implement `j2.py`: `nodal_rate(a, e, i)`, `sso_inclination(h_km)`
 - [ ] HARD RULE: the drift constant exists only inside the formula, nowhere else
 
 ### E5 Window equation (1.5 h)
-- [ ] TEST: one fully hand-computed case — fixed target RAAN, site longitude, epoch; the crossing times asserted against your hand arithmetic shown in the docstring
+- [ ] TEST: one fully hand-computed case - fixed target RAAN, site longitude, epoch; the crossing times asserted against your hand arithmetic shown in the docstring
 - [ ] TEST: `window_width_s` equals `tolerance_deg / 15.04 * 3600` for a 0.1 deg tolerance (spec II.4)
 - [ ] TEST: a 90-day search returns windows sorted ascending with no duplicates
-- [ ] TEST: empty windows with `reachable=True` is a valid result (spec IV.1 semantics) — no exception
+- [ ] TEST: empty windows with `reachable=True` is a valid result (spec IV.1 semantics) - no exception
 - [ ] Implement `window.py`
 
-### E6 Injection-consistent solve — the Vehicle Duration bonus (2.5 h)
+### E6 Injection-consistent solve - the Vehicle Duration bonus (2.5 h)
 - [ ] TEST: convergence for all three orbit classes; assert the contraction condition `|dRAAN/dt * dT_inj/dt| < 1` holds for your cases and the iteration count is bounded
 - [ ] TEST: `window_center_shift_s` and `liftoff_instant_error_min` are non-zero with the physically correct sign (a 30-90 minute ascent must move the plane)
 - [ ] TEST: non-convergence returns `constraint_fired: "fixed_point_no_convergence"`, never a wrong number
-- [ ] TEST: two vehicle profiles with different `T_to_inj` produce different `window_center_shift_s` — proving the parameter flows through
+- [ ] TEST: two vehicle profiles with different `T_to_inj` produce different `window_center_shift_s` - proving the parameter flows through
 - [ ] DATA: `data/vehicles/cyclone4m.json` from the published Cyclone-4M guide: `T_to_inj_s` with source, ascent/coast segments, hazard footprint, and every row flagged `VERIFIED` or `ASSUMPTION`. For unpublished values, use a defensible value from a similar vehicle, flag ASSUMPTION, and record the choice
 - [ ] Implement `injection.py`
 
@@ -85,7 +85,7 @@ def compute_windows(request: dict) -> dict:
 - [ ] TEST: a trajectory leaving the corridor polygon sets `screens.hazard = "fail"`
 - [ ] TEST: the conjunction screen over a committed 3-TLE fixture returns `clear` or `flagged` deterministically
 - [ ] TEST: the NOTAM screen returns `"none"` as a stub while keeping the field present
-- [ ] DATA: commit `data/tle_fixture.json` — 3 real TLEs from CelesTrak, fetched this session, with fetch time and source recorded. **Tests never touch the network**
+- [ ] DATA: commit `data/tle_fixture.json` - 3 real TLEs from CelesTrak, fetched this session, with fetch time and source recorded. **Tests never touch the network**
 - [ ] Implement `screens.py` with the CelesTrak fetch behind a cache you own
 
 ### E9 Composition (1.5 h)
@@ -95,7 +95,7 @@ def compute_windows(request: dict) -> dict:
 - [ ] TEST (spec III.5, the honesty test): type=LEO with the advertised 45.1 class returns `reachable: false` plus `plane_change_dv_ms`
 - [ ] Implement the composition thin, no math inline
 
-### E10 GATE G1 — reproduce published launch windows (2 h)
+### E10 GATE G1 - reproduce published launch windows (2 h)
 - [ ] Commit `data/published_windows.json`: 3-5 **published** windows (for example Cape Canaveral, Boca Chica, Mahia) each with URL, access date and the quoted window
 - [ ] TEST `test_reproduce_published_windows.py`: for each, given the published target orbit and site latitude, the engine's window centre lands **within 5 minutes** of the published one
 - [ ] **If a window cannot be reproduced, do not loosen the tolerance.** Record it in `progress.md`, diagnose (longitude sign, GMST epoch, liftoff vs injection comparison, corridor), fix, or drop to a window you can reproduce and state why
@@ -129,12 +129,12 @@ def compute_windows(request: dict) -> dict:
 | 4-7 | E5, E6 |
 | 7-9 | E7, E8 |
 | 9-11 | E9, E11 |
-| 11-13 | **E10 GATE — nothing else until it passes** |
+| 11-13 | **E10 GATE - nothing else until it passes** |
 
 ## What will go wrong
 
 - **Published windows do not reproduce.** Suspect in order: longitude sign, GMST epoch, comparing liftoff-time to injection-time publications, an unread corridor constraint. Diagnose; do not loosen the tolerance.
-- **The fixed point does not converge.** Check the contraction condition first; if it genuinely exceeds 1 in your parameter range, that is a finding — report it, do not hide it with more iterations.
+- **The fixed point does not converge.** Check the contraction condition first; if it genuinely exceeds 1 in your parameter range, that is a finding - report it, do not hide it with more iterations.
 - **The EA gives qualitative corridor bounds.** Then they are ASSUMPTION: say so in the JSON, the README, and the provenance block.
 - **CelesTrak flaky at test time.** Tests use the committed fixture. Always.
 

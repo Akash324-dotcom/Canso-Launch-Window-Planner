@@ -1,6 +1,6 @@
-# [INTEGRATION] Final pull gate: everything works together, end to end — GATE G5
+# [INTEGRATION] Final pull gate: everything works together, end to end - GATE G5
 
-**Assigned to:** Anand (GitHub: @anandlo) — the consolidation issue.
+**Assigned to:** Anand (GitHub: @anandlo) - the consolidation issue.
 
 **Owner:** the final integrator (you). **Runs after:** G0, G1, G2, G3, G4 are all reported done.
 **This issue is the definition of "the framework works".** Nothing is complete until this passes on a clean clone.
