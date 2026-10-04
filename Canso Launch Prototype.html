@@ -665,11 +665,12 @@ function trackPts(w,n=90){const tr=w.track, out=[];for(let i=0;i<n;i++){const f=
 let arcData=[];
 const arcAnim={p:0};
 function drawArc(w,animate){
+  gsap.killTweensOf(arcAnim); /* an earlier animation must not update an arc that is being replaced */
   if(arc){earth.remove(arc);arc=null;} arcDots.forEach(d=>earth.remove(d)); arcDots=[]; arcHead.material.opacity=0;
   if(!w){arcData=[];return;}
   if(!w.track){arcData=[]; if(!w.trackInfo) ensureTrack(w).then(()=>{ if(S.windows[S.sel]===w) drawArc(w,animate); }); return;}
   arcData=trackPts(w); arc=line(arcData.slice(0,2).map(p=>p.v),w.ok?COL.accent:COL.bad,2.4,{dashed:!w.ok,dash:.015,gap:.012}); earth.add(arc);
-  const apply=()=>{const n=Math.max(2,Math.round(arcAnim.p*(arcData.length-1))+1); setLine(arc,arcData.slice(0,n).map(p=>p.v)); arcHead.position.copy(arcData[n-1].v); arcHead.material.opacity=arcAnim.p<1?.95:0;};
+  const apply=()=>{if(!arc||!arcData.length)return; const n=Math.max(2,Math.round(arcAnim.p*(arcData.length-1))+1); setLine(arc,arcData.slice(0,n).map(p=>p.v)); arcHead.position.copy(arcData[n-1].v); arcHead.material.opacity=arcAnim.p<1?.95:0;};
   const finish=()=>{[30,60].forEach(i=>{const d=spr(T.dot,COL.ink,5);d.position.copy(arcData[i].v);earth.add(d);arcDots.push(d);}); const e=spr(T.dot,COL.ink,8);e.position.copy(arcData[arcData.length-1].v);earth.add(e);arcDots.push(e);};
   gsap.killTweensOf(arcAnim);
   if(animate&&!REDUCE){arcAnim.p=0; gsap.to(arcAnim,{p:1,duration:1.5,ease:'power1.inOut',onUpdate:apply,onComplete:()=>{apply();finish();}});}
