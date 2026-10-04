@@ -64,7 +64,7 @@
         },
         "reached_inclination_deg": {"type": "number"},
         "window_width_s": {
-          "description": "Window width from spec II.12.",
+          "description": "Window width from spec II.12: the FULL width W_window = 2 tau_half, not the half width tau_half. Divide by two for the half width.",
           "type": "number"
         },
         "window_center_shift_s": {

@@ -8,7 +8,7 @@ Two forms were in dispute for ``delta`` in
     form B   delta = asin(sin(phi) / sin(i))     the "spherical triangle" form
 
 At i = 98.1 deg and phi = 45.3 deg they give -8.27 deg and +45.89 deg. The
-derivation is in ``docs/physics/ii10_delta.md``. These tests are its numerical
+derivation is in ``docs/physics/ii10_delta_hazard_policy.md``. These tests are its numerical
 side, and they use no closed form for the thing they check:
 
 * a plane is built from its normal and the site from its right ascension and
@@ -270,7 +270,7 @@ def test_no_published_launch_is_reproduced_under_form_b(monkeypatch):
 # The hazard screen's southbound rule on sites other than Canso --------------------------------------------------
 #
 # These two tests record a finding of issue W5b and change nothing. They pin what the
-# screen does today so that the verdict in docs/physics/ii10_delta.md rests on a run,
+# screen does today so that the verdict in docs/physics/ii10_delta_hazard_policy.md rests on a run,
 # and they will need rewriting when a per-site policy replaces the constant.
 
 NORTHBOUND_ANCHORS = {

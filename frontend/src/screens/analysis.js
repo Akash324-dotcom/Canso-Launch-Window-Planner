@@ -579,7 +579,7 @@ export function createAnalysisScreen({
     sub.textContent =
       state.engineResponse === null && state.skillResponse === null
         ? 'Nothing loaded yet. This view renders the same response objects as Screens 1 to 4.'
-        : 'Every number below is read from the loaded POST /v1/windows and GET /v1/validation/skill responses.';
+        : 'The figures below are read from the loaded POST /v1/windows and GET /v1/validation/skill responses; the ascent duration is computed in the browser as t_injection_utc minus t_liftoff_utc.';
     claims.textContent =
       'Claim status, spec II.9: the injection-consistent fixed point and the reachability predicate are PROVED; the ' +
       'chance-constrained window and the decision layer are SKETCHED; positive Brier skill, the skill horizon and the ' +

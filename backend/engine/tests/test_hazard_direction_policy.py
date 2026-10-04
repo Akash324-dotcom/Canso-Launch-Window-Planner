@@ -1,6 +1,6 @@
 """The admissible launch direction is a property of the site, held in its file.
 
-``docs/physics/ii10_delta.md`` section 9 found that the hazard screen refused every
+``docs/physics/ii10_delta_hazard_policy.md`` section 9 found that the hazard screen refused every
 azimuth outside 90 to 270 deg at every site, by a constant in the code whose reason
 cited the Canso environmental assessment. That statement is a fact about Canso. It
 now lives in ``site_canso.json`` as ``corridor.direction_policy`` with its source,
