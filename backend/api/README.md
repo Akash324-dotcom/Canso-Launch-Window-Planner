@@ -135,6 +135,11 @@ source to keep it that way.
 
 ## What is stubbed and what is real at this commit
 
+Since 4 October 2026 `backend.engine` and `backend.weather` are on `main`, so `POST /v1/windows`,
+`GET /v1/weather/probability` and `GET /v1/validation/skill` answer from the real modules. The rows below
+describe the offline path, which is still what answers when a layer is absent or raises. See the last section of
+`docs/log/api.md`.
+
 | Area | Status | Source served today |
 |---|---|---|
 | `POST /v1/windows` reachability, penalty, SSO consistency check | **stub**, marked `engine_version: "stub"` | `backend/fixtures/windows.json` plus spec II.4, II.5 and II.6 arithmetic in `stubs.py` |

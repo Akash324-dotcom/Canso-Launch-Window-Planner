@@ -1,7 +1,22 @@
-"""Shared fixtures for the backend API tests, tasks A1 to A3 of issue #4."""
+"""Shared fixtures for the backend API tests, tasks A1 to A3 of issue #4.
+
+Which layers a test sees. The suite was written with two paths in mind (see the
+module docstrings of ``test_windows.py`` and ``test_weather.py``): the offline path,
+exercised directly, and the seam, exercised through a stand-in module placed in
+``sys.modules``. Both assume that ``backend.engine`` and ``backend.weather`` are not
+importable unless a test puts them there. Since ENGINE and WEATHER landed that is no
+longer true of the repository, so the ``layers`` fixture below restores it for every
+test: the two real modules are hidden from the import system, a stand-in installed
+by a test still wins, and a test marked ``live_layers`` gets the real modules.
+
+A test marked ``live_layers`` runs the real weather module with
+``LAUNCHWIN_WEATHER_OFFLINE=1`` and an empty private cache, so it answers from the
+committed forecast snapshot and the committed climatology and never from the network.
+"""
 
 from __future__ import annotations
 
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator
@@ -14,6 +29,37 @@ from backend.api.config import Settings
 
 API_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = API_DIR.parents[1]
+
+
+LIVE_LAYERS = ("backend.engine", "backend.weather")
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "live_layers: run against the real backend.engine and backend.weather instead of the offline path",
+    )
+
+
+@pytest.fixture(autouse=True)
+def layers(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Hide the real engine and weather modules unless the test asks for them."""
+    monkeypatch.setenv("LAUNCHWIN_WEATHER_OFFLINE", "1")
+    if request.node.get_closest_marker("live_layers") is None:
+        for name in LIVE_LAYERS:
+            # None in sys.modules makes importlib.import_module raise ImportError,
+            # which is exactly what the seams treat as "this layer has not landed".
+            monkeypatch.setitem(sys.modules, name, None)
+        return
+
+    from backend.weather import fetch, hindcast, service
+
+    monkeypatch.setattr(fetch, "CACHE_DIR", tmp_path / "weather_cache")
+    monkeypatch.setattr(hindcast, "CACHE_DIR", tmp_path / "hindcast_cache")
+    fetch.clear_memo()
+    service.clear_memo()
 
 
 @pytest.fixture(scope="session")
