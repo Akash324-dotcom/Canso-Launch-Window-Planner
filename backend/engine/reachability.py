@@ -76,34 +76,94 @@ def reachable(i_t_deg: float, lat_deg: float) -> bool:
     return low - 1.0e-9 <= i_t_deg <= high + 1.0e-9
 
 
+def _in_sector(beta_deg: float, a_min: float, a_max: float) -> bool:
+    """Membership of the azimuth sector that runs clockwise from a_min to a_max.
+
+    ``a_min <= a_max`` is the plain interval. ``a_min > a_max`` is the sector that
+    crosses north, from a_min through 360 deg to a_max, which is how a site that
+    launches either side of north states its corridor.
+    """
+    if a_min <= a_max:
+        return a_min - 1.0e-9 <= beta_deg <= a_max + 1.0e-9
+    return beta_deg >= a_min - 1.0e-9 or beta_deg <= a_max + 1.0e-9
+
+
 def azimuth_in_corridor(beta_deg: float, corridor: Mapping[str, Any] | None) -> bool:
     a_min, a_max = _corridor(corridor)
-    return a_min - 1.0e-9 <= beta_deg <= a_max + 1.0e-9
+    return _in_sector(beta_deg, a_min, a_max)
+
+
+def direction_policy(corridor: Mapping[str, Any] | None) -> Mapping[str, Any] | None:
+    """The stated direction policy of the site, or None when its file states none.
+
+    The policy is site data: ``corridor.direction_policy`` with ``admitted_branch``
+    and the ``source`` of the statement. No direction is assumed for a site whose
+    file is silent; its corridor bounds alone decide.
+    """
+    policy = (corridor or {}).get("direction_policy")
+    if policy is None:
+        return None
+    if policy.get("admitted_branch") not in ("southbound", "northbound"):
+        raise ValueError(
+            "corridor.direction_policy.admitted_branch must be southbound or northbound"
+        )
+    return policy
+
+
+def is_southbound(beta_deg: float) -> bool:
+    """An azimuth with a southward component, 90 to 270 deg inclusive."""
+    return _in_sector(beta_deg, 90.0, 270.0)
+
+
+def direction_admitted(beta_deg: float, corridor: Mapping[str, Any] | None) -> bool:
+    """Whether the stated direction policy of the site, if any, admits this azimuth."""
+    policy = direction_policy(corridor)
+    if policy is None:
+        return True
+    southbound = is_southbound(beta_deg)
+    return southbound if policy["admitted_branch"] == "southbound" else not southbound
 
 
 def corridor_inclination_bounds(
     lat_deg: float, corridor: Mapping[str, Any] | None
 ) -> tuple[float, float]:
-    """Inclinations admitted by the corridor, [i(A_max), i(A_min)] (spec II.2).
+    """Inclinations admitted by the corridor (spec II.2).
 
-    ``i(beta) = arccos(cos(phi_s) sin(beta))`` is monotone on the southbound
-    branch, so the image of the closed azimuth interval is a closed interval.
+    ``i(beta) = arccos(cos(phi_s) sin(beta))`` is monotone between its turning
+    points at 90 and 270 deg, so the image of the sector is the closed interval
+    spanned by its two ends and by whichever turning points it contains.
     """
     a_min, a_max = _corridor(corridor)
     cos_lat = math.cos(lat_deg * DEG)
-    at_min = math.degrees(math.acos(max(-1.0, min(1.0, cos_lat * math.sin(a_min * DEG)))))
-    at_max = math.degrees(math.acos(max(-1.0, min(1.0, cos_lat * math.sin(a_max * DEG)))))
-    return min(at_min, at_max), max(at_min, at_max)
+    azimuths = [a_min, a_max] + [
+        turning for turning in (90.0, 270.0) if _in_sector(turning, a_min, a_max)
+    ]
+    inclinations = [
+        math.degrees(math.acos(max(-1.0, min(1.0, cos_lat * math.sin(beta * DEG)))))
+        for beta in azimuths
+    ]
+    return min(inclinations), max(inclinations)
 
 
 def reachable_in_corridor(
     i_t_deg: float, lat_deg: float, corridor: Mapping[str, Any] | None
 ) -> bool:
-    """Spec (II.4), the first gate: reachability WITH the corridor applied."""
+    """Spec (II.4), the first gate: reachability WITH the corridor applied.
+
+    Each plane is crossed southbound and northbound, at the azimuth of (II.2) and
+    at its partner. The target is reachable when the site admits either, by its
+    direction policy and its corridor bounds, which is the test the hazard screen
+    applies to each row.
+    """
     if not reachable(i_t_deg, lat_deg):
         return False
     beta = launch_azimuth_deg(i_t_deg, lat_deg)
-    return beta is not None and azimuth_in_corridor(beta, corridor)
+    if beta is None:
+        return False
+    return any(
+        direction_admitted(azimuth, corridor) and azimuth_in_corridor(azimuth, corridor)
+        for azimuth in (beta, northbound_partner_deg(beta))
+    )
 
 
 # --- Plane-change penalty (spec II.5) ----------------------------------------

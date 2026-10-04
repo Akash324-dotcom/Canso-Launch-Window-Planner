@@ -106,6 +106,7 @@ def test_every_endpoint_is_served_under_the_versioned_prefix(client: TestClient)
     assert sorted(document["paths"]) == sorted(
         [
             "/v1/citation",
+            "/v1/decision/delay-cost",
             "/v1/health",
             "/v1/orbits/{orbit_id}/ephemeris",
             "/v1/site",

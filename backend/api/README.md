@@ -146,7 +146,7 @@ describe the offline path, which is still what answers when a layer is absent or
 | Window rows for POLAR and LEO classes | **not modelled** | The informative empty result of spec IV.1, or `reachable: false` for LEO |
 | `GET /v1/weather/probability` | **stub** | `backend/fixtures/weather.json`, one recorded snapshot for one date |
 | `GET /v1/validation/skill` | **stub** | `backend/fixtures/skill.json`, one recorded verification period |
-| `GET /v1/orbits/.../ephemeris` | **stub, no propagation** | Recorded circular ground-track segments, resampled to `step_s` |
+| `GET /v1/orbits/.../ephemeris` | **live for a reachable orbit; stub otherwise** | `backend.engine.ephemeris`: the ascent that lifts off at `start`, then the orbit. Recorded circular ground-track segments, resampled to `step_s`, when the engine is absent or the site cannot reach the orbit |
 | `GET /v1/site` | **real, from configuration** | `backend/api/data/sites/canso.json`, or ENGINE's file once it exists |
 | `GET /v1/citation` | **real** | The stored run record, and the spec II.10 table from configuration |
 | Cache and rate limits | **real** | `backend/api/data/service.json` |
@@ -157,6 +157,27 @@ What replaces each stub: `backend.engine.compute_windows`, `backend.engine.ephem
 at request time, so the day one lands it becomes the served path without a change
 here, and the assertions that would check the live path are already written and
 skipped.
+
+### The served ground track
+
+`backend.engine.ephemeris` answers for an orbit the site can reach by direct ascent. It
+returns the ascent from the site of the service that lifts off at `start`, then the
+circular orbit with its node drifting at the J2 rate of (II.7). The first point is on
+the pad; the point `t_to_inj_s` of the vehicle profile later is at orbit altitude in
+the plane of (II.14). The interval from `t_liftoff_utc` to `t_injection_utc` of a
+window row is therefore the ascent of that row, and the `end` instant is sampled even
+when `step_s` does not land on it.
+
+The path between liftoff and injection is **kinematic and flagged ASSUMPTION**: the
+vehicle guide publishes no trajectory, so nothing is integrated, and each coordinate is
+the lowest-order polynomial that meets the boundary values the engine already states.
+`backend/engine/ascent.py` gives the form and its sources. The seam is given an instant
+and an orbit, not a row, so it draws the crossing the site admits, which at Canso is
+the southbound one; the track of a refused northbound row is the southbound ascent at
+that instant.
+
+`leo45` cannot be reached from Canso (spec II.4), the seam refuses it, and the recorded
+segment below answers.
 
 ### The offline ground tracks, precisely
 

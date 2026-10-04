@@ -135,9 +135,9 @@
     },
     {
       "item": "Delay-cost model parameter C_day",
-      "value_or_source": "not used by any endpoint; the decision layer is SKETCHED in spec II.9 and no request takes the parameter",
-      "hard_coded_or_dynamic": "dynamic configuration; genre citation only",
-      "file_or_endpoint": "config/decision.json, absent because no endpoint reads it",
+      "value_or_source": "supplied by the user as the c_day query parameter of GET /v1/decision/delay-cost; no default is assumed and the response flags it USER_SUPPLIED; the decision layer is SKETCHED in spec II.9 (iv)",
+      "hard_coded_or_dynamic": "dynamic, per request; genre citation only",
+      "file_or_endpoint": "backend/api/routes/decision.py (query parameter c_day), backend/engine/decision.py; no config file and no stored value",
       "citation": "O'Neill and Davidheiser, J. Spacecraft and Rockets, doi 10.2514/1.a36618 (Crossref-verified PRIOR Sec F)"
     },
     {

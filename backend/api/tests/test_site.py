@@ -56,16 +56,32 @@ def test_the_corridor_carries_its_bounds_source_and_flag(client: TestClient) -> 
     corridor = served(client)["corridor"]
     assert set(corridor) == {"A_min_deg", "A_max_deg", "source", "flag"}
     assert isinstance(corridor["source"], str) and corridor["source"].strip()
-    assert corridor["flag"] in {"VERIFIED", "ASSUMPTION"}
+    # DERIVED joined the vocabulary with the engine's site file: its corridor bounds are
+    # computed from published azimuths and are neither quoted nor assumed.
+    assert corridor["flag"] in {"VERIFIED", "ASSUMPTION", "DERIVED"}
     assert corridor["A_min_deg"] < corridor["A_max_deg"]
 
 
 def test_the_corridor_flag_is_the_assumption_where_the_assessment_is_qualitative(
     client: TestClient, settings: Settings
 ) -> None:
+    """The flag is the one of the file that supplies the corridor.
+
+    The API's own record flags its placeholder corridor ASSUMPTION, because the
+    assessment gives no numbers. When the engine ships a site file the corridor is
+    the engine's, and so is its flag (``test_site_corridor.py``).
+    """
+    import json
+
     document = settings.site_document("canso")
     assert served(client)["corridor"]["flag"] == document["corridor"]["flag"]
-    assert document["corridor"]["flag"] == "ASSUMPTION"
+    own = json.loads(settings.site_path("canso").read_text(encoding="utf-8"))
+    assert own["corridor"]["flag"] == "ASSUMPTION"
+    engine = settings.engine_site_corridor("canso")
+    if engine is None:
+        assert document["corridor"]["flag"] == "ASSUMPTION"
+    else:
+        assert document["corridor"]["flag"] == engine["flags"]["A_min_deg"]
 
 
 def test_the_row_flags_of_the_site_are_reported(client: TestClient, settings: Settings) -> None:
@@ -73,7 +89,7 @@ def test_the_row_flags_of_the_site_are_reported(client: TestClient, settings: Se
     flags = served(client)["row_flags"]
     assert flags == document["row_flags"]
     for value in flags.values():
-        assert value in {"VERIFIED", "ASSUMPTION"}
+        assert value in {"VERIFIED", "ASSUMPTION", "DERIVED"}
 
 
 def test_the_car_references_are_the_two_the_specification_names(client: TestClient) -> None:

@@ -2,6 +2,8 @@ import {
   CORRIDOR_BEARING_TOLERANCE_DEG,
   CORRIDOR_FALLBACK_ARC_KM,
   MODE_OFFLINE,
+  OMEGA_SID_RAD_S,
+  OMEGA_SID_SOURCE,
   TRACK_START_TOLERANCE_FLAG,
   ORBIT_IDS_BY_TYPE,
   VEHICLE_FOOTPRINTS,
@@ -76,7 +78,8 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
       sub,
     ]),
     el('p', { class: 'hint' }, [
-      'The corridor polygon comes from GET /v1/site, the ground track from GET /v1/orbits/{id}/ephemeris for the ' +
+      'The corridor polygon comes from GET /v1/site (its two azimuths; the wedge length is drawn at ' +
+      `${CORRIDOR_FALLBACK_ARC_KM} km or the track extent, whichever is larger, and is not data), the ground track from GET /v1/orbits/{id}/ephemeris for the ` +
       'lifter to the injection instant of the selected row, and the hazard buffer from the configured vehicle ' +
       'footprint. The 3D globe of the inherited prototype is not carried over: spec V.2 makes it optional and ' +
       'the 2D map is primary.',
@@ -135,9 +138,14 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
     const points = state.ephemerisResponse === null ? [] : state.ephemerisResponse.points ?? [];
     const site = siteOf(state.siteResponse);
     const ascent = row === null ? null : { start: row.t_liftoff_utc, end: row.t_injection_utc };
+    const constants = state.ephemerisResponse === null ? null : (state.ephemerisResponse.constants_block ?? null);
     const check = corridorCheck(state.siteResponse, points, {
       toleranceDeg: CORRIDOR_BEARING_TOLERANCE_DEG,
       ascent,
+      omegaSidRadS:
+        constants !== null && Number.isFinite(constants.omega_sid_rad_s)
+          ? constants.omega_sid_rad_s
+          : OMEGA_SID_RAD_S,
     });
     // The wedge is sized to the ascent the guard accepted. A track that is not an ascent from
     // the site, or the orbit after injection, must not stretch the corridor round the Earth.
@@ -338,6 +346,22 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
         `(${TRACK_START_TOLERANCE_FLAG}, src/config.js TRACK_START_TOLERANCE_KM).${scope}`;
       return;
     }
+    if (check.inside && check.ground_bearings_inside === false) {
+      const span = (low, high) =>
+        low.toFixed(1) === high.toFixed(1) ? `${low.toFixed(1)} deg` : `${low.toFixed(1)} to ${high.toFixed(1)} deg`;
+      corridorCheckLine.textContent =
+        `Every sample of this ascent is consistent with a launch azimuth inside the corridor ` +
+        `${check.bounds.a_min_deg} to ${check.bounds.a_max_deg} deg. Seen from the site on the ground the samples ` +
+        `bear ${span(check.bearing_min_deg, check.bearing_max_deg)}, past the corridor, because the Earth turns ` +
+        `${check.earth_rotation_deg.toFixed(2)} deg under the orbit plane between liftoff and ${check.plane_t_utc}. ` +
+        `In the frame fixed at liftoff, the frame the corridor azimuth is stated in, the same samples lie on ` +
+        `${span(check.plane_azimuth_min_deg, check.plane_azimuth_max_deg)}, and the last of them gives the plane ` +
+        `the ascent reaches, ${check.plane_azimuth_deg.toFixed(1)} deg at the site. The drawn track therefore ` +
+        `bends west of the corridor wedge without leaving the corridor. Rotation rate: ${OMEGA_SID_SOURCE}. ` +
+        `A northbound track over land is refused by this guard.${scope}`;
+      corridorCheckLine.classList.remove('caution');
+      return;
+    }
     if (check.inside) {
       const bearings =
         check.bearing_min_deg === null
@@ -355,7 +379,8 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
     corridorCheckLine.textContent =
       `HAZARD REJECTION surfaced by the UI: ${check.violations.length} of ${check.samples.length} samples leave the ` +
       `corridor azimuth ${check.bounds.a_min_deg} to ${check.bounds.a_max_deg} deg, the first at ${first.t_utc} on ` +
-      `bearing ${first.bearing_deg.toFixed(1)} deg, ${first.distance_km.toFixed(1)} km from the site. ` +
+      `bearing ${first.bearing_deg.toFixed(1)} deg, ${first.distance_km.toFixed(1)} km from the site` +
+      `${first.plane_azimuth_deg === null || first.plane_azimuth_deg === undefined ? '' : `, azimuth ${first.plane_azimuth_deg.toFixed(1)} deg in the frame fixed at liftoff`}. ` +
       `From Canso the environmental assessment corridor runs south over the Atlantic, so this track is not rendered as a corridor track.${scope}`;
   }
 

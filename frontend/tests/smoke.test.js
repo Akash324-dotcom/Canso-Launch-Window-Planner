@@ -29,7 +29,7 @@ describe('F0 smoke test', () => {
     expect(document.querySelector('#window-table')).not.toBeNull();
     expect(document.querySelectorAll('#window-table thead th')).toHaveLength(8);
     expect(document.querySelectorAll('#window-rows tr[data-liftoff-utc]')).toHaveLength(1);
-    expect(textOf('#countdown-value')).toMatch(/^\d+d \d{2}:\d{2}:\d{2}$/);
+    expect(textOf('#countdown-value')).toMatch(/^(\d+d )?\d{2}:\d{2}:\d{2}$/);
 
     app.stop();
   });

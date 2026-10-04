@@ -185,22 +185,54 @@ class Settings:
     # ----------------------------------------------------------------- sites
 
     def site_path(self, site_id: str) -> Path:
-        """Path of the site document for ``site_id``.
-
-        ENGINE owns ``backend/engine/data/site_canso.json``; it wins when present,
-        so that provenance reports the file the engine actually reads. The API
-        owned copy is the fallback until ENGINE lands.
-        """
-        engine_owned = ENGINE_SITE_DIR / f"{site_id}.json"
-        if engine_owned.is_file():
-            return engine_owned
+        """Path of the API's site record for ``site_id``, the spec IV.5 fields."""
         try:
             return self.sites[site_id]
         except KeyError:
             raise UnknownResourceError("site", site_id) from None
 
+    def engine_site_path(self, site_id: str) -> Path:
+        """Path of the site file ENGINE owns and the engine reads for ``site_id``."""
+        return ENGINE_SITE_DIR / f"site_{site_id}.json"
+
+    def engine_site_corridor(self, site_id: str) -> dict[str, Any] | None:
+        """The corridor of the engine's site file, or None when the engine ships none."""
+        path = self.engine_site_path(site_id)
+        if not path.is_file():
+            return None
+        corridor = json.loads(path.read_text(encoding="utf-8")).get("corridor") or {}
+        if corridor.get("A_min_deg") is None or corridor.get("A_max_deg") is None:
+            return None
+        return corridor
+
     def site_document(self, site_id: str) -> dict[str, Any]:
-        return json.loads(self.site_path(site_id).read_text(encoding="utf-8"))
+        """The site record, with the corridor the engine applies.
+
+        The record is the API's file. Its corridor was a placeholder of the API
+        (90 to 200 deg, ASSUMPTION) while the engine judged rows by the corridor of
+        its own site file, so the service reported one corridor and applied another.
+        When the engine ships a site file its corridor, source and flags replace the
+        placeholder; without one the record answers as before.
+        """
+        document = json.loads(self.site_path(site_id).read_text(encoding="utf-8"))
+        corridor = self.engine_site_corridor(site_id)
+        if corridor is None:
+            return document
+        flags = corridor.get("flags") or {}
+        low = str(flags.get("A_min_deg", corridor.get("flag", "ASSUMPTION")))
+        high = str(flags.get("A_max_deg", corridor.get("flag", "ASSUMPTION")))
+        document["corridor"] = {
+            "A_min_deg": corridor["A_min_deg"],
+            "A_max_deg": corridor["A_max_deg"],
+            "source": str(corridor.get("source", "")),
+            "flag": low if low == high else f"{low} (A_min_deg), {high} (A_max_deg)",
+        }
+        row_flags = dict(document.get("row_flags", {}))
+        row_flags["corridor_A_min_deg"] = low
+        row_flags["corridor_A_max_deg"] = high
+        document["row_flags"] = row_flags
+        document["corridor_file"] = self.relative(self.engine_site_path(site_id))
+        return document
 
     @property
     def runs_dir(self) -> Path:

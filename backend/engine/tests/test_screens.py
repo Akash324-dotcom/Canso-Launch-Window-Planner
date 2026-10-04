@@ -254,3 +254,194 @@ def test_hazard_failure_outranks_conjunction_in_the_constraint():
     )
     assert result.hazard == "fail"
     assert result.constraint_fired == "hazard_area"
+
+# --- The conjunction screen's plane test (spec II.8) -------------------------
+#
+# Altitude and inclination do not define an orbit plane. They define a SHELL of
+# planes, rotated about the polar axis relative to one another, and two objects in
+# different planes on that shell never approach each other however close their
+# altitudes and inclinations are. Spec II.8 therefore defines the conjunction
+# pre-screen over the altitude band AND the plane, and the plane test needs the
+# third element, RAAN, as well as the two that were already being compared.
+#
+# The committed fixture fixes all three numbers per object, so these tests move
+# the TARGET plane and leave the objects where they are. The ISS sits at 426.8 km,
+# 51.6313 deg inclined, RAAN 124.0722 deg, and the Canso plane tolerance is
+# 5.0 deg, so 430 km / 51.6 deg is a match in altitude and inclination for every
+# RAAN and only the plane decides.
+
+ISS_NORAD = "25544"
+ISS_ALTITUDE_KM = 426.8
+ISS_INCLINATION_DEG = 51.6313
+ISS_RAAN_DEG = 124.0722
+PLANE_TOLERANCE_DEG = float(SITE["conjunction"]["plane_tolerance_deg"])
+THRESHOLD_KM = float(SITE["conjunction"]["miss_threshold_km"])
+
+ISS_SHELL = {"altitude_km": 430.0, "i_t_deg": 51.6}
+
+
+def _iss_consideration(verdict: screens.ConjunctionVerdict) -> dict:
+    matches = [item for item in verdict.considerations if item["norad_id"] == ISS_NORAD]
+    assert len(matches) == 1, f"expected exactly one ISS consideration, got {matches}"
+    return matches[0]
+
+
+def test_the_fixture_iss_sits_in_the_shell_the_tests_exercise():
+    """Pins the three numbers the plane tests move the target against."""
+    assert PLANE_TOLERANCE_DEG == 5.0
+    assert THRESHOLD_KM == 50.0
+    issue = next(s for s in FIXTURE["satellites"] if s["norad_id"] == ISS_NORAD)
+    assert float(issue["mean_altitude_km"]) == pytest.approx(ISS_ALTITUDE_KM, abs=1.0e-9)
+    assert screens._inclination_of(issue) == pytest.approx(ISS_INCLINATION_DEG, abs=1.0e-6)
+    assert screens._raan_of(issue) == pytest.approx(ISS_RAAN_DEG, abs=1.0e-4)
+    assert abs(ISS_ALTITUDE_KM - ISS_SHELL["altitude_km"]) <= THRESHOLD_KM
+    assert abs(ISS_INCLINATION_DEG - ISS_SHELL["i_t_deg"]) <= PLANE_TOLERANCE_DEG
+
+
+def test_a_target_in_the_same_altitude_and_inclination_but_a_different_plane_is_clear():
+    """Same shell, different plane: the ISS is 16 deg round from this target plane."""
+    target = {**ISS_SHELL, "raan_deg": 140.0}
+    verdict = screens.conjunction_screen(target, FIXTURE)
+    assert abs(ISS_RAAN_DEG - 140.0) > PLANE_TOLERANCE_DEG
+    assert verdict.conjunction == "clear", (
+        "the altitude band and the inclination both match, so only the plane can "
+        "decide this, and a plane outside the tolerance must read as clear"
+    )
+    assert verdict.p_conjunction == 1
+    assert not any(item["norad_id"] == ISS_NORAD for item in verdict.considerations)
+
+
+def test_a_target_in_a_different_plane_does_not_reach_p_success():
+    """The reason this matters: a flag zeroes the reported conjunction component."""
+    target = {**ISS_SHELL, "raan_deg": 140.0}
+    result = screens.evaluate(177.0, SITE["corridor"], PROFILE, target, FIXTURE)
+    assert result.p_conjunction == 1
+    assert result.constraint_fired is None
+
+
+def test_a_target_in_the_same_plane_is_flagged():
+    """Within the plane tolerance the object is a real consideration."""
+    target = {**ISS_SHELL, "raan_deg": 120.0}
+    verdict = screens.conjunction_screen(target, FIXTURE)
+    assert abs(ISS_RAAN_DEG - 120.0) <= PLANE_TOLERANCE_DEG
+    assert verdict.conjunction == "flagged"
+    assert verdict.p_conjunction == 0
+    consideration = _iss_consideration(verdict)
+    assert consideration["raan_miss_deg"] == pytest.approx(4.0722, abs=1.0e-3)
+
+
+def test_the_plane_test_is_exclusive_at_the_tolerance_edge():
+    """Just inside the tolerance flags and just outside it clears, on the same object.
+
+    The boundary is pinned rather than left floating so that a future edit which
+    widens the comparison to ``<`` shows up here instead of quietly re-flagging
+    planes the screen is supposed to clear.
+    """
+    inside = {**ISS_SHELL, "raan_deg": ISS_RAAN_DEG - PLANE_TOLERANCE_DEG}
+    outside = {**ISS_SHELL, "raan_deg": ISS_RAAN_DEG - PLANE_TOLERANCE_DEG - 0.01}
+    assert screens.conjunction_screen(inside, FIXTURE).conjunction == "flagged"
+    assert screens.conjunction_screen(outside, FIXTURE).conjunction == "clear"
+
+
+def test_the_plane_miss_is_measured_the_short_way_round_the_circle():
+    """RAAN 358 deg is 126 deg from the ISS plane, not 234 deg of arc."""
+    target = {**ISS_SHELL, "raan_deg": 358.0}
+    verdict = screens.conjunction_screen(target, FIXTURE)
+    assert verdict.conjunction == "clear"
+    near = {**ISS_SHELL, "raan_deg": (ISS_RAAN_DEG + 358.0) % 360.0}
+    assert screens.conjunction_screen(near, FIXTURE).conjunction == "flagged"
+    assert _iss_consideration(
+        screens.conjunction_screen(near, FIXTURE)
+    )["raan_miss_deg"] == pytest.approx(2.0, abs=1.0e-3)
+
+
+def test_an_unknown_target_plane_is_conservative_and_flags():
+    """raan_miss None is a plane the screen does not have, so it may not read as clear.
+
+    A free-RAAN request has not chosen a plane yet. Treating that as "no plane
+    conflict" would let the screen report a pass on the strength of a quantity it
+    never had, and would hand a caller a conjunction component of 1 for a target
+    whose plane could still be rotated onto an occupied one.
+    """
+    verdict = screens.conjunction_screen({**ISS_SHELL, "raan_deg": None}, FIXTURE)
+    assert verdict.conjunction == "flagged"
+    assert verdict.p_conjunction == 0
+    consideration = _iss_consideration(verdict)
+    assert consideration["raan_miss_deg"] is None, (
+        "the consideration must still record that the plane comparison could not be made"
+    )
+
+
+def test_the_combined_screen_also_treats_an_unknown_plane_as_conservative():
+    result = screens.evaluate(
+        177.0,
+        SITE["corridor"],
+        PROFILE,
+        {**ISS_SHELL, "raan_deg": None},
+        FIXTURE,
+    )
+    assert result.conjunction == "flagged"
+    assert result.p_conjunction == 0
+    assert result.constraint_fired == "conjunction_flagged"
+
+
+def test_an_unknown_plane_does_not_flag_a_target_outside_the_altitude_band():
+    """The conservative default is about the plane, not a blanket flag on everything."""
+    verdict = screens.conjunction_screen(
+        {"altitude_km": 1500.0, "i_t_deg": 97.5, "raan_deg": None}, FIXTURE
+    )
+    assert verdict.conjunction == "clear"
+    assert verdict.p_conjunction == 1
+
+
+def test_the_plane_test_does_not_disturb_the_altitude_or_inclination_gates():
+    """A wrong plane must not rescue a target that misses on altitude, and vice versa."""
+    near_plane_wrong_altitude = {"altitude_km": 1500.0, "i_t_deg": 51.6, "raan_deg": 120.0}
+    assert screens.conjunction_screen(near_plane_wrong_altitude, FIXTURE).conjunction == "clear"
+    near_altitude_wrong_plane = {"altitude_km": 430.0, "i_t_deg": 51.6, "raan_deg": 140.0}
+    assert screens.conjunction_screen(near_altitude_wrong_plane, FIXTURE).conjunction == "clear"
+    near_altitude_wrong_inclination = {"altitude_km": 430.0, "i_t_deg": 70.0, "raan_deg": 120.0}
+    assert screens.conjunction_screen(near_altitude_wrong_inclination, FIXTURE).conjunction == "clear"
+
+
+# --- The plane test through the shipped seam ----------------------------------
+
+
+def test_the_canso_sso_case_keeps_its_conjunction_component_at_one():
+    """The demo case must not be flagged by the plane test.
+
+    The Canso SSO target is 674 km at 98.1 deg. The nearest fixture object in
+    altitude is TIANQIN 1 at 591.5 km, 82.5 km away against a 50 km threshold, so
+    no fixture object is in the altitude band at all and the plane test is never
+    reached. This is the regression guard: adding the plane condition must not
+    turn the demo case's conjunction component into 0.
+    """
+    from backend.engine import compute_windows
+
+    response = compute_windows(
+        {
+            "target": {"type": "SSO"},
+            "site": "canso",
+            "date_range": {"start": "2026-10-05", "end": "2026-10-05"},
+            "vehicle_profile_id": "cyclone4m",
+            "include_weather": False,
+        }
+    )
+    assert response["windows"], "the canonical demo request must return windows"
+    assert response["reachable"] is True
+    for row in response["windows"]:
+        assert row["screens"]["conjunction"] == "clear", (
+            f"{row['t_liftoff_utc']}: the demo case must not be conjunction-flagged"
+        )
+        assert row["p_success_components"]["conjunction"] == 1.0
+
+
+def test_the_canso_sso_case_has_no_fixture_object_in_its_altitude_band():
+    """The arithmetic behind the guard above, stated directly so it cannot drift."""
+    altitude_km = 674.0
+    within = [
+        satellite["norad_id"]
+        for satellite in FIXTURE["satellites"]
+        if abs(float(satellite["mean_altitude_km"]) - altitude_km) <= THRESHOLD_KM
+    ]
+    assert within == [], f"the demo altitude band must stay empty, found {within}"

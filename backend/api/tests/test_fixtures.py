@@ -112,3 +112,38 @@ def test_every_fixture_constants_block_carries_the_configured_constants() -> Non
         for constant, value in constants.values.items():
             assert block[constant] == value, f"{name}: {constant}"
     assert checked >= 3
+
+
+def test_every_contract_example_constants_block_carries_the_spec_value_of_j2() -> None:
+    """Found by the browser walk: the frozen examples held J2 = 0.000108262668.
+
+    Spec II.10 gives J2 = 1.08262668e-3. The schema types the field and cannot check
+    its value, so a tenth of it validated for as long as nobody read the number. An
+    example is what a reader copies, so the good and the bad examples alike must
+    carry the value of ``data/constants.json``; a bad example is bad for the reason
+    its name gives, not for a wrong constant.
+    """
+    from backend.api.provenance import load_constants
+
+    expected = load_constants().values["J2"]
+    examples = Path(__file__).resolve().parents[3] / "tests" / "contract" / "examples"
+    checked = 0
+    for path in sorted(examples.rglob("*.json")):
+        text = path.read_text(encoding="utf-8")
+        if '"J2"' not in text:
+            continue
+
+        def blocks(node: object):
+            if isinstance(node, dict):
+                if "J2" in node and not isinstance(node["J2"], str):
+                    yield node
+                for value in node.values():
+                    yield from blocks(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from blocks(value)
+
+        for block in blocks(json.loads(text)):
+            checked += 1
+            assert block["J2"] == expected, f"{path.name}: J2 {block['J2']!r}"
+    assert checked >= 20

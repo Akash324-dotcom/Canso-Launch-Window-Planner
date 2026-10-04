@@ -62,27 +62,34 @@ def test_windows_come_from_the_real_engine_and_say_so(
     assert settings.relative(settings.fixture_path("windows")) not in sources
 
 
-def test_every_window_carries_the_real_weather_answer_for_the_request(
+def test_every_window_carries_the_real_weather_answer_for_its_date(
     client: TestClient, settings: Settings, sso_request: dict[str, Any]
 ) -> None:
-    """The defect: the weather factor was the neutral 1.0 on every row of every response."""
+    """The defect: the weather factor was the neutral 1.0 on every row of every response.
+
+    The first version of this test accepted one answer for the whole response, the
+    answer for the first day of the range, because that was how the route worked. It
+    now works by date (``test_window_weather_by_date.py``), so every row is compared
+    with the layer's answer for the date of that row. 2026-10-06 starts the range
+    because the committed forecast gives it a probability strictly between 0 and 1,
+    so neither a neutral 1.0 nor a dropped factor could pass.
+    """
     from backend import weather
 
-    # The route asks the weather layer once per response, for the first day of the range.
-    # 2026-10-06 is used because the committed forecast gives it a probability strictly
-    # between 0 and 1, so neither a neutral 1.0 nor a dropped factor could pass.
     request = {**sso_request, "date_range": {"start": "2026-10-06", "end": "2026-10-15"}}
-    expected = weather.probability(
-        date_iso=request["date_range"]["start"],
-        site=request["site"],
-        criteria_version=settings.default_criteria_version,
-    )
     body = client.post("/v1/windows", json=request).json()
 
     assert body["windows"]
-
-    assert 0.0 < expected["p_launch"] < 1.0, "a neutral 1.0 would hide the defect this test is for"
+    first = weather.probability(
+        date_iso="2026-10-06", site=request["site"], criteria_version=settings.default_criteria_version
+    )
+    assert 0.0 < first["p_launch"] < 1.0, "a neutral 1.0 would hide the defect this test is for"
     for row in body["windows"]:
+        expected = weather.probability(
+            date_iso=row["t_liftoff_utc"][:10],
+            site=request["site"],
+            criteria_version=settings.default_criteria_version,
+        )
         components = row["p_success_components"]
         assert components["weather"] == expected["p_launch"]
         assert row["p_success"] == pytest.approx(
@@ -103,7 +110,24 @@ def test_the_service_default_criteria_version_names_a_table_the_weather_layer_ha
 def test_an_unknown_criteria_version_fires_a_constraint_on_every_row(
     client: TestClient, sso_request: dict[str, Any]
 ) -> None:
-    """Spec IV.7 rule 3 and the enumeration of spec IV.1: the outcome is in the body, not hidden."""
+    """Spec IV.7 rule 3 and the enumeration of spec IV.1: the outcome is in the body, not hidden.
+
+    WHAT CHANGED HERE. The assertion used to be that EVERY row carries
+    ``criteria_version_missing``, which was true only while every row was a
+    southbound flight. The engine now computes the launch azimuth per site
+    crossing, so the ascending crossing of the SSO plane is correctly reported as a
+    northbound launch and is correctly refused by the Canso southbound corridor with
+    ``hazard_area``. The sibling test below already fixes the precedence in that
+    situation: an engine constraint is never overwritten by the API's own.
+
+    WHAT IS ASSERTED NOW, AND IT IS NOT WEAKER. Every row must still name a
+    constraint, so an unknown criteria version can never pass through silently.
+    Every row the engine reports as range-clear must name
+    ``criteria_version_missing`` specifically, which is the original assertion
+    applied to exactly the rows where the API's constraint is the operative one.
+    And the rows the engine refused must name the engine's own constraint, so the
+    precedence is asserted rather than assumed.
+    """
     response = client.post("/v1/windows", json={**sso_request, "criteria_version": "v99"})
 
     assert response.status_code == 200, response.text
@@ -111,9 +135,31 @@ def test_an_unknown_criteria_version_fires_a_constraint_on_every_row(
     assert errors_for(WINDOWS_SCHEMA, body) == []
     assert body["windows"]
     for row in body["windows"]:
-        assert row["constraint_fired"] == "criteria_version_missing"
+        assert row["constraint_fired"] is not None, (
+            f"{row['t_liftoff_utc']}: an unknown criteria version must leave a "
+            "constraint on every row, and must not be silently dropped"
+        )
         assert row["forecast_issue_time"] is None
         assert row["p_success_components"]["weather"] == 1.0
+        expected = (
+            "criteria_version_missing"
+            if row["screens"]["hazard"] == "pass"
+            else "hazard_area"
+        )
+        assert row["constraint_fired"] == expected, (
+            f"{row['t_liftoff_utc']}: the API's criteria constraint applies only where "
+            "the engine fired none; an engine constraint outranks it"
+        )
+    assert any(row["screens"]["hazard"] == "pass" for row in body["windows"]), (
+        "the criteria constraint must still be observable, so at least one row must be "
+        "range-clear and therefore carry criteria_version_missing"
+    )
+    assert any(row["screens"]["hazard"] == "fail" for row in body["windows"]), (
+        "the SSO plane is crossed once northbound and once southbound per period, so at "
+        "least one row must carry the engine's own hazard_area constraint; none doing so "
+        "means one azimuth is being stamped on both branches and this test is only "
+        "exercising one side of the precedence it claims to check"
+    )
 
 
 def test_an_unknown_criteria_version_does_not_overwrite_a_constraint_the_engine_fired(
@@ -297,3 +343,81 @@ def test_skill_is_the_real_hindcast_and_lead_max_only_truncates_the_series(
     assert limited["skill_series"] == full["skill_series"][:5]
     assert limited["reliability_bins"] == full["reliability_bins"]
     assert limited["skill_horizon_measured_days"] == full["skill_horizon_measured_days"]
+
+
+# --------------------------------------------------------------------------
+# The ephemeris of a window row (browser walk defect B1)
+# --------------------------------------------------------------------------
+
+
+def test_the_ephemeris_of_a_window_row_is_the_ascent_of_that_row(
+    client: TestClient, settings: Settings, sso_request: dict[str, Any]
+) -> None:
+    """The page asks from t_liftoff_utc to t_injection_utc of the selected row.
+
+    The answer was a segment of the orbit, 16,812 km from the pad at the liftoff
+    instant and at orbit altitude. It is now the ascent: on the pad at liftoff, at
+    the altitude of the orbit at injection, both instants sampled.
+    """
+    body = client.post("/v1/windows", json=sso_request).json()
+    site = client.get("/v1/site").json()
+    usable = [row for row in body["windows"] if row["screens"]["hazard"] == "pass"]
+    assert usable
+
+    for row in usable[:3]:
+        response = client.get(
+            "/v1/orbits/sso981/ephemeris",
+            params={"start": row["t_liftoff_utc"], "end": row["t_injection_utc"], "step_s": 300},
+        )
+        assert response.status_code == 200, response.text
+        answer = response.json()
+        assert errors_for("ephemeris_response", answer) == []
+        first, last = answer["points"][0], answer["points"][-1]
+
+        assert first["t_utc"] == row["t_liftoff_utc"]
+        assert first["lat_deg"] == pytest.approx(site["phi_s_deg"], abs=1.0e-6)
+        assert first["lon_deg"] == pytest.approx(site["lambda_s_deg"], abs=1.0e-6)
+        assert first["alt_km"] == 0.0
+        assert last["t_utc"] == row["t_injection_utc"]
+        assert last["alt_km"] == pytest.approx(674.0, abs=1.0e-6)
+        assert last["lat_deg"] < first["lat_deg"], "Canso flies south"
+        altitudes = [point["alt_km"] for point in answer["points"]]
+        assert altitudes == sorted(altitudes)
+
+
+def test_the_ephemeris_endpoint_agrees_with_the_engine_seam_point_for_point(
+    client: TestClient, settings: Settings
+) -> None:
+    from backend import engine
+    from backend.api.ephemeris import preset_orbit
+
+    orbit = preset_orbit(settings, "polar879")
+    query = {"start": "2026-10-05T02:55:37Z", "end": "2026-10-05T03:04:37Z", "step_s": 60}
+    expected = engine.ephemeris(
+        orbit_id="polar879",
+        start=query["start"],
+        end=query["end"],
+        step_s=60.0,
+        i_t_deg=orbit.i_t_deg,
+        h_t_km=orbit.h_t_km,
+        site=settings.default_site,
+    )
+
+    served = client.get("/v1/orbits/polar879/ephemeris", params=query).json()
+
+    assert served["points"] == expected["points"]
+    assert len(served["points"]) == 10
+
+
+def test_an_orbit_the_site_cannot_reach_is_served_from_its_record_not_as_an_ascent(
+    client: TestClient, settings: Settings
+) -> None:
+    """leo45 has no ascent from Canso (spec II.4), so the recorded orbit segment answers."""
+    query = {"start": "2026-10-05T02:55:37Z", "end": "2026-10-05T03:04:37Z", "step_s": 300}
+
+    response = client.get("/v1/orbits/leo45/ephemeris", params=query)
+
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert errors_for("ephemeris_response", answer) == []
+    assert answer["points"][0]["alt_km"] > 100.0

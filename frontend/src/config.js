@@ -24,7 +24,7 @@ export const FIXTURES = {
 };
 
 export const SITES = [
-  { id: 'canso', label: 'Canso, Spaceport Nova Scotia (45.3 N, 61.0 W)' },
+  { id: 'canso', label: 'Canso, Spaceport Nova Scotia' },
 ];
 
 export const ORBIT_PRESETS = [
@@ -92,7 +92,7 @@ export const WEATHER_THRESHOLDS = {
   yellow_min: 0.4,
   flag: 'ASSUMPTION',
   source:
-    'src/config.js WEATHER_THRESHOLDS, the defaults spec V.3 states for the backend config/weather.json',
+    'src/config.js WEATHER_THRESHOLDS, the defaults spec V.3 states; the backend serves no weather thresholds, so they are kept in this file',
 };
 
 export const WEATHER_BAND_LABELS = {
@@ -147,6 +147,14 @@ export const EARTH_RADIUS_M = 6378137.0;
 
 export const EARTH_RADIUS_SOURCE =
   'constants_block.R_e of the ephemeris response, with the spec II.10 value 6378137.0 m as the fallback';
+
+// Sidereal rotation rate of the Earth. The corridor guard turns the Earth back by this rate
+// to read a ground track sample in the frame fixed at liftoff, the frame the corridor azimuth
+// is stated in.
+export const OMEGA_SID_RAD_S = 7.292115e-5;
+
+export const OMEGA_SID_SOURCE =
+  'constants_block.omega_sid_rad_s of the ephemeris response, with the spec II.10 value 7.292115e-5 rad/s as the fallback';
 
 export const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 
