@@ -1,5 +1,6 @@
 import { WEATHER_BAND_LABELS, WEATHER_THRESHOLDS } from '../config.js';
 import { el, replaceChildren } from '../dom.js';
+import { flagCounts } from '../researcher.js';
 import { renderSkillCurve } from '../svgChart.js';
 import { formatIssueTime, percent } from '../time.js';
 import { thresholdsText, weatherBand } from '../weatherBands.js';
@@ -89,6 +90,18 @@ export function createWeatherScreen({ root, store, thresholds = WEATHER_THRESHOL
   const launchIndicatorHost = el('div', { id: 'weather-launch-indicator' });
   const thresholdsNote = el('p', { class: 'hint', id: 'weather-thresholds' });
   const criteriaHost = el('div', { id: 'weather-criteria-host' });
+  const rowUncertainty = el('p', { class: 'hint', id: 'weather-row-uncertainty' });
+  const criteriaSummary = el('p', { class: 'hint', id: 'weather-criteria-summary' });
+  const criteriaUncertainty = el('p', { class: 'hint', id: 'weather-criteria-uncertainty' });
+  const versionSelect = el('select', { class: 'inp', id: 'criteria-version-select', disabled: true }, [
+    el('option', { value: '', text: 'no weather answer loaded' }),
+  ]);
+  const versionNote = el('p', { class: 'hint', id: 'criteria-version-note' });
+  const versionControl = el('div', { class: 'field', id: 'criteria-version-control' }, [
+    el('label', { for: 'criteria-version-select', text: 'Criteria version' }),
+    versionSelect,
+    versionNote,
+  ]);
   const skillHost = el('div', { class: 'chart-host', id: 'weather-skill-curve-host' });
   const skillNote = el('p', { class: 'hint', id: 'weather-skill-note' });
   const honesty = el('p', { class: 'hint', id: 'weather-honesty' });
@@ -100,8 +113,12 @@ export function createWeatherScreen({ root, store, thresholds = WEATHER_THRESHOL
     ]),
     thresholdsNote,
     rowIndicatorHost,
+    rowUncertainty,
     launchIndicatorHost,
+    criteriaSummary,
     criteriaHost,
+    criteriaUncertainty,
+    versionControl,
     el('h3', { text: 'Hindcast skill behind the label' }),
     skillHost,
     skillNote,
@@ -190,6 +207,69 @@ export function createWeatherScreen({ root, store, thresholds = WEATHER_THRESHOL
     replaceChildren(criteriaHost, [criteriaList(response === null ? null : response.components)]);
   }
 
+  /**
+   * Criteria transparency and the uncertainty behind each probability of this screen
+   * (issue 26). Every value is a field of the weather answer or of the selected window row.
+   */
+  function renderResearcher(state, row) {
+    const response = state.weatherResponse;
+    const present = response !== null && response !== undefined;
+
+    if (!present) {
+      criteriaSummary.textContent = 'No weather answer loaded, so no criteria are listed.';
+      criteriaSummary.removeAttribute('data-criteria-version');
+      criteriaSummary.setAttribute('data-verified', '');
+      criteriaSummary.setAttribute('data-proxy', '');
+      criteriaUncertainty.textContent = 'No weather answer loaded, so there is nothing to qualify.';
+    } else {
+      const counts = flagCounts(response.components);
+      const others = Object.entries(counts.counts)
+        .filter(([flag]) => flag !== 'VERIFIED' && flag !== 'PROXY')
+        .map(([flag, count]) => `, ${count} ${flag}`)
+        .join('');
+      criteriaSummary.setAttribute('data-criteria-version', String(response.criteria_version));
+      criteriaSummary.setAttribute('data-verified', String(counts.verified));
+      criteriaSummary.setAttribute('data-proxy', String(counts.proxy));
+      criteriaSummary.textContent =
+        `GET /v1/weather/probability for ${response.date}: criteria version ${response.criteria_version}, ` +
+        `${counts.total} criteria: ${counts.verified} VERIFIED, ${counts.proxy} PROXY${others}.`;
+      criteriaUncertainty.textContent =
+        `The p_launch and p_violation values of this answer: horizon_label ${response.horizon_label}, ` +
+        `forecast_issue_time ${response.forecast_issue_time ?? 'null'}, ensemble size N ${response.ensemble_size ?? 'null'}, ` +
+        `source ${response.source}.`;
+    }
+
+    const version = present ? String(response.criteria_version) : '';
+    replaceChildren(versionSelect, [
+      el('option', { value: version, text: present ? version : 'no weather answer loaded' }),
+    ]);
+    versionSelect.value = version;
+    versionNote.textContent =
+      'The API offers no list of criteria versions: no endpoint returns one and no field of any response names the ' +
+      'versions that exist. The version therefore cannot be chosen here; the selector shows the one the weather answer used.';
+
+    if (row === null) {
+      rowUncertainty.setAttribute('data-ensemble-size', '');
+      rowUncertainty.textContent = 'Select a window row to read what stands behind its probability.';
+      return;
+    }
+    const liftoffDate = String(row.t_liftoff_utc).slice(0, 10);
+    const behind =
+      `p_success_components.weather of the selected row: horizon_label ${row.horizon_label}, ` +
+      `forecast_issue_time ${row.forecast_issue_time ?? 'null'}`;
+    if (present && response.date === liftoffDate) {
+      rowUncertainty.setAttribute('data-ensemble-size', response.ensemble_size === null ? '' : String(response.ensemble_size));
+      rowUncertainty.textContent =
+        `${behind}; ensemble size N ${response.ensemble_size ?? 'null'}, from GET /v1/weather/probability for ` +
+        `${response.date}, the liftoff date of the row.`;
+    } else {
+      rowUncertainty.setAttribute('data-ensemble-size', '');
+      rowUncertainty.textContent =
+        `${behind}; ensemble size N not available for this row: the window response has no such field, and the weather ` +
+        `answer on the page is ${present ? `for ${response.date}` : 'absent'}, not for the liftoff date ${liftoffDate}.`;
+    }
+  }
+
   function renderSkill(state) {
     const response = state.skillResponse;
     if (response === null || response === undefined) {
@@ -222,6 +302,7 @@ export function createWeatherScreen({ root, store, thresholds = WEATHER_THRESHOL
     renderRowIndicator(state, row);
     renderLaunchIndicator(state, row);
     renderCriteria(state);
+    renderResearcher(state, row);
     renderSkill(state);
     const bands = [
       weatherBand(row?.p_success_components?.weather ?? null).band,

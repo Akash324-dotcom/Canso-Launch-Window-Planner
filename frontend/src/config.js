@@ -102,6 +102,12 @@ export const WEATHER_BAND_LABELS = {
   GREY: 'no probability available',
 };
 
+// Spec III.4 pass criterion 2: at least 5 populated reliability bins and a mean absolute
+// difference between observed and predicted of at most 0.15. The numbers are the spec's.
+export const CALIBRATION_GAP_BOUND = 0.15;
+
+export const CALIBRATION_MIN_BINS = 5;
+
 export const ELEVATION_MASK_DEG = 10;
 
 export const ELEVATION_MASK_FLAG = 'ASSUMPTION';

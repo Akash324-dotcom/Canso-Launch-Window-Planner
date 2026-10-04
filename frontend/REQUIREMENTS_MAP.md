@@ -51,3 +51,44 @@ npx vitest run tests/<file>.test.js
 | The `include_weather: false` path renders null weather without crashing | `src/request.js` and the horizon cell of `src/screens/windowEngine.js` | `tests/api.test.js` `F1 API client and state machine` / `renders the include_weather=false path with null weather fields without crashing` |
 | An unreachable target shows the plane change penalty and the constants rather than an error | The honesty panel in `src/screens/windowEngine.js` | `tests/countdown.test.js` `F2 countdown` / `shows the penalty panel and the constants when the target is unreachable` |
 | Every spec V.1 table column is present and every frozen schema column is named | `WINDOW_TABLE_COLUMNS` in `src/config.js` and the table renderer | `tests/windowEngine.test.js` `F2 vehicle profile and table contract` / `renders the spec V.1 columns and the contract field values`; `... / names every window table column of the frozen response schema that screen 1 shows` |
+## Researcher layer, issue 26
+
+Each control is live: changing it sends a request or recomputes from the response on the page. Each has its own
+test file, which mocks `fetch`, asserts the call and asserts that the returned values are what the page shows.
+A control whose data the service does not offer is listed in the second table with the reason and the field that
+is missing; it ships showing that absent state.
+
+| Control of the issue | Where implemented | Endpoints | Test file |
+|---|---|---|---|
+| 1. CSV and JSON download of the window table, rows in the file equal rows displayed | `#download-window-csv`, `#download-window-json` and the count line `#analysis-window-download-count` in `src/screens/analysis.js`; `windowRowsJson` in `src/export.js` | `POST /v1/windows` | `tests/researcherDownloads.test.js` (4 tests: CSV rows, JSON rows equal to the response, the count line follows a new response, an empty answer) |
+| 2. Provenance per run, with a working copy and fetch link for the citation | constants and sources from `constants_block` in `#constants-body`, source files from `provenance_block.source_files` in `#analysis-source-files`; `#citation-id`, `#citation-link`, `#citation-copy`, `#citation-fetch`, `#citation-status` in `src/screens/analysis.js`; the request in `readCitation` of `src/app.js` | `POST /v1/windows`, `GET /v1/citation?id=` | `tests/researcherProvenance.test.js` (6 tests: constants and files of the response, the link, the re-fetch, the copy and its refusal, a failed answer, offline) |
+| 3. Brier skill by lead with `n_cases`, the measured horizon, the claim label with period and sample | the skill table `#analysis-skill-rows` and the claim `#analysis-skill-claim` in `src/screens/analysis.js`; `skillClaim` in `src/researcher.js` | `GET /v1/validation/skill?period_start=&period_end=` | `tests/researcherSkill.test.js` (4 tests) |
+| 4. Reliability bins, ROC points, the calibration gap against the 0.15 bound | `#analysis-reliability-rows`, `#analysis-roc-rows` and `#analysis-calibration` in `src/screens/analysis.js`; `calibrationGap` and `calibrationState` in `src/researcher.js`; `CALIBRATION_GAP_BOUND` and `CALIBRATION_MIN_BINS` in `src/config.js` | `GET /v1/validation/skill` | `tests/researcherCalibration.test.js` (5 tests, the gap hand-checked) |
+| 5. Per-criterion breakdown with VERIFIED and PROXY flags, the criteria version | `#weather-criteria-rows`, the summary `#weather-criteria-summary` and `#criteria-version-select` in `src/screens/weather.js`; `flagCounts` in `src/researcher.js` | `GET /v1/weather/probability` | `tests/researcherCriteria.test.js` (5 tests) |
+| 6. Live parameters: target class, date range, vehicle profile, RAAN tolerance, corridor override with its flags, weather toggle | the form of `src/screens/windowEngine.js`: `#target-type`, `#date-start`, `#date-end`, `#vehicle-profile` with `#vehicle-profile-effect`, `#raan-tolerance-deg` with `#raan-tolerance-effect`, the corridor inputs with `#corridor-flags`, `#include-weather`; the request echo `#request-echo`; `raan_tolerance_deg` in `src/request.js` | `POST /v1/windows` | `tests/researcherParameters.test.js` (10 tests, one or more per parameter) |
+| 7. Uncertainty beside every probability: ensemble size, issue time, horizon label | `#window-uncertainty` in `src/screens/windowEngine.js`; `#weather-row-uncertainty` and `#weather-criteria-uncertainty` in `src/screens/weather.js`; `#analysis-base-rate` in `src/screens/analysis.js`; `windowUncertainty` in `src/researcher.js` | `POST /v1/windows`, `GET /v1/weather/probability`, `GET /v1/validation/skill` | `tests/researcherUncertainty.test.js` (8 tests) |
+
+### Absent, with the reason
+
+| What the issue asks | State on the page | Reason, and the field to file against issue 4 (API) |
+|---|---|---|
+| 5. Criteria version selectable if the API offers versions | `#criteria-version-select` is disabled and holds the one version the weather answer used; `#criteria-version-note` says why | The API offers no list of criteria versions: no endpoint returns one and no field of any response names the versions that exist. Missing: a list of available criteria versions, for example on `GET /v1/site` or a `GET /v1/criteria` |
+| 7. Ensemble size beside the probability of every window row | `#window-uncertainty` states label and issue time and says that N is not in the window response; N is shown for the selected row from the weather answer for its liftoff date | Rows of `POST /v1/windows` carry `horizon_label` and `forecast_issue_time` and no `ensemble_size`. Missing: `ensemble_size` on each window row |
+| 4. Met or not met state of the calibration criterion | `#analysis-calibration` gives the gap against the bin centres and its state against 0.15, names that reading, and says that the gate verdict cannot be computed | `GET /v1/validation/skill` returns `p_center` for each bin and not the mean forecast inside it, which is the reading the gate G2 verdict uses (see `backend/weather/HINDCAST.md`). Missing: the mean forecast of each reliability bin, or the gap and the verdict themselves |
+| 3. A claim label narrower than SKETCHED where the hindcast supports it | `#analysis-skill-claim` says SKETCHED and that the response carries no claim status | Missing: a claim status field on `GET /v1/validation/skill` |
+| 6. Vehicle profile as a parameter that changes the result | `#vehicle-profile-effect` says that one profile is offered and why the control cannot change the result | The API has no endpoint that lists vehicle profiles. Missing: a list of vehicle profile ids |
+| 8. Delay-cost line | Not shown; no number, no control | The brief does not ask for it. The slide (spec Appendix A, lines 871 to 889) states "A missed window can cost millions" as the stakes and names no cost to compute. Spec II.9 and equation II.28 place an expected delay cost in the decision layer with a daily cost `C_day` from `config/decision.json`; that file does not exist, no response of the service carries a cost, a delay or `C_day`, and a cost entered in the browser would be invented economics. Recorded and skipped, as the issue directs |
+
+### Ghost check, per control
+
+No control of this layer shows a value that no computation produced.
+
+| Control | Values shown | Where each comes from |
+|---|---|---|
+| 1 | row count, file contents | `windows[]` of the response on the page |
+| 2 | constants, sources, source files, citation id, config hash, generated_at, counts of files and vehicle rows | `constants_block` and `provenance_block` of the window response; the record of `GET /v1/citation` |
+| 3 | BSS and `n_cases` per lead, period, minimum, maximum and sum of `n_cases`, horizon | `skill_series[]`, `period`, `skill_horizon_measured_days` of the skill response; the label SKETCHED is the default of the issue and the page says that the response has no such field |
+| 4 | bins, ROC points, populated bin count, gap | `reliability_bins[]`, `roc_points[]`; the gap is the mean of `abs(observed_freq - p_center)`; the bound 0.15 and the minimum of 5 bins are spec III.4 |
+| 5 | criteria, shares, flags, flag counts, version | `components[]` and `criteria_version` of the weather response |
+| 6 | request echo, window width, corridor bounds and flags | the request the page sent; `window_width_s`, `provenance_block.corridor` and `provenance_block.row_flags` of the answer |
+| 7 | labels, issue times, ensemble size | `horizon_label`, `forecast_issue_time` of the window rows; `ensemble_size` of the weather response, only when it is for the liftoff date of the selected row |
