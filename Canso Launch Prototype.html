@@ -493,7 +493,7 @@ function refreshTrackLine(){ const el=$('trackLine'); if(el) el.textContent=trac
 function trackStatus(w){
   if(!w) return '';
   if(!w.trackInfo) return 'Ascent track: loading from GET /v1/orbits/{id}/ephemeris…';
-  if(w.track) return `Ascent arc: ${S.origins.ephemeris==='fixture'?'offline fixture':'API ephemeris'}, ${w.track.length} samples from the pad to the injection point.`;
+  if(w.track) return `Ascent arc: illustrative, not a flown trajectory. ${S.origins.ephemeris==='fixture'?'Offline fixture':'API ephemeris'}, ${w.track.length} samples from the pad to the injection point.`;
   return `No ascent arc drawn: ${w.trackNote}.`;
 }
 function ensureTrack(w){
@@ -894,7 +894,7 @@ function renderTowns(){
   if(!S.centres.centres.length){ msg('No viewing report: '+(S.centres.error||'no centres')+'.'); return; }
   const rep=viewingFor({track:w.trackInfo,centres:S.centres.centres,ephemeris:w.ephemeris,window:w});
   body.innerHTML=rep.centres.map(c=>{const e=c.max_elevation_deg; return `<tr${c.visible?'':' style="color:var(--muted)"'}><td style="white-space:normal">${esc(c.name)}</td><td class="m">${e===null?'n/a':e.toFixed(0)+'°'}</td><td>${c.peak_azimuth_deg===null?'':compass8(c.peak_azimuth_deg)}${c.visible?'':' · below mask'}</td></tr>`;}).join('');
-  note.textContent=`Peak elevation of the vehicle over the ascent samples. Mask ${ELEVATION_MASK_DEG}° (ASSUMPTION). Centre coordinates: ${S.centres.flag||'unflagged'}.`;
+  note.textContent=`Peak elevation over a modelled ascent: a smooth curve fitted to the pad, the launch azimuth and an assumed injection time, not a simulated trajectory. Mask ${ELEVATION_MASK_DEG}° (ASSUMPTION). Centre coordinates: ${S.centres.flag||'unflagged'}.`;
 }
 
 /* ---------- run / morph ---------- */
@@ -1050,7 +1050,7 @@ function showTip(h){
   if(!h){tip.hidden=true;return;}
   const p=project(h.wp); tip.style.left=p.x+'px'; tip.style.top=p.y+'px'; tip.hidden=false;
   const w=S.windows[S.sel];
-  if(h.kind==='arc'){const a=arcData[h.j]; const tmin=(a.t-w.t)/MIN; tip.innerHTML=`<b style="color:var(--accent)">T+${Math.floor(tmin)}:${pad2(Math.round((tmin%1)*60))}</b>${Math.round(a.alt)} km · ascent (${S.origins.ephemeris==='fixture'?'offline fixture':'API ephemeris'})`; return;}
+  if(h.kind==='arc'){const a=arcData[h.j]; const tmin=(a.t-w.t)/MIN; tip.innerHTML=`<b style="color:var(--accent)">T+${Math.floor(tmin)}:${pad2(Math.round((tmin%1)*60))}</b>${Math.round(a.alt)} km · illustrative ascent (${S.origins.ephemeris==='fixture'?'offline fixture':'API ephemeris'})`; return;}
   // hoop segment: ground point under it now, time after insertion
   const wp=h.wp.clone().normalize(); const ecef=wp.clone().applyAxisAngle(Y,-gmst(S.simT)*D).applyAxisAngle(Y,0);
   const inv=new THREE.Matrix4().copy(earth.matrixWorld).invert(); const ep=h.wp.clone().applyMatrix4(inv).normalize();
