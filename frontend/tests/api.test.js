@@ -12,6 +12,7 @@ import {
   fixtureResponseFor,
   flush,
   installFetch,
+  windowsPosts,
   installWindowsApi,
   isApiUrl,
   jsonResponse,
@@ -43,9 +44,9 @@ describe('F1 API client and state machine', () => {
     app.start();
     await flush();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(windowsPosts(fetchMock)).toHaveLength(1);
     expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE}/windows`);
-    const firstBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const firstBody = JSON.parse(windowsPosts(fetchMock)[0][1].body);
     expect(firstBody.target.type).toBe('SSO');
     expect(firstBody.site).toBe('canso');
     expect(firstBody.vehicle_profile_id).toBe('cyclone4m');
@@ -58,8 +59,8 @@ describe('F1 API client and state machine', () => {
     targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
     await flush();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).target.type).toBe('LEO');
+    expect(windowsPosts(fetchMock)).toHaveLength(2);
+    expect(JSON.parse(windowsPosts(fetchMock)[1][1].body).target.type).toBe('LEO');
 
     app.stop();
   });
@@ -180,7 +181,7 @@ describe('F1 API client and state machine', () => {
     includeWeather.dispatchEvent(new Event('change', { bubbles: true }));
     await flush();
 
-    expect(JSON.parse(fetchMock.mock.calls.at(-1)[1].body).include_weather).toBe(false);
+    expect(JSON.parse(windowsPosts(fetchMock).at(-1)[1].body).include_weather).toBe(false);
     const row = document.querySelector('#window-rows tr[data-liftoff-utc]');
     expect(row).not.toBeNull();
     expect(row.querySelector('[data-horizon]').getAttribute('data-horizon')).toBe('CLIMATOLOGY');

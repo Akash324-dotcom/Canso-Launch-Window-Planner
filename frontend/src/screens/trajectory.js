@@ -2,6 +2,7 @@ import {
   CORRIDOR_BEARING_TOLERANCE_DEG,
   CORRIDOR_FALLBACK_ARC_KM,
   MODE_OFFLINE,
+  TRACK_START_TOLERANCE_FLAG,
   ORBIT_IDS_BY_TYPE,
   VEHICLE_FOOTPRINTS,
 } from '../config.js';
@@ -133,9 +134,20 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
     const row = selectedRow(state);
     const points = state.ephemerisResponse === null ? [] : state.ephemerisResponse.points ?? [];
     const site = siteOf(state.siteResponse);
+    const ascent = row === null ? null : { start: row.t_liftoff_utc, end: row.t_injection_utc };
+    const check = corridorCheck(state.siteResponse, points, {
+      toleranceDeg: CORRIDOR_BEARING_TOLERANCE_DEG,
+      ascent,
+    });
+    // The wedge is sized to the ascent the guard accepted. A track that is not an ascent from
+    // the site, or the orbit after injection, must not stretch the corridor round the Earth.
+    const ascentPoints =
+      check.available && check.starts_at_site !== false
+        ? check.samples.map((sample) => ({ lat_deg: sample.lat_deg, lon_deg: sample.lon_deg }))
+        : [];
     const corridor = corridorPolygon(state.siteResponse, {
       radiusKm: CORRIDOR_FALLBACK_ARC_KM,
-      trackPoints: points,
+      trackPoints: ascentPoints,
     });
     const footprint = footprintHalfWidthKm(state);
     const buffer = hazardBufferPolygon(points, footprint.half_width_km);
@@ -148,9 +160,7 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
       buffer,
       centres,
       footprint,
-      check: corridorCheck(state.siteResponse, points, {
-        toleranceDeg: CORRIDOR_BEARING_TOLERANCE_DEG,
-      }),
+      check,
       orbitId: orbitIdFor(state.request),
     };
   }
@@ -298,20 +308,45 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
 
   function renderGuard(model) {
     const check = model.check;
+    corridorCheckLine.setAttribute(
+      'data-starts-at-site',
+      check.starts_at_site === null || check.starts_at_site === undefined ? '' : String(check.starts_at_site),
+    );
     if (!check.available) {
       corridorCheckLine.setAttribute('data-available', 'false');
       corridorCheckLine.setAttribute('data-inside', '');
       corridorCheckLine.textContent =
-        'The corridor guard needs both the site corridor bounds and a ground track, so it has nothing to check yet.';
+        check.samples_outside_ascent > 0
+          ? `The corridor guard has nothing to check: none of the ${check.samples_outside_ascent} ground track ` +
+            'samples falls between the liftoff and the injection instant of the selected row.'
+          : 'The corridor guard needs both the site corridor bounds and a ground track, so it has nothing to check yet.';
       return;
     }
     corridorCheckLine.setAttribute('data-available', 'true');
     corridorCheckLine.setAttribute('data-inside', String(check.inside));
+    const scope =
+      check.samples_outside_ascent > 0
+        ? ` The guard checks the ${check.samples.length} sample(s) of the ascent, liftoff to injection; ` +
+          `${check.samples_outside_ascent} sample(s) outside that interval are drawn and not checked.`
+        : '';
+    if (check.starts_at_site === false) {
+      corridorCheckLine.classList.add('caution');
+      corridorCheckLine.textContent =
+        `TRACK REJECTED by the UI: the ground track is ${check.start_distance_km.toFixed(1)} km from the site at the ` +
+        `liftoff instant ${check.start_t_utc}, so it is not an ascent from the site and it is not rendered as a ` +
+        `corridor track. A sample within ${check.start_tolerance_km} km of the site counts as on the pad ` +
+        `(${TRACK_START_TOLERANCE_FLAG}, src/config.js TRACK_START_TOLERANCE_KM).${scope}`;
+      return;
+    }
     if (check.inside) {
+      const bearings =
+        check.bearing_min_deg === null
+          ? 'every sample is on the pad'
+          : `bearings ${check.bearing_min_deg.toFixed(1)} to ${check.bearing_max_deg.toFixed(1)} deg`;
       corridorCheckLine.textContent =
         `Every sample of this track lies inside the corridor azimuth ${check.bounds.a_min_deg} to ` +
-        `${check.bounds.a_max_deg} deg (bearings ${check.bearing_min_deg.toFixed(1)} to ${check.bearing_max_deg.toFixed(1)} deg). ` +
-        'A northbound track over land is refused by this guard.';
+        `${check.bounds.a_max_deg} deg (${bearings}). ` +
+        `A northbound track over land is refused by this guard.${scope}`;
       corridorCheckLine.classList.remove('caution');
       return;
     }
@@ -321,7 +356,7 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
       `HAZARD REJECTION surfaced by the UI: ${check.violations.length} of ${check.samples.length} samples leave the ` +
       `corridor azimuth ${check.bounds.a_min_deg} to ${check.bounds.a_max_deg} deg, the first at ${first.t_utc} on ` +
       `bearing ${first.bearing_deg.toFixed(1)} deg, ${first.distance_km.toFixed(1)} km from the site. ` +
-      'From Canso the environmental assessment corridor runs south over the Atlantic, so this track is not rendered as a corridor track.';
+      `From Canso the environmental assessment corridor runs south over the Atlantic, so this track is not rendered as a corridor track.${scope}`;
   }
 
   function draw(state) {

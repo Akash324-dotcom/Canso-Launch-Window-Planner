@@ -334,9 +334,26 @@ function renderHonesty(state, panel) {
   panel.hidden = false;
   const site = siteNameOf(response, state.request === null ? DEFAULT_SITE : state.request.site);
   panel.querySelector('#honesty-headline').textContent = `Target not reachable from ${site} by direct ascent`;
-  panel.querySelector('#honesty-explanation').textContent =
-    'An unreachable target is a domain answer, not a request failure (spec IV.7). The engine priced the plane change a dogleg turn would cost; the window list is empty because no direct ascent satisfies the plane condition.';
-  panel.querySelector('#honesty-plane-change-dv-ms').textContent = planeChangeText(response);
+  const rows = windowRows(response);
+  if (rows.length === 0) {
+    panel.querySelector('#honesty-explanation').textContent =
+      'An unreachable target is a domain answer, not a request failure (spec IV.7). The engine priced the plane change a dogleg turn would cost; the window list is empty because no direct ascent satisfies the plane condition.';
+    panel.querySelector('#honesty-plane-change-dv-ms').textContent = planeChangeText(response);
+  } else {
+    // The engine also answers reachable false when the plane can be reached but the corridor
+    // admits none of the crossings. It then returns the rows, each with the constraint that
+    // stopped it, and no plane change, so the panel must not describe an empty list.
+    const fired = [...new Set(rows.map((row) => row.constraint_fired).filter((value) => value !== null && value !== undefined))];
+    const stopped = rows.filter((row) => row.constraint_fired !== null && row.constraint_fired !== undefined).length;
+    panel.querySelector('#honesty-explanation').textContent =
+      'An unreachable target is a domain answer, not a request failure (spec IV.7). The engine returned ' +
+      `${rows.length} window row(s) and marked the target unreachable: ${stopped} of them carry ` +
+      `constraint_fired ${fired.length === 0 ? 'null' : fired.join(', ')}. The rows are listed in the table below ` +
+      'with the constraint that stopped each.';
+    const value = response.plane_change_dv_ms;
+    panel.querySelector('#honesty-plane-change-dv-ms').textContent =
+      value === null || value === undefined ? 'null in this response' : `${value} m/s`;
+  }
   panel.querySelector('#honesty-hint').textContent =
     'Constants used for this verdict are printed below with their sources.';
 }
@@ -457,7 +474,12 @@ export function createWindowEngineScreen({ root, store, onInputsChanged, onRowSe
         : `${rows.length} windows returned, ${usable.length} not rejected by the hazard screen` +
           (state.selectedRowIndex === null
             ? ''
-            : `, row ${state.selectedRowIndex} selected for the trajectory and viewing screens`);
+            : `, row ${state.selectedRowIndex} selected for the trajectory and viewing screens`) +
+          (state.request !== null && state.request.include_weather === false
+            ? '. The weather layer is excluded from this request (include_weather false): p_success is the product ' +
+              'of the range and conjunction components only, and the horizon label is the neutral value the ' +
+              'response carries, not a climatological probability'
+            : '');
   }
 
   function readInputs() {

@@ -11,6 +11,8 @@ The launch window decision engine for Spaceport Nova Scotia (Canso): five screen
 - vitest with jsdom for the tests, for the reason recorded in `AUDIT.md` section 0.
 - The fixture generator is Python 3 standard library only, so it runs anywhere the contract tests run and needs no install.
 
+The walk of the live site in a real browser, with its PASS and FAIL table, is `BROWSER_WALK.md`; `tools/browser_walk.mjs` repeats it.
+
 ## How to run
 
 Serve the repository root, not this directory, so that the relative offline fixture paths resolve:
@@ -154,7 +156,8 @@ The Leaflet assertions run against the real library under jsdom: the map contain
 | `GET /v1/site` | Live client. Polygon vertices are read from the response when it declares them, otherwise the azimuth wedge is computed from `A_min_deg` and `A_max_deg` |
 | `GET /v1/orbits/{id}/ephemeris` | Live client, `start` and `end` from the selected row and `step_s` 300 s from `src/config.js`. No track is requested for a CUSTOM target because no frozen field names its id |
 | `GET /v1/weather/probability` | Live client, `date` from the selected row and `site` from the request |
-| `GET /v1/validation/skill` | Live client with no query parameters, so the server defaults of spec IV.4 apply |
+| `GET /v1/validation/skill` | Live client with `period_start` and `period_end`: the service answers 422 without a period. The period is the one of the recorded hindcast, read from `skill.json` (`src/app.js` `readSkill`) |
+| `GET /v1/citation?id=<run>` | Read after every live `POST /v1/windows` (`src/app.js` `readCitation`): config hash, constants with sources, vehicle rows. No fixture; a failure is stated on the analysis screen |
 | Leaflet 1.9.4 | Loaded from `frontend/node_modules/leaflet/dist/leaflet-src.esm.js` by dynamic import, stylesheet from `node_modules/leaflet/dist/leaflet.css`. No tile layer is requested, because the demo runs with the network off |
 | Vehicle hazard footprint | `null` in `src/config.js`, owned by ENGINE. The buffer renders when a half width is declared |
 | Population centre coordinates | `src/data/centres.json`, every row flagged `ASSUMPTION` |
@@ -176,7 +179,7 @@ The sections above describe F0 to F5 as they were written and are left as writte
 | Vehicle duration | every row of the loaded window response | `#analysis-duration-rows`, `t_liftoff_utc`, `t_injection_utc`, `window_center_shift_s`, `liftoff_instant_error_min` and the ascent interval in seconds |
 | Constants block | `constants_block` of the window response | definition list, every constant with its `source` string from the response |
 | Criteria version | `provenance_block.criteria_version` | `#analysis-criteria-version`, beside the vehicle profile |
-| Config hash | `constants_block.citation_id` | `#analysis-config-hash`, with the gmst model and a note that `GET /v1/citation` resolves it |
+| Config hash | `config_hash` of `GET /v1/citation` for the run `constants_block.citation_id` | `#analysis-config-hash`, with the run identifier and the gmst model; says so when no citation record is available, and shows no hash then |
 | Provenance table | `provenance_block`, including `site`, `corridor`, `row_flags` and `vehicle_profile_id` | definition list plus `#analysis-source-files`, one `li[data-source-file]` per declared file |
 | Downloads | the loaded response objects | four buttons: the window table as CSV, the Brier skill series as CSV, the reliability bins as CSV, and the full JSON response |
 
