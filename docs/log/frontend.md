@@ -516,3 +516,19 @@ Visible centres 1 of 7, best view Halifax. The Halifax elevation series reads 4.
 ## Not done in this session
 
 The frozen contract examples were not regenerated, so `tests/contract/examples/good/ephemeris_response_good_leo45.json` still carries the two-sample track at 550 km that the viewing tests use as an explicit input, which is correct because those tests are about the browser, not about the fixture. No schema was changed, no package was installed, nothing was committed, and no file outside `frontend/`, `backend/fixtures/*.json` and this log was created or edited.
+
+## Fixture generator change made during integration (4 October 2026)
+
+Made on the branch `feature-weather-validation` by the WEATHER workflow at the repository owner's request.
+
+- `frontend/tools/make_fixtures.py` now restates two things it used to carry over from the frozen files. The
+  weather fields of the three window rows (`p_success`, `p_success_components.weather`, `horizon_label`,
+  `forecast_issue_time`) come from `backend/fixtures/weather.json`, which WEATHER generates. The constants of
+  `windows.json` and `ephemeris.json` come from `backend/api/data/constants.json`.
+- Reason: `windows.json` carried the weather probability 0.36 and issue time 09:00Z of the earlier hand-typed
+  weather stand-in, and both files carried `J2: 0.000108262668`, a tenth of the spec II.10 value.
+- Result after regeneration: weather 0.7058823529411765, `FORECAST`, issue time 2026-10-03T12:00:00Z on the three
+  rows; `J2: 0.00108262668` in both files. Nothing else in either file changed, and a second run changes nothing.
+- `npx vitest run` under Node 22: 9 files, 57 tests passed. Node 20.15 cannot start the suite (jsdom 30 needs
+  `require` of an ES module).
+
