@@ -1,0 +1,15 @@
+{
+  "_comment": "The constants block that the frozen schema of GET /v1/validation/skill requires on the response (spec IV.4). The weather layer does not use these constants; they are echoed so that the response validates. Values and sources are transcribed from the provenance table of spec II.10. ENGINE owns the constants for the orbital computation, and API may replace this block with its own when it serves the response.",
+  "J2": 0.00108262668,
+  "GM": 398600441800000.0,
+  "R_e": 6378137.0,
+  "omega_sid_rad_s": 7.292115e-05,
+  "gmst_model": "IAU_1982",
+  "source": {
+    "J2": "spec II.10: EGM2008 value as recorded in SCIENCE Sec A.2",
+    "GM": "spec II.10: NASA GSFC GDC Orbit Primer, Oct 2018; value SCIENCE Sec A.2",
+    "R_e": "spec II.10: EGM2008/WGS84 equatorial radius (SCIENCE Sec A.2)",
+    "omega_sid_rad_s": "spec II.10: SCIENCE Sec A.4",
+    "gmst_model": "spec II.10: IAU 1982 sidereal time; nutation omitted (SCIENCE Sec G.11)"
+  }
+}

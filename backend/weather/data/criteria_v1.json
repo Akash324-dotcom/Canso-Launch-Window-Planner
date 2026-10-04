@@ -1,0 +1,391 @@
+{
+  "criteria_version": "criteria_v1",
+  "created": "2026-10-03",
+  "status": "A documented proxy set. It is not the launch commit criteria of any vehicle and it is not flight-safety grade (spec I.3(iv), claim C4 in spec II.9). The site-specific statements come from the Canso environmental assessment; the numeric limits come from public documents for other vehicles. No limit in this table is an assumed number. The Cyclone-4M abbreviated user's guide URL cited by the spec returned HTTP 404 on 2026-10-03 and no archived copy exists, so no vehicle-specific limit could be read.",
+  "edit_path": "To change a limit, copy this file to criteria_v2.json, set criteria_version to criteria_v2, edit the copy and add a citation per row. Rows of a published version are immutable. Nothing in source code changes (spec II.10, VI.5).",
+  "flags": {
+    "VERIFIED": "The limit is transcribed from a named public launch-weather document that was opened and read on the access date, the quoted sentence is stored in source_quote, and the parameter is the same physical quantity the rule names. The flag verifies the citation. It does not verify that the rule applies at Canso; differences in vehicle, site, measurement height and averaging period are stated in applicability_note.",
+    "PROXY": "The published rule cannot be observed from open data at Canso, so a substitute variable stands in for it. The substitution is explained in _comment. The limit of a PROXY row is never a number of our own: it is taken from a published definition or computed from published facts, recorded in limit_basis with the document, the quote and the derivation."
+  },
+  "comparison_semantics": "comparison states when the criterion is VIOLATED. gt: violated when value > limit. lt: violated when value < limit. between: violated when limit[0] <= value <= limit[1].",
+  "evaluation_semantics": "Every row of 'criteria' is a criterion with a numeric limit and with data on both sides: a forecast field and a field of the hourly archive (data/era5_<site>_hourly.csv.gz). Forecast, climatology and verification evaluate the same rows. The entries of 'not_assessed' are inventory rows that cannot be criteria: either no numeric limit is published, or no open data source carries the quantity.",
+  "unit_conventions": "Limits are stored in the unit the evaluator uses: m/s, degC, mm/h, cm/h, percent, deg, m, J/kg. The published figure is kept verbatim in limit_as_published. Hourly accumulations returned by a data source in mm or cm are read as rates in mm/h or cm/h. Dashes inside quotes are written as hyphens.",
+  "sources_read": [
+    {
+      "document": "NASA Facts FS-2008-02-039-KSC, Space Shuttle Weather Launch Commit Criteria and KSC End of Mission Weather Landing Criteria",
+      "url": "https://www3.nasa.gov/centers/kennedy/pdf/167477main_WeatherRules2008.pdf",
+      "accessed": "2026-10-03",
+      "finding": "Numeric limits for temperature, tanking wind, direction-dependent peak wind, precipitation, ceiling and the lightning rule family. Source of four rows."
+    },
+    {
+      "document": "SpaceX, Falcon User's Guide, edition of 2025-05-09",
+      "url": "https://www.spacex.com/assets/media/falcon-users-guide-2025-05-09.pdf",
+      "accessed": "2026-10-03",
+      "finding": "Contains no numeric launch weather limit. Its weather content is Table 3-2, a statistical probability of violation for the Eastern and Western Ranges, and the requirement to avoid windows with 'a high statistical probability of violation (POV) for launch weather constraints'. It sources no row."
+    },
+    {
+      "document": "Roeder and McNamara, A Survey Of The Lightning Launch Commit Criteria, 45th Weather Squadron, AMS paper 103803",
+      "url": "https://ams.confex.com/ams/pdfpapers/103803.pdf",
+      "accessed": "2026-10-03",
+      "finding": "Full text of the lightning launch commit criteria, including the lightning, disturbed weather and thick cloud layers rules, and the definition 'Moderate Precipitation: A precipitation rate of 0.10 or greater, or a radar reflectivity factor of 30 dBZ or greater.' Source of one VERIFIED row and of the rules behind three PROXY rows."
+    },
+    {
+      "document": "NASA Facts FS-2020-05-568-KSC, Falcon 9 Crew Dragon Launch Weather Criteria",
+      "url": "https://www.nasa.gov/wp-content/uploads/2021/07/falcon9_crewdragon_launch_weather_criteria_fact_sheet.pdf",
+      "accessed": "2026-10-03",
+      "finding": "Sustained wind limit, upper-level wind shear rule without a number, field mill limits. Source of two rows."
+    },
+    {
+      "document": "NASA Facts FS-2013-01-010-KSC, Atlas V Launch Weather Criteria",
+      "url": "https://www3.nasa.gov/centers/kennedy/pdf/633165main_atlas-5-weather.pdf",
+      "accessed": "2026-10-03",
+      "finding": "Pad wind, ceiling and visibility limits. Source of two rows and of the rule behind the ceiling proxy."
+    },
+    {
+      "document": "Canso Spaceport Facility Environmental Assessment Registration Document, Strum Consulting for Maritime Launch Services Ltd., June 2018",
+      "url": "https://www.novascotia.ca/nse/EA/canso-spaceport-facility/Registration_document.pdf",
+      "accessed": "2026-10-03",
+      "finding": "The only site-specific source, 159 pages. Gives the site centre, the communities next to the site, and Table 11.1 on weather effects: any precipitation prohibits a launch, reduced visibility prohibits a launch, clouds matter for electric fields, freezing temperatures, low ceiling and low visibility, and the wind go-no go criteria are to keep any cloud away from populated areas up range. It gives no numeric weather limit."
+    },
+    {
+      "document": "NOAA Storm Prediction Center, Mesoscale Analysis help, Instability Parameters",
+      "url": "https://www.spc.noaa.gov/exper/mesoanalysis/help/begin.html",
+      "accessed": "2026-10-03",
+      "finding": "CAPE classes: weak below 1000 J/kg, moderate 1000 to 2500, strong 2500 to 4000, extreme above 4000. Basis of the lightning proxy limit."
+    },
+    {
+      "document": "14 CFR 1.1 (definition of ceiling) and NOAA National Weather Service Glossary (Broken Level)",
+      "url": "https://www.law.cornell.edu/cfr/text/14/1.1",
+      "accessed": "2026-10-03",
+      "finding": "A ceiling is the lowest broken or overcast layer; broken is 5/8 to 7/8 sky cover. Basis of the two cloud proxy limits."
+    }
+  ],
+  "inventory": {
+    "source": "Parameter catalogue of the team research package (02_parameters/07_parameter_catalogue.md, revised 2026-10-03, team drive), rows 1 to 27. Row 28 of that catalogue (data age and forecast confidence) is tool metadata and is carried by forecast_issue_time and horizon_label instead of by a criterion.",
+    "rows": {
+      "1": "Surface wind at pad, sustained and peak",
+      "2": "Ground-operations wind (rollout, tanking, tower removal)",
+      "3": "Wind direction relative to pad and communities",
+      "4": "Upper-level wind speed",
+      "5": "Wind shear in thin layers",
+      "6": "Wind change between last measurement and liftoff",
+      "7": "Lightning within 10 nautical miles and 30 minutes",
+      "8": "Cumulus, anvil, debris and thick-cloud rules",
+      "9": "Surface electric field",
+      "10": "Triboelectrification",
+      "11": "Precipitation at pad and on flight path",
+      "12": "Hail",
+      "13": "Air temperature, cold",
+      "14": "Air temperature, hot",
+      "15": "Humidity, frost, ice on vehicle",
+      "16": "Cloud ceiling (range optics)",
+      "17": "Visibility and fog",
+      "18": "Freezing rain, snow, blowing snow",
+      "19": "Tropical and post-tropical storms",
+      "20": "Sea state and wind in recovery zone",
+      "21": "Downrange and abort-site weather",
+      "22": "Sea state for range clearance vessels",
+      "23": "Geomagnetic storm",
+      "24": "Solar proton flux",
+      "25": "Radio blackout",
+      "26": "Toxic plume dispersion",
+      "27": "Acoustic propagation"
+    }
+  },
+  "criteria": [
+    {
+      "criterion_id": "surface_wind_speed",
+      "inventory_row": 1,
+      "label": "Surface wind speed, sustained",
+      "parameter": "wind_speed_10m",
+      "comparison": "gt",
+      "limit": 13.4112,
+      "unit": "m/s",
+      "limit_as_published": "30 mph sustained at the 162-foot level",
+      "flag": "VERIFIED",
+      "source_citation": "NASA, 'Falcon 9 Crew Dragon Launch Weather Criteria', NASA Facts FS-2020-05-568-KSC, John F. Kennedy Space Center.",
+      "source_url": "https://www.nasa.gov/wp-content/uploads/2021/07/falcon9_crewdragon_launch_weather_criteria_fact_sheet.pdf",
+      "source_quote": "Do not launch if the sustained wind at the 162-foot level of the launch pad exceeds 30 mph.",
+      "source_accessed": "2026-10-03",
+      "applicability_note": "The rule is for Falcon 9 with Crew Dragon at Kennedy Space Center. The model field is the 10 m wind; the rule is measured at 162 ft (49 m), where the wind is stronger. The 10 m field therefore violates the limit less often than a measurement at the rule's height would."
+    },
+    {
+      "criterion_id": "surface_wind_gust",
+      "inventory_row": 1,
+      "label": "Surface wind gust, peak",
+      "parameter": "wind_gusts_10m",
+      "comparison": "gt",
+      "limit": 16.9767,
+      "unit": "m/s",
+      "limit_as_published": "33 knots (38 mph)",
+      "flag": "VERIFIED",
+      "source_citation": "NASA, 'Atlas V Launch Weather Criteria', NASA Facts FS-2013-01-010-KSC, John F. Kennedy Space Center.",
+      "source_url": "https://www3.nasa.gov/centers/kennedy/pdf/633165main_atlas-5-weather.pdf",
+      "source_quote": "Do not launch if the wind at the launch pad exceeds 33 knots (38 mph).",
+      "source_accessed": "2026-10-03",
+      "applicability_note": "The rule is for Atlas V at Cape Canaveral. The fact sheet states neither the measurement height nor the averaging period. The limit is applied to the modelled 10 m gust, the maximum of the preceding hour."
+    },
+    {
+      "criterion_id": "wind_direction",
+      "inventory_row": 3,
+      "label": "Wind direction toward the populated places",
+      "parameter": "wind_direction_10m",
+      "comparison": "between",
+      "limit": [
+        57.4,
+        175.7
+      ],
+      "unit": "deg",
+      "limit_as_published": "wind speed and direction such that any cloud is well away from populated areas up range",
+      "flag": "PROXY",
+      "source_citation": "Rule being proxied: Strum Consulting for Maritime Launch Services Ltd., 'Canso Spaceport Facility Environmental Assessment Registration Document', June 2018, Project 16-5903. Section 5.1: 'This modeling will assist MLS and the regulatory agencies in developing an acceptable launch go-no go criteria based on prevailing wind speed and direction to ensure any cloud is well away and/or aloft from any populated areas up range.'",
+      "source_url": "https://www.novascotia.ca/nse/EA/canso-spaceport-facility/Registration_document.pdf",
+      "source_accessed": "2026-10-03",
+      "limit_basis": {
+        "document": "Site centre: Strum Consulting for Maritime Launch Services Ltd., 'Canso Spaceport Facility Environmental Assessment Registration Document', June 2018, Project 16-5903. Populated places: Natural Resources Canada, Canadian Geographical Names Database, entries CAUDF (Little Dover), CBRNM (Hazel Hill), CAGBW (Canso).",
+        "url": "https://geogratis.gc.ca/services/geoname/en/geonames.json",
+        "quote": "The Project site (centered at 45 deg 18' 37.40\" N, 060 deg 59' 35.85\" W). The Project is located near the communities of Little Dover, Hazel Hill, and Canso.",
+        "accessed": "2026-10-03",
+        "derivation": "The sector is computed, not chosen: for each named community, the great-circle bearing from the site centre to it, turned by 180 degrees. Little Dover gives 57.4 deg, Hazel Hill 118.2 deg, Canso 175.7 deg. Reproduce with python -m backend.weather.scripts.derive_direction_sector canso; a test compares this row with the computed sector."
+      },
+      "_comment": "SUBSTITUTION: the assessment says the real criteria will come from plume modelling and will use wind speed as well as direction. Those criteria are not published. This row stands in for them with the directions that carry air from the site toward the named communities. It takes no account of wind speed or of how far a cloud rises.",
+      "applicability_note": "A light wind in the sector violates the row. When the plume criteria are published they should replace it in a new criteria version."
+    },
+    {
+      "criterion_id": "visibility",
+      "inventory_row": 17,
+      "label": "Visibility",
+      "parameter": "visibility",
+      "comparison": "lt",
+      "limit": 7408.0,
+      "unit": "m",
+      "limit_as_published": "four nautical miles",
+      "flag": "VERIFIED",
+      "source_citation": "NASA, 'Atlas V Launch Weather Criteria', NASA Facts FS-2013-01-010-KSC, John F. Kennedy Space Center. The site-specific rule, without a number: Strum Consulting for Maritime Launch Services Ltd., 'Canso Spaceport Facility Environmental Assessment Registration Document', June 2018, Project 16-5903. Table 11.1: 'Fog: Reduced visibility will prohibit launch.'",
+      "source_url": "https://www3.nasa.gov/centers/kennedy/pdf/633165main_atlas-5-weather.pdf",
+      "source_quote": "Do not launch if the ceiling is less than 6,000 feet or the visability is less than four nautical miles.",
+      "source_accessed": "2026-10-03",
+      "applicability_note": "Spelling of the quote as printed. The numeric limit is the Atlas V one; the Canso assessment states the rule without a number. Forecast side: the NCEP GEFS ensemble, the only open ensemble that carries visibility. Observed side: the hourly observation at the ECCC station Port Hawkesbury, 48.3 km from the site centre, the nearest station that reports visibility."
+    },
+    {
+      "criterion_id": "precipitation_type_frozen",
+      "inventory_row": 18,
+      "label": "Precipitation type: snow or other frozen precipitation",
+      "parameter": "snowfall",
+      "comparison": "gt",
+      "limit": 0.0,
+      "unit": "cm/h",
+      "limit_as_published": "light or greater snow or graupel",
+      "flag": "VERIFIED",
+      "source_citation": "Roeder, W. P. and McNamara, T. M., 'A Survey Of The Lightning Launch Commit Criteria', 45th Weather Squadron, Patrick AFB, American Meteorological Society paper 103803. Section 5.5, Disturbed Weather LLCC.",
+      "source_url": "https://ams.confex.com/ams/pdfpapers/103803.pdf",
+      "source_quote": "Do not launch if the flight path will carry the vehicle through any nontransparent clouds that are associated with a weather disturbance having clouds that extend to altitudes at or above the 0 °C level and contain moderate or greater precipitation, light or greater snow or graupel, a radar bright band, or other evidence of melting precipitation within 5 NM of the flight path.",
+      "source_accessed": "2026-10-03",
+      "applicability_note": "The rule applies along the flight path; the model field is hourly snowfall at one grid cell. Any non-zero snowfall is read as light or greater snow. Freezing rain is not separated from rain by the data sources. Every hour that violates this row also violates precipitation_rate."
+    },
+    {
+      "criterion_id": "precipitation_rate",
+      "inventory_row": 11,
+      "label": "Precipitation at the launch site",
+      "parameter": "precipitation",
+      "comparison": "gt",
+      "limit": 0.0,
+      "unit": "mm/h",
+      "limit_as_published": "any precipitation",
+      "flag": "VERIFIED",
+      "source_citation": "Strum Consulting for Maritime Launch Services Ltd., 'Canso Spaceport Facility Environmental Assessment Registration Document', June 2018, Project 16-5903. Table 11.1, Precipitation events. The same rule for another vehicle: NASA Facts FS-2008-02-039-KSC, 'Precipitation - None at the launch pad or within the flight path.'",
+      "source_url": "https://www.novascotia.ca/nse/EA/canso-spaceport-facility/Registration_document.pdf",
+      "source_quote": "Any precipitation at the launch site or within the flight path will prohibit a launch.",
+      "source_accessed": "2026-10-03",
+      "applicability_note": "This is the rule stated for Canso itself. The model field is the hourly precipitation total of one grid cell, reported to 0.1 mm, so any hour with at least 0.1 mm is a violation. Precipitation along the flight path is not assessed."
+    },
+    {
+      "criterion_id": "ceiling_proxy_low_cloud",
+      "inventory_row": 16,
+      "label": "Ceiling proxy: broken or overcast low cloud",
+      "parameter": "cloud_cover_low",
+      "comparison": "gt",
+      "limit": 62.5,
+      "unit": "percent",
+      "limit_as_published": "ceiling less than 6,000 feet",
+      "flag": "PROXY",
+      "source_citation": "Rule being proxied: NASA, 'Atlas V Launch Weather Criteria', NASA Facts FS-2013-01-010-KSC, John F. Kennedy Space Center. 'Do not launch if the ceiling is less than 6,000 feet or the visability is less than four nautical miles.' (spelling as printed). For Canso: Strum Consulting for Maritime Launch Services Ltd., 'Canso Spaceport Facility Environmental Assessment Registration Document', June 2018, Project 16-5903. Table 11.1, Clouds: 'Potential for hazardous electric fields, temperatures ranging into freezing zone, low ceiling, or low visibility'.",
+      "source_url": "https://www3.nasa.gov/centers/kennedy/pdf/633165main_atlas-5-weather.pdf",
+      "source_accessed": "2026-10-03",
+      "limit_basis": {
+        "document": "14 CFR 1.1, definition of ceiling; NOAA National Weather Service Glossary, 'Broken Level'.",
+        "url": "https://www.law.cornell.edu/cfr/text/14/1.1",
+        "quote": "Ceiling means the height above the earth's surface of the lowest layer of clouds or obscuring phenomena that is reported as 'broken', 'overcast', or 'obscuration', and not classified as 'thin' or 'partial'. Broken Level: A layer of the atmosphere with 5/8 to 7/8 sky cover (cloud cover).",
+        "accessed": "2026-10-03",
+        "derivation": "A ceiling exists when a layer is broken or overcast, and broken begins at 5/8 sky cover, which is 62.5 percent."
+      },
+      "_comment": "SUBSTITUTION: the forecast ensemble carries no cloud base height, so the low cloud cover field stands in for a ceiling below 6,000 feet on both the forecast side and the observed side. The altitude range that the data sources count as low cloud is UNVERIFIED: the ECMWF parameter page could not be read on 2026-10-03.",
+      "applicability_note": "This is the row that binds most often at a maritime site."
+    },
+    {
+      "criterion_id": "temperature_hot",
+      "inventory_row": 14,
+      "label": "Air temperature, hot limit",
+      "parameter": "temperature_2m",
+      "comparison": "gt",
+      "limit": 37.2222,
+      "unit": "degC",
+      "limit_as_published": "99 degrees Fahrenheit for more than 30 consecutive minutes",
+      "flag": "VERIFIED",
+      "source_citation": "NASA, 'Space Shuttle Weather Launch Commit Criteria and KSC End of Mission Weather Landing Criteria', NASA Facts FS-2008-02-039-KSC, John F. Kennedy Space Center.",
+      "source_url": "https://www3.nasa.gov/centers/kennedy/pdf/167477main_WeatherRules2008.pdf",
+      "source_quote": "After tanking begins, the countdown shall not be continued nor the shuttle launched if: a.) The temperature exceeds 99 degrees for more than 30 consecutive minutes.",
+      "source_accessed": "2026-10-03",
+      "applicability_note": "The rule is for the Space Shuttle. An hourly 2 m model temperature stands for the 30-minute condition. The limit is not expected to bind at Canso."
+    },
+    {
+      "criterion_id": "lightning_proxy_cape",
+      "inventory_row": 7,
+      "label": "Lightning proxy: moderate or greater instability",
+      "parameter": "cape",
+      "comparison": "gt",
+      "limit": 1000.0,
+      "unit": "J/kg",
+      "limit_as_published": "the rule is stated in distance and time from observed lightning",
+      "flag": "PROXY",
+      "source_citation": "Rule being proxied: Roeder, W. P. and McNamara, T. M., 'A Survey Of The Lightning Launch Commit Criteria', 45th Weather Squadron, Patrick AFB, American Meteorological Society paper 103803. Section 5.1, Lightning LLCC: 'Do not launch for 30 minutes after any type of lightning occurs within 10 NM of the flight path'. For Canso: Strum Consulting for Maritime Launch Services Ltd., 'Canso Spaceport Facility Environmental Assessment Registration Document', June 2018, Project 16-5903. Table 11.1, Lightning strike: 'electrical field with triggering potential'.",
+      "source_url": "https://ams.confex.com/ams/pdfpapers/103803.pdf",
+      "source_accessed": "2026-10-03",
+      "limit_basis": {
+        "document": "NOAA Storm Prediction Center, Mesoscale Analysis help, Instability Parameters.",
+        "url": "https://www.spc.noaa.gov/exper/mesoanalysis/help/begin.html",
+        "quote": "CAPE less than 1000 Jkg-1 = weak instability; CAPE from 1000-2500 Jkg-1 = moderate instability; CAPE from 2500-4000 Jkg-1 = strong instability; CAPE greater than 4000 Jkg-1 = extreme instability.",
+        "accessed": "2026-10-03",
+        "derivation": "The row is violated when instability is moderate or greater by the Storm Prediction Center classes, which begin at 1000 J/kg."
+      },
+      "_comment": "SUBSTITUTION: the lightning rules need lightning detection, field mill readings, radar and cloud-top temperature, none of which is publicly observable at Canso (spec I.3(iv)). Modelled CAPE stands in for them as the signal that thunderstorms are possible, which is one of the two proxies the issue names. It says where deep convection could form, not where lightning is. It does not detect triggered-lightning conditions in thick layered cloud, which the cloud_cover_thick_layer_proxy row covers in part. The other proxy the issue names, the modelled convective precipitation rate, cannot be used: Open-Meteo serves that field as the constant 0.0.",
+      "applicability_note": "At this cold maritime site moderate instability is rare, so the row binds very seldom. That is a property of the site, not a tuned outcome. Forecast side: CAPE of the ECMWF ensemble. Observed side: ERA5 CAPE."
+    },
+    {
+      "criterion_id": "cloud_cover_thick_layer_proxy",
+      "inventory_row": 8,
+      "label": "Cloud cover: thick cloud layer proxy",
+      "parameter": "cloud_cover_mid",
+      "comparison": "gt",
+      "limit": 87.5,
+      "unit": "percent",
+      "limit_as_published": "a cloud layer greater than 4,500 ft thick with any part between the 0 °C and -20 °C levels",
+      "flag": "PROXY",
+      "source_citation": "Rule being proxied: Roeder, W. P. and McNamara, T. M., 'A Survey Of The Lightning Launch Commit Criteria', 45th Weather Squadron, Patrick AFB, American Meteorological Society paper 103803. Section 5.6, Thick Cloud Layers LLCC: 'Do not launch if the flight path will carry the vehicle through nontransparent parts of a cloud layer that is greater than 4,500 Ft thick and any part of the cloud layer along the flight path is located between the 0 °C and the -20 °C levels'. For Canso: Strum Consulting for Maritime Launch Services Ltd., 'Canso Spaceport Facility Environmental Assessment Registration Document', June 2018, Project 16-5903. Table 11.1, Clouds: 'Potential for hazardous electric fields, temperatures ranging into freezing zone'.",
+      "source_url": "https://ams.confex.com/ams/pdfpapers/103803.pdf",
+      "source_accessed": "2026-10-03",
+      "limit_basis": {
+        "document": "NOAA National Weather Service Glossary, 'Broken Level'.",
+        "url": "https://forecast.weather.gov/glossary.php?letter=b",
+        "quote": "Broken Level: A layer of the atmosphere with 5/8 to 7/8 sky cover (cloud cover).",
+        "accessed": "2026-10-03",
+        "derivation": "A layer with more than 7/8 sky cover, which is 87.5 percent, is above the broken range, that is overcast."
+      },
+      "_comment": "SUBSTITUTION: cloud layer thickness and cloud temperature are not available from the data sources. An overcast mid-level layer stands in for a thick layer in the temperature range the rule names. The altitude range that the data sources count as mid-level cloud is UNVERIFIED. Total cloud cover was measured and rejected as the stand-in because it also counts thin high cloud. The cumulus, anvil and debris-cloud rules of the same family need radar and cloud-top temperature and have no stand-in here.",
+      "applicability_note": "The proxy cannot tell a thick layer from a thin one."
+    },
+    {
+      "criterion_id": "ground_operations_wind",
+      "inventory_row": 2,
+      "label": "Ground-operations wind, tanking",
+      "parameter": "wind_gusts_10m",
+      "comparison": "gt",
+      "limit": 21.6067,
+      "unit": "m/s",
+      "limit_as_published": "42 knots for the next three-hour period",
+      "flag": "VERIFIED",
+      "source_citation": "NASA, 'Space Shuttle Weather Launch Commit Criteria and KSC End of Mission Weather Landing Criteria', NASA Facts FS-2008-02-039-KSC, John F. Kennedy Space Center.",
+      "source_url": "https://www3.nasa.gov/centers/kennedy/pdf/167477main_WeatherRules2008.pdf",
+      "source_quote": "For tanking, fueling will not begin if the wind is observed or forecast to exceed 42 knots for the next three-hour period.",
+      "source_accessed": "2026-10-03",
+      "applicability_note": "The rule governs tanking, a step before launch. Its limit is looser than surface_wind_gust, so every hour that violates this row also violates that one and this row does not change P(L|d)."
+    }
+  ],
+  "not_assessed": [
+    {
+      "inventory_row": 4,
+      "label": "Upper-level wind speed at 850, 700, 500, 300 and 200 hPa",
+      "reason": "No numeric limit is published by any operator. The public rule is 'Do not launch through upper-level conditions containing wind shear that could lead to control problems for the launch vehicle' (NASA Facts FS-2020-05-568-KSC and FS-2013-01-010-KSC), and the Space Shuttle rule requires the wind profile to conform to a wind-loading program (FS-2008-02-039-KSC): the real criterion is a vehicle load analysis, not a wind speed. A wind speed threshold would be a number of our own, which is not accepted. The row can be added in a new criteria version when a launch provider supplies a limit."
+    },
+    {
+      "inventory_row": 5,
+      "label": "Wind shear in thin layers",
+      "reason": "Needs balloon or profiler soundings and the vehicle load analysis. Model levels smooth thin-layer shear and no numeric limit is published."
+    },
+    {
+      "inventory_row": 6,
+      "label": "Wind change between last measurement and liftoff",
+      "reason": "Needs repeated soundings on launch day. No open data and no numeric limit is published."
+    },
+    {
+      "inventory_row": 9,
+      "label": "Surface electric field",
+      "reason": "The limit is published: 'Do not launch for 15 minutes if field mill instrument readings within five nautical miles of the launch pad exceed +/- 1,500 volts per meter' (NASA Facts FS-2020-05-568-KSC). No field mill exists at Canso and no open data source carries the field, so it cannot be a criterion with data."
+    },
+    {
+      "inventory_row": 10,
+      "label": "Triboelectrification",
+      "reason": "Needs cloud temperature along the flight path and the vehicle's surface treatment. No open data."
+    },
+    {
+      "inventory_row": 12,
+      "label": "Hail",
+      "reason": "The data sources carry no hail field and no launch-day limit was found."
+    },
+    {
+      "inventory_row": 13,
+      "label": "Air temperature, cold",
+      "reason": "The only published cold limit is the Space Shuttle's, and it is not a threshold: 'The minimum temperature limit in degrees Fahrenheit is specified by the table below and is a function of the five-minute average of temperature, wind and humidity' (NASA Facts FS-2008-02-039-KSC), with values from 36 to 48 degF for a cryogenic external tank. The Falcon 9 and Atlas V fact sheets state no temperature limit. Taking one value from the Shuttle table would be a choice of our own, which is not accepted."
+    },
+    {
+      "inventory_row": 15,
+      "label": "Humidity, frost, ice on vehicle",
+      "reason": "Published only inside the Space Shuttle minimum temperature table (NASA Facts FS-2008-02-039-KSC), which is vehicle-specific and is not a humidity limit."
+    },
+    {
+      "inventory_row": 19,
+      "label": "Tropical and post-tropical storms",
+      "reason": "An event hazard that needs storm track data, which this layer does not fetch. A storm at the site is seen through the wind and precipitation rows."
+    },
+    {
+      "inventory_row": 20,
+      "label": "Sea state and wind in recovery zone",
+      "reason": "Mission-specific. Needs a recovery zone and a marine data source. No limit was found for a vehicle planned for Canso."
+    },
+    {
+      "inventory_row": 21,
+      "label": "Downrange and abort-site weather",
+      "reason": "Applies to crewed missions. The fact sheet gives no numeric limit: 'Do not launch if downrange weather indicates violation of limits at splashdown in case of Dragon launch escape.' (NASA Facts FS-2020-05-568-KSC)."
+    },
+    {
+      "inventory_row": 22,
+      "label": "Sea state for range clearance vessels",
+      "reason": "No numeric limit is published and this layer fetches no marine data."
+    },
+    {
+      "inventory_row": 23,
+      "label": "Geomagnetic storm",
+      "reason": "Space weather is outside the data sources of this layer and no numeric limit is published."
+    },
+    {
+      "inventory_row": 24,
+      "label": "Solar proton flux",
+      "reason": "Space weather is outside the data sources of this layer."
+    },
+    {
+      "inventory_row": 25,
+      "label": "Radio blackout",
+      "reason": "Space weather is outside the data sources of this layer and no numeric limit is published."
+    },
+    {
+      "inventory_row": 26,
+      "label": "Toxic plume dispersion",
+      "reason": "Needs a vehicle source term and a dispersion model. The assessment says the modelling will be done before any launch; its thresholds are not published. The wind_direction row stands in for the drift direction only."
+    },
+    {
+      "inventory_row": 27,
+      "label": "Acoustic propagation",
+      "reason": "Needs a temperature profile and an acoustic model. No numeric limit is published."
+    }
+  ]
+}

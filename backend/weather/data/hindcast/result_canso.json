@@ -1,0 +1,227 @@
+{
+ "period": {
+  "start": "2026-04-02",
+  "end": "2026-09-27"
+ },
+ "lead_max": 10,
+ "site": "canso",
+ "criteria_version": "criteria_v1",
+ "criteria_sha256": "a48b2bf833ea51a5ce7741d9bd83e706de28b790a6e794f835b98f86988a2421",
+ "criteria_evaluated": [
+  "surface_wind_speed",
+  "surface_wind_gust",
+  "wind_direction",
+  "visibility",
+  "precipitation_type_frozen",
+  "precipitation_rate",
+  "ceiling_proxy_low_cloud",
+  "temperature_hot",
+  "lightning_proxy_cape",
+  "cloud_cover_thick_layer_proxy",
+  "ground_operations_wind"
+ ],
+ "forecast_source": "open_meteo_gfs_single_runs",
+ "verification_source": "era5",
+ "reference_forecast": "climatology_base_rate",
+ "members_per_issue_date": 4,
+ "coverage": {
+  "issue_dates_expected": 179,
+  "issue_dates_complete": 176,
+  "runs_expected": 716,
+  "runs_missing": 4,
+  "issue_dates_incomplete": [
+   "2026-06-10",
+   "2026-06-11",
+   "2026-09-14"
+  ]
+ },
+ "excluded": {
+  "issue_date_without_every_run": 3,
+  "forecast_with_missing_value": 30,
+  "outcome_missing": 45
+ },
+ "skill_series": [
+  {
+   "lead_time_days": 1,
+   "bs": 0.11307803468208093,
+   "bs_ref": 0.20789201109292005,
+   "bss": 0.4560732079717136,
+   "n_cases": 173
+  },
+  {
+   "lead_time_days": 2,
+   "bs": 0.12936046511627908,
+   "bs_ref": 0.2061925365062193,
+   "bss": 0.37262295081967123,
+   "n_cases": 172
+  },
+  {
+   "lead_time_days": 3,
+   "bs": 0.16264619883040934,
+   "bs_ref": 0.20929516774392143,
+   "bss": 0.2228860294117656,
+   "n_cases": 171
+  },
+  {
+   "lead_time_days": 4,
+   "bs": 0.16323529411764706,
+   "bs_ref": 0.20999999999999994,
+   "bss": 0.22268907563025186,
+   "n_cases": 170
+  },
+  {
+   "lead_time_days": 5,
+   "bs": 0.1786242603550296,
+   "bs_ref": 0.2107069080214281,
+   "bss": 0.15226196410767812,
+   "n_cases": 169
+  },
+  {
+   "lead_time_days": 6,
+   "bs": 0.23102678571428573,
+   "bs_ref": 0.20659722222222177,
+   "bss": -0.11824729891957042,
+   "n_cases": 168
+  },
+  {
+   "lead_time_days": 7,
+   "bs": 0.2679640718562874,
+   "bs_ref": 0.21212664491376465,
+   "bss": -0.26322684246112593,
+   "n_cases": 167
+  },
+  {
+   "lead_time_days": 8,
+   "bs": 0.2085843373493976,
+   "bs_ref": 0.2080490637247783,
+   "bss": -0.0025728240013971337,
+   "n_cases": 166
+  },
+  {
+   "lead_time_days": 9,
+   "bs": 0.2708333333333333,
+   "bs_ref": 0.20628099173553693,
+   "bss": -0.31293402777777923,
+   "n_cases": 165
+  },
+  {
+   "lead_time_days": 10,
+   "bs": 0.27553353658536583,
+   "bs_ref": 0.20445419393218284,
+   "bss": -0.3476541189307172,
+   "n_cases": 164
+  }
+ ],
+ "base_rate": 0.29608938547486036,
+ "verified_days": 179,
+ "reliability_bins": [
+  {
+   "p_center": 0.05,
+   "observed_freq": 0.16268980477223427,
+   "n": 922
+  },
+  {
+   "p_center": 0.25,
+   "observed_freq": 0.34402332361516036,
+   "n": 343
+  },
+  {
+   "p_center": 0.55,
+   "observed_freq": 0.39263803680981596,
+   "n": 163
+  },
+  {
+   "p_center": 0.75,
+   "observed_freq": 0.5034965034965035,
+   "n": 143
+  },
+  {
+   "p_center": 0.95,
+   "observed_freq": 0.8245614035087719,
+   "n": 114
+  }
+ ],
+ "reliability_mean_forecast": [
+  {
+   "p_center": 0.05,
+   "mean_forecast": 0.0
+  },
+  {
+   "p_center": 0.25,
+   "mean_forecast": 0.25
+  },
+  {
+   "p_center": 0.55,
+   "mean_forecast": 0.5
+  },
+  {
+   "p_center": 0.75,
+   "mean_forecast": 0.75
+  },
+  {
+   "p_center": 0.95,
+   "mean_forecast": 1.0
+  }
+ ],
+ "roc_points": [
+  {
+   "threshold": 0.25,
+   "pod": 0.6987951807228916,
+   "far": 0.34962089300758215
+  },
+  {
+   "threshold": 0.5,
+   "pod": 0.46184738955823296,
+   "far": 0.16006739679865206
+  },
+  {
+   "threshold": 0.75,
+   "pod": 0.3333333333333333,
+   "far": 0.07666385846672283
+  },
+  {
+   "threshold": 1.0,
+   "pod": 0.18875502008032127,
+   "far": 0.016849199663016005
+  }
+ ],
+ "skill_horizon_measured_days": 5,
+ "aggregate": {
+  "leads": [
+   1,
+   7
+  ],
+  "bs": 0.17741596638655463,
+  "bs_ref": 0.2089852411552862,
+  "bss": 0.15105982888654823,
+  "n_cases": 1190
+ },
+ "constants_block": {
+  "J2": 0.00108262668,
+  "GM": 398600441800000.0,
+  "R_e": 6378137.0,
+  "omega_sid_rad_s": 7.292115e-05,
+  "gmst_model": "IAU_1982",
+  "source": {
+   "J2": "spec II.10: EGM2008 value as recorded in SCIENCE Sec A.2",
+   "GM": "spec II.10: NASA GSFC GDC Orbit Primer, Oct 2018; value SCIENCE Sec A.2",
+   "R_e": "spec II.10: EGM2008/WGS84 equatorial radius (SCIENCE Sec A.2)",
+   "omega_sid_rad_s": "spec II.10: SCIENCE Sec A.4",
+   "gmst_model": "spec II.10: IAU 1982 sidereal time; nutation omitted (SCIENCE Sec G.11)"
+  },
+  "citation_id": "run_20260927_hindcast_2c5e775a"
+ },
+ "observed_violation_frequency": {
+  "surface_wind_speed": 0.0335195530726257,
+  "surface_wind_gust": 0.0446927374301676,
+  "wind_direction": 0.35195530726256985,
+  "visibility": 0.31843575418994413,
+  "precipitation_type_frozen": 0.0111731843575419,
+  "precipitation_rate": 0.3687150837988827,
+  "ceiling_proxy_low_cloud": 0.49162011173184356,
+  "temperature_hot": 0.0,
+  "lightning_proxy_cape": 0.0111731843575419,
+  "cloud_cover_thick_layer_proxy": 0.2737430167597765,
+  "ground_operations_wind": 0.0111731843575419
+ }
+}

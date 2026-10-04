@@ -1,0 +1,67 @@
+{
+ "date": "2026-10-04",
+ "site": "canso",
+ "criteria_version": "criteria_v1",
+ "p_launch": 0.45098039215686275,
+ "horizon_label": "FORECAST",
+ "forecast_issue_time": "2026-10-03T12:00:00Z",
+ "ensemble_size": 82,
+ "components": [
+  {
+   "criterion_id": "surface_wind_speed",
+   "p_violation": 0.0,
+   "flag": "VERIFIED"
+  },
+  {
+   "criterion_id": "surface_wind_gust",
+   "p_violation": 0.0,
+   "flag": "VERIFIED"
+  },
+  {
+   "criterion_id": "wind_direction",
+   "p_violation": 0.5490196078431373,
+   "flag": "PROXY"
+  },
+  {
+   "criterion_id": "visibility",
+   "p_violation": 0.0,
+   "flag": "VERIFIED"
+  },
+  {
+   "criterion_id": "precipitation_type_frozen",
+   "p_violation": 0.0,
+   "flag": "VERIFIED"
+  },
+  {
+   "criterion_id": "precipitation_rate",
+   "p_violation": 0.0,
+   "flag": "VERIFIED"
+  },
+  {
+   "criterion_id": "ceiling_proxy_low_cloud",
+   "p_violation": 0.0,
+   "flag": "PROXY"
+  },
+  {
+   "criterion_id": "temperature_hot",
+   "p_violation": 0.0,
+   "flag": "VERIFIED"
+  },
+  {
+   "criterion_id": "lightning_proxy_cape",
+   "p_violation": 0.0,
+   "flag": "PROXY"
+  },
+  {
+   "criterion_id": "cloud_cover_thick_layer_proxy",
+   "p_violation": 0.0,
+   "flag": "PROXY"
+  },
+  {
+   "criterion_id": "ground_operations_wind",
+   "p_violation": 0.0,
+   "flag": "VERIFIED"
+  }
+ ],
+ "source": "snapshot_cache"
+}
