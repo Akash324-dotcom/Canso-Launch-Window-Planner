@@ -7,6 +7,7 @@ import {
   addDaysIso,
   compass8,
   createPrototypeSource,
+  dailySeries,
   inputsToRequest,
   isoDateOf,
   ltanText,
@@ -428,5 +429,71 @@ describe('the prototype page itself', () => {
     for (const [, file] of css.matchAll(/url\("([^"]+)"\)/g)) {
       expect(fs.existsSync(path.join(root, 'vendor/prototype', file)), file).toBe(true);
     }
+  });
+});
+
+describe('the delay decision of spec II.9 (iv)', () => {
+  const day = (iso, ok, p) => ({ t: Date.parse(iso), ok, p });
+
+  it('takes the best usable p_success of each UTC day and 0 for a day with none', () => {
+    const rows = [
+      day('2026-10-05T02:36:16Z', false, 0.9), // northbound, not usable
+      day('2026-10-05T15:42:17Z', true, 0.61),
+      day('2026-10-06T02:36:16Z', false, 0.8),
+      day('2026-10-07T15:42:17Z', true, 0.3),
+      day('2026-10-07T20:00:00Z', true, 0.5),
+    ];
+
+    expect(dailySeries(rows)).toEqual([
+      { day: '2026-10-05', p: 0.61 },
+      { day: '2026-10-06', p: 0 },
+      { day: '2026-10-07', p: 0.5 },
+    ]);
+  });
+
+  it('ignores a non-finite probability instead of passing it on', () => {
+    expect(dailySeries([day('2026-10-05T15:42:17Z', true, Number.NaN)])).toEqual([{ day: '2026-10-05', p: 0 }]);
+  });
+
+  it('asks the service for the expectation and does no arithmetic of its own', async () => {
+    const body = { expected_extra_days: 0.75, p_no_success_in_horizon: 0.125, bound: 'lower', status: 'SKETCHED' };
+    const f = stubFetch({ api: () => response(body) });
+    const result = await source(f).delayCost(
+      [{ day: '2026-10-05', p: 0.5 }, { day: '2026-10-06', p: 0.5 }, { day: '2026-10-07', p: 0.5 }],
+      '2000',
+    );
+
+    expect(result.body).toEqual(body);
+    expect(f.calls[0].url).toBe('http://api.test/v1/decision/delay-cost?p=0.5%2C0.5%2C0.5&c_day=2000');
+  });
+
+  it('sends no cost when the user typed none', async () => {
+    const f = stubFetch({ api: () => response({ expected_cost: null }) });
+    await source(f).delayCost([{ day: '2026-10-05', p: 0.4 }], '');
+
+    expect(f.calls[0].url).toBe('http://api.test/v1/decision/delay-cost?p=0.4');
+  });
+
+  it('reports an unreachable service as an error, never as a number', async () => {
+    const result = await source(stubFetch()).delayCost([{ day: '2026-10-05', p: 0.4 }], null);
+
+    expect(result.body).toBeNull();
+    expect(result.error).toMatch(/network failure/);
+  });
+
+  it('refuses an empty series without calling the service', async () => {
+    const f = stubFetch();
+    const result = await source(f).delayCost([], null);
+
+    expect(result.body).toBeNull();
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it('shows no delay cost number inside the page itself', () => {
+    const page = fs.readFileSync(path.join(root, 'Canso Launch Prototype.html'), 'utf8');
+
+    expect(page).toContain('GET /v1/decision/delay-cost');
+    expect(page).toContain('no default is assumed');
+    expect(page).not.toMatch(/\bmillions?\b/i);
   });
 });
