@@ -1660,3 +1660,142 @@ $ .venv/bin/python -m pytest -q 2>&1 | tail -1
 - Committed and pushed on `feature-weather-validation` at the owner's request (4 October 2026, about 03:20 UTC),
   in four commits: `weather:`, `frontend:`, `api:`, `docs:`. The earlier lines of this section that say nothing
   is committed describe the state before that request.
+
+**G2 review RED: calibration gap under both readings and its block-bootstrap uncertainty (pure functions, hand-checked)** (2026-10-04T03:49Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_v0_v1_scoring.py -q 2>&1 | tail -9
+=========================== short test summary info ============================
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_the_calibration_gap_is_given_under_both_readings_of_predicted
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_the_two_readings_differ_when_forecasts_sit_off_the_bin_centres
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_the_gap_of_no_pairs_is_undefined
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_blocks_are_runs_of_consecutive_valid_dates_counted_from_the_first
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_resampling_identical_blocks_gives_the_point_estimate_every_time
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_the_share_counts_the_resamples_whose_larger_gap_meets_the_bound
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_the_same_seed_gives_the_same_summary_and_another_seed_another_draw
+7 failed, 15 passed in 0.17s
+```
+
+**G2 review GREEN: calibration gap functions and block bootstrap** (2026-10-04T03:50Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_v0_v1_scoring.py -q 2>&1 | tail -3
+=========================== short test summary info ============================
+FAILED backend/weather/tests/test_v0_v1_scoring.py::test_the_same_seed_gives_the_same_summary_and_another_seed_another_draw
+1 failed, 21 passed in 0.16s
+```
+
+**G2 review GREEN: calibration gap functions and block bootstrap, seed test rewritten to be exact (the first version compared two seeds whose summaries can coincide)** (2026-10-04T03:50Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_v0_v1_scoring.py -q 2>&1 | tail -2
+......................                                                   [100%]
+22 passed in 0.14s
+```
+
+**G2 review RED: the result must carry the calibration analysis, the period bounds must be recorded, the report must record the disposition** (2026-10-04T03:51Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_v5_v7_hindcast_results.py -q 2>&1 | tail -6
+backend/weather/tests/test_v5_v7_hindcast_results.py:292: KeyError
+=========================== short test summary info ============================
+FAILED backend/weather/tests/test_v5_v7_hindcast_results.py::test_the_result_carries_the_calibration_gap_and_its_sampling_uncertainty
+FAILED backend/weather/tests/test_v5_v7_hindcast_results.py::test_the_period_bounds_recorded_for_the_review_are_the_bounds_of_the_committed_data
+FAILED backend/weather/tests/test_v5_v7_hindcast_results.py::test_the_report_records_the_disposition_of_the_calibration_criterion
+3 failed, 19 passed in 1.27s
+```
+
+**G2 review GREEN: calibration analysis in the result, period bounds recorded, section 7 of HINDCAST.md; weather and contract suites** (2026-10-04T03:52Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather tests/contract -q 2>&1 | tail -2
+........................................                                 [100%]
+327 passed, 1 skipped in 5.74s
+```
+
+## Gate G2 review: disposition of the calibration criterion (4 October 2026, about 03:30 to 04:05 UTC)
+
+The review comment on issue #7, after verification on `main`, left one item with the WEATHER owner: criterion 2 of
+spec III.4 is documented but failing (gap 0.157 against 0.15). Two routes were named: (a) widen the verification
+sample and re-run, recording both results; (b) declare the miss the finding and close the issue with the anti-tuning
+check recorded. Touching a criteria threshold was ruled out. Branch `feature-weather-validation`, fast-forwarded to
+`main` at be4ede5 (pull request #18).
+
+### Route (a) checked first: can the sample be widened today?
+
+```
+$ curl "https://single-runs-api.open-meteo.com/v1/forecast?...&models=gfs_seamless&run=<run>&forecast_days=1"
+2026-03-01T00:00 -> The requested model run is not available. Model: ncep_gfs013, run: 2026-03-01T00:00Z
+2026-04-01T18:00 -> The requested model run is not available. Model: ncep_gfs013, run: 2026-04-01T18:00Z
+2026-04-02T00:00 -> available, 24 hours
+$ curl "https://archive-api.open-meteo.com/v1/archive?...&models=era5&start_date=2026-09-26&end_date=2026-10-03"
+last hour with a value: 2026-09-28T23:00 | requested through 2026-10-03T23:00
+committed archive ends: 2026-09-28T23:00
+```
+
+Neither end of the period can move. Route (a) is not available, so no second result exists to record. Recorded in
+`data/sources.json` under `hindcast.period_bounds_check`; a test compares it with the data in use.
+
+### What a wider sample could change, estimated from the sample
+
+Block resampling of the pairs (`hindcast.bootstrap_calibration_gap`, red and green runs logged above), larger of
+the two gap readings, 2000 replicates, 5th to 95th percentile, and the share of replicates at or below 0.15:
+
+| Block length | Seed | Blocks | Interval | Share at or below 0.15 |
+|---|---|---|---|---|
+| 7 days | 20261004 | 26 | 0.115 to 0.204 | 0.376 |
+| 7 days | 1 | 26 | 0.112 to 0.205 | 0.415 |
+| 7 days | 2 | 26 | 0.114 to 0.205 | 0.395 |
+| 14 days | 20261004 | 13 | 0.120 to 0.199 | 0.391 |
+| 14 days | 1 | 13 | 0.118 to 0.198 | 0.393 |
+| 14 days | 2 | 13 | 0.120 to 0.200 | 0.383 |
+
+The first row is the committed setting. Reading: the bound of 0.15 lies inside the interval for every setting. The
+miss of 0.007 is smaller than the sampling uncertainty of the gap, so the sample cannot tell the gap apart from the
+bound in either direction. This corrects an expectation written earlier in this log, that the gap was a systematic
+overconfidence a larger sample would not move: each bin is off the diagonal, but the mean over five bins varies by
+about 0.045 either way under resampling.
+
+### Route (b) taken
+
+- The miss is declared the finding. `HINDCAST.md` has a new section 7 with the two routes, the reason (a) is not
+  available, the resampling result, the statement that nothing was tuned, and the gate evidence.
+- Criterion 2 stays NOT met in section 4. The resampling is an uncertainty estimate and changes no forecast, no
+  outcome, no bin and no verdict. The skill fixture and the pairs file are byte for byte unchanged.
+- Anti-tuning check, repeated: `data/criteria_v1.json` has the sha256 printed in `HINDCAST.md`
+  (a48b2bf833ea51a5ce7741d9bd83e706de28b790a6e794f835b98f86988a2421), unchanged since 2026-10-04T00:37Z, before the
+  first skill number. A test compares the two.
+- Tests: `pytest backend/weather -q` 250 passed, 1 skipped; whole repository 959 passed, 4 skipped.
+- The choice of route (b) was made by the session on the owner's behalf because route (a) is not possible; the
+  owner was told so and can overrule it.
+- Not committed or pushed. The issue itself was not closed from here: no GitHub credential was used.
+
+**G2 review RED (self-audit): section 7 must cite the resampling method and must not read as if the forecast were calibrated** (2026-10-04T04:02Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_v5_v7_hindcast_results.py -q -k disposition 2>&1 | tail -3
+=========================== short test summary info ============================
+FAILED backend/weather/tests/test_v5_v7_hindcast_results.py::test_the_report_records_the_disposition_of_the_calibration_criterion
+1 failed, 21 deselected in 1.93s
+```
+
+**G2 review GREEN (self-audit): method reference resolved through Crossref and cited; reading reworded; whole repository** (2026-10-04T04:03Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest -q 2>&1 | tail -1
+959 passed, 4 skipped, 1 warning in 12.25s
+```
+
+### Self-audit and commit (4 October 2026)
+
+- Re-check of the whole implementation: every suite, a clean copy in a fresh environment (959 passed, 4 skipped),
+  byte-for-byte regeneration of the report, the result and both fixtures, the contract schemas, and the hygiene
+  rules. Three corrections in the session's own text, red and green logged above: the reading sentence of section
+  7, the missing method reference (Carlstein 1986, doi 10.1214/aos/1176350057, resolved through Crossref by
+  title), and two stale lines in `DONE.md`.
+- Two possible additions were checked against the issue, the workflow document, the contract and the review
+  comment and were not made, because none of them asks for them: reliability tables per lead time (the phrase
+  appears only in spec II.7; spec III.4 and IV.4 describe one set of bins) and resampling intervals on the skill
+  scores.
+- Committed and pushed on `feature-weather-validation` at the owner's request. The line above that says
+  "Not committed or pushed" describes the state before that request. Issue #7 itself is closed by the owner.

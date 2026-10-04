@@ -365,6 +365,12 @@ Reading, in the words of the report:
   **not met**. Five bins are populated; the gap is 0.157 against the mean forecast in each bin and 0.147 against
   the bin centres, and the larger figure decides. The forecasts are overconfident, as a four-member ensemble is
   expected to be. No recalibration was applied; the report says why.
+- Disposition of that miss, after the review of gate G2 on 4 October 2026: the miss is declared the finding
+  (`HINDCAST.md`, section 7). A wider sample was the other route and is not available: the forecast archive has
+  no run before 2026-04-02T00:00 and ERA5 is published only up to 2026-09-28T23:00, the end of the committed
+  archive. Resampling the pairs in blocks of seven valid dates puts the gap between 0.115 and 0.204 (5th to 95th
+  percentile), with 37.6 percent of resamples at or below 0.15, so the miss of 0.007 is smaller than the sampling
+  uncertainty of the gap. No threshold was touched.
 - Criterion 3, the series in the spec IV.4 shape: met. `backend/fixtures/skill.json` is the output of
   `scripts/build_skill_fixture.py`, and a test regenerates it and compares the bytes.
 - No threshold was changed after the first hindcast run. The report carries the checksum of the criteria file,

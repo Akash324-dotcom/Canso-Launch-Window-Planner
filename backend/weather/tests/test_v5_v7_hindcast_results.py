@@ -257,6 +257,70 @@ def test_the_readme_quotes_the_skill_series_of_the_committed_result(real):
     assert "| n_cases | " + " | ".join(str(entry["n_cases"]) for entry in series) + " |" in readme
 
 
+# Review of gate G2, 4 October 2026: the calibration criterion ---------------------------------------------------
+
+def test_the_result_carries_the_calibration_gap_and_its_sampling_uncertainty(real):
+    cfg = config.load_sources()["hindcast"]
+    settings = cfg["calibration_bootstrap"]
+    stored = json.loads(real["outputs"]["data/hindcast/result_canso.json"])["calibration"]
+    pairs = [(row["p"], row["o"]) for row in real["result"]["pairs"]]
+
+    gaps = hindcast.calibration_gaps(pairs, cfg["reliability_bins"])
+    assert stored["gaps"] == gaps
+    assert stored["bootstrap"] == hindcast.bootstrap_calibration_gap(
+        real["result"]["pairs"], cfg["reliability_bins"], settings["block_days"], settings["replicates"],
+        settings["seed"], hindcast_report.MAX_CALIBRATION_GAP, tuple(settings["interval"]))
+    low, high = stored["bootstrap"]["interval"]
+    assert low <= gaps["larger"] <= high, "the point estimate lies inside its own resampling interval"
+    assert settings["basis"].strip()
+
+
+def test_the_period_bounds_recorded_for_the_review_are_the_bounds_of_the_committed_data(real):
+    """Route (a) of the review, a wider sample, is ruled out by two facts. Both must match the data in use."""
+    bounds = config.load_sources()["hindcast"]["period_bounds_check"]
+
+    assert bounds["first_run_available"] == hindcast.source_metadata("canso")["coverage"]["first_run"][:16]
+    assert bounds["first_run_available"][:10] == real["start"]
+    assert bounds["run_refused"] < bounds["first_run_available"]
+    assert bounds["reanalysis_last_hour_published"] == climatology.archive_metadata("canso")["period_end"]
+    assert bounds["checked_at"].startswith("2026-10-04")
+
+
+def test_the_report_records_the_disposition_of_the_calibration_criterion(real):
+    report = (WEATHER / "HINDCAST.md").read_text(encoding="utf-8")
+    cfg = config.load_sources()["hindcast"]
+    bounds, disposition = cfg["period_bounds_check"], cfg["calibration_disposition"]
+    stored = json.loads(real["outputs"]["data/hindcast/result_canso.json"])["calibration"]
+    low, high = stored["bootstrap"]["interval"]
+    share = stored["bootstrap"]["share_at_or_below_bound"]
+
+    heading = "## 7. Disposition of criterion 2"
+    assert report.index("## 6. Anti-tuning record") < report.index(heading)
+    section = report[report.index(heading):]
+    assert disposition["route"] == "b" and disposition["decided_on"] == "2026-10-04"
+    assert "Route (a), a wider sample, is not available." in section
+    assert bounds["run_refused"] in section and bounds["first_run_available"] in section
+    assert bounds["reanalysis_last_hour_published"] in section
+    assert f"{low:.3f} to {high:.3f}" in section
+    assert f"{100 * share:.1f} percent" in section
+    assert "Route (b) is taken: the miss is the finding." in section
+    reference = cfg["calibration_bootstrap"]["method_reference"]
+    assert reference["doi"] == "10.1214/aos/1176350057" and reference["resolved"].startswith("Crossref, by title")
+    assert reference["doi"] in section
+    if low <= hindcast_report.MAX_CALIBRATION_GAP < high:
+        # The forecast is not perfectly calibrated (section 4 says so); what the sample cannot decide is
+        # whether the gap is above the bound. The section must say exactly that and no more.
+        assert low > 0 and "The interval excludes zero" in section
+        assert "whether the gap is above or below the bound cannot be decided from this sample" in section
+        assert "not evidence of a calibration fault" not in section
+    assert "No threshold, bin, window, criteria row or data source was changed" in section
+    for evidence in ("tests/test_v5_v7_hindcast_results.py", "scripts/build_skill_fixture.py",
+                     "backend/fixtures/skill.json"):
+        assert evidence in section
+    verdict_line = next(line for line in report.splitlines() if line.startswith("2. At least"))
+    assert "NOT met" in verdict_line, "the disposition does not turn the miss into a pass"
+
+
 # V7 ----------------------------------------------------------------------------------------------------------
 
 def test_the_skill_fixture_is_the_hindcast_response_written_by_the_committed_script(real):
