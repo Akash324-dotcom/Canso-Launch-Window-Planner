@@ -199,7 +199,7 @@ so, with (II.1), the ascending-crossing branch of the window equation is:
 
     delta(i, phi_s) := asin(tan(phi_s) / tan(i))                              (II.10)
 
-and the descending branch replaces delta by 180 deg - delta. Existence of delta is exactly the reachability condition i >= phi_s (the argument of the arcsine exceeds 1 iff phi_s > i), so (II.8)-(II.10) unify predicate (II.4) with the window search. For i = 87.9 deg, delta = 2.37 deg; for 98.1 deg, delta = -8.16 deg (computed, test fixtures). SCIENCE eq. A7 writes the simplified form without the delta term (site assumed at the node); the engine uses (II.9) with the explicit offset, and the simplified form is recovered for a hypothetical equatorial site (delta = 0).
+and the descending branch replaces delta by 180 deg - delta. Existence of delta is exactly the reachability condition i >= phi_s (the argument of the arcsine exceeds 1 iff phi_s > i), so (II.8)-(II.10) unify predicate (II.4) with the window search. At the canonical Canso site latitude phi_s = 45.3 N (spec II.1), the test fixtures are: for i = 87.9 deg, delta = 2.12354 deg; for i = 98.1 deg, delta = -8.26891 deg. Both cells now share one stated phi_s and are reproducible from (II.10); the earlier pair (2.37, -8.16) implied two different latitudes (48.44 N and 44.92 N respectively) and was therefore unsatisfiable at any single site, corrected in issue #13. Both offsets are an hour-angle difference in the equatorial plane, namely RA_site - RAAN, which is what (II.9) subtracts; see docs/physics/ii10_delta.md for the derivation and for why the superficially similar asin(sin(phi_s)/sin(i)) is a different quantity (the argument of latitude) and is wrong here. SCIENCE eq. A7 writes the simplified form without the delta term (site assumed at the node); the engine uses (II.9) with the explicit offset, and the simplified form is recovered for a hypothetical equatorial site (delta = 0).
 
 Window width. The site's right ascension relative to the drifting target plane sweeps at (SCIENCE eq. A9):
 
@@ -211,7 +211,9 @@ A plane tolerance +/- Delta_Omega therefore gives the half-width and full width 
     tau_half = Delta_Omega / |omega_sid - Omega_targ_dot|   [hours],
     W_window = 2 * tau_half                                                    (II.12)
 
-Hand case carried into Test 1: Delta_Omega = +/- 0.1 deg (tight plane match) gives tau_half = 0.1/15.04 hr = 24 s (instantaneous-class window, cf. the 15-second instantaneous service in the Falcon User's Guide 2025, SCIENCE Sec A.5); Delta_Omega = +/- 5 deg gives +/- 20 min, a 40-min window. Windows are minutes wide for plane-constrained missions because Earth sweeps 1 deg in about 4 min; hours-wide windows require either large plane tolerance or the corridor-open "any inclination in range" mode, which the engine exposes as tolerance mode: corridor (unbounded Delta_Omega clipped by (II.3)).
+Hand case carried into Test 1: Delta_Omega = +/- 0.1 deg (tight plane match) gives tau_half = 0.1/15.0411 hr = 23.9345 s, so W_window = 47.8689 s (instantaneous-class window, cf. the 15-second instantaneous service in the Falcon User's Guide 2025, SCIENCE Sec A.5); Delta_Omega = +/- 5 deg gives +/- 20 min, a 40-min window. Windows are minutes wide for plane-constrained missions because Earth sweeps 1 deg in about 4 min; hours-wide windows require either large plane tolerance or the corridor-open "any inclination in range" mode, which the engine exposes as tolerance mode: corridor (unbounded Delta_Omega clipped by (II.3)).
+
+WIDTH CONVENTION, stated once because it was previously ambiguous (issue #13). The contract field `window_width_s` is the FULL width W_window = 2 tau_half of (II.12), never the half width tau_half. The half width is a separate quantity and the engine exposes it as `window_half_width_s`. Any consumer that reasons about "half the window remaining" must halve `window_width_s` rather than compare against it. The committed fixtures and contract examples carry the full width.
 
 Recurrence (window period), from substituting (II.7) into (II.9): successive opportunities repeat after
 
@@ -410,8 +412,9 @@ Cases and pass criteria:
 | Reachability of i = 45.1 | unreachable, plane penalty | reachable flag false; Delta-v 26.8 m/s within 1 m/s |
 | J2 drift, i = 45.1, h = 600 km | -5.14 deg/day | within 1 percent (also asserts NOT 3.99) |
 | J2 drift, i = 51.6, h = 420 km | about -5.0 deg/day | within 1 percent |
-| Window width, Delta_Omega = 0.1 deg, fixed plane | tau_half = 24 s | within 1 s (hand computation 0.1/15.0411 hr) |
-| delta(i, phi_s) offsets | 2.37 deg (87.9), -8.16 deg (98.1) | within 0.01 deg |
+| Window HALF width, Delta_Omega = 0.1 deg, fixed plane | tau_half = 23.9345 s | within 1 s (hand computation 0.1/15.0411 hr) |
+| Window FULL width, Delta_Omega = 0.1 deg, fixed plane | window_width_s = 47.8689 s = 2 tau_half | within 1 s |
+| delta(i, phi_s) offsets at phi_s = 45.3 N (Canso, spec II.1) | 2.12354 deg (i = 87.9), -8.26891 deg (i = 98.1) | within 0.01 deg |
 | GMST round trip: ECEF->ECI->ECEF over 1 sidereal day | identity | within 1e-9 rad |
 
 Failure means: the geometry layer is wrong; nothing downstream is trustworthy. Fix before any other work; the frontend does not start (Part VIII).
@@ -527,7 +530,7 @@ Response (HTTP 200 always for well-formed requests, including unreachable target
           "azimuth_deg": number,             // inertial (II.2)
           "azimuth_compass_deg": number,     // rotating frame (II.6)
           "reached_inclination_deg": number,
-          "window_width_s": number,          // from (II.12)
+          "window_width_s": number,          // FULL width W_window = 2 tau_half from (II.12); halve it for the half width
           "window_center_shift_s": number,   // fixed-point term, (II.18)
           "liftoff_instant_error_min": number, // term 2, II.5
           "p_success": number,               // (II.23), in [0,1]
