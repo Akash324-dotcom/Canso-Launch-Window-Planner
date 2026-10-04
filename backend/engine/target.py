@@ -58,12 +58,54 @@ def load_site(site_name: str) -> dict[str, Any]:
 
 
 def _parse_ltan(text: str) -> float:
-    """Parse "HH:MM" or a bare decimal hour count into decimal hours."""
-    if ":" in text:
-        hours, _, minutes = text.partition(":")
-        return int(hours) + int(minutes) / 60.0
-    value = float(text)
+    """Parse "HH:MM" or a bare decimal hour count into decimal hours on [0, 24).
+
+    A local time that does not exist is refused. "25:99" used to be read as 26.65
+    hours and answered with windows for a node time that no orbit has.
+    """
+    text = str(text).strip()
+    problem = ValueError(
+        f"target.ltan_hours {text!r} is not a local time: expected HH:MM from 00:00 to 23:59, "
+        "or decimal hours from 0 up to but not including 24"
+    )
+    try:
+        if ":" in text:
+            hours_text, _, minutes_text = text.partition(":")
+            if not (hours_text.isdigit() and minutes_text.isdigit()):
+                raise problem
+            hours, minutes = int(hours_text), int(minutes_text)
+            if hours > 23 or minutes > 59:
+                raise problem
+            return hours + minutes / 60.0
+        value = float(text)
+    except ValueError as error:
+        raise problem from error
+    if not 0.0 <= value < 24.0:
+        raise problem
     return value
+
+
+def _corridor_for(request: Mapping[str, Any], site: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The corridor of the request: the site corridor, with any bound the request overrides.
+
+    The frozen request schema allows either bound alone and allows null for a bound,
+    so a missing or null bound is the bound of the site. Passing the partial override
+    on as it came left one bound undefined and the reachability test raised.
+    """
+    override = request.get("corridor")
+    if not override:
+        return site["corridor"]
+    given = {
+        key: override[key]
+        for key in ("A_min_deg", "A_max_deg")
+        if override.get(key) is not None
+    }
+    if len(given) == 2:
+        return override
+    merged = dict(override)
+    for key in ("A_min_deg", "A_max_deg"):
+        merged[key] = given.get(key, site["corridor"][key])
+    return merged
 
 
 def resolve(request: Mapping[str, Any], epoch_jd: float) -> Target:
@@ -109,6 +151,13 @@ def resolve(request: Mapping[str, Any], epoch_jd: float) -> Target:
     tolerance = request.get("raan_tolerance_deg")
     if tolerance is None:
         tolerance = defaults["raan_tolerance_deg"]
+    elif not float(tolerance) > 0.0:
+        # (II.12): the window width is 2 * tolerance / sweep rate. Zero gives a window
+        # of no width and a negative value a negative width; neither is a window.
+        raise ValueError(
+            f"raan_tolerance_deg must be greater than 0, got {tolerance!r}: it is the half-width "
+            "of the admitted plane error and governs the window width"
+        )
 
     warning = sso.consistency_warning(
         i_t_deg=inclination,
@@ -128,7 +177,7 @@ def resolve(request: Mapping[str, Any], epoch_jd: float) -> Target:
         ltan_hours=ltan_hours,
         ltan_branch=ltan_branch,
         site_name=site["name"],
-        corridor=request.get("corridor") or site["corridor"],
+        corridor=_corridor_for(request, site),
         epoch_jd=epoch_jd,
         warning=warning,
     )

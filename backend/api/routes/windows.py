@@ -53,6 +53,40 @@ def _engine_compute_windows() -> Any:
     return getattr(engine, "compute_windows", None)
 
 
+def _bound_violations(body: dict[str, Any]) -> list[str]:
+    """Values the frozen schema types but does not bound, and that mean nothing out of bounds.
+
+    The schema is frozen, so these two bounds live here. Without them the service
+    answered ``ltan_hours`` "25:99" with windows for a node time that does not exist,
+    and ``raan_tolerance_deg`` 0 with windows of no width (spec II.12: the width is
+    twice the tolerance over the sweep rate). Spec IV.7 rule 2 makes both a 422.
+    """
+    violations: list[str] = []
+    target = body.get("target")
+    ltan = target.get("ltan_hours") if isinstance(target, dict) else None
+    if isinstance(ltan, str):
+        text = ltan.strip()
+        valid = False
+        if ":" in text:
+            hours, _, minutes = text.partition(":")
+            valid = hours.isdigit() and minutes.isdigit() and int(hours) <= 23 and int(minutes) <= 59
+        else:
+            try:
+                valid = 0.0 <= float(text) < 24.0
+            except ValueError:
+                valid = False
+        if not valid:
+            violations.append(
+                f"/target/ltan_hours: {ltan!r} is not a local time; expected HH:MM from 00:00 to 23:59"
+            )
+    tolerance = body.get("raan_tolerance_deg")
+    if isinstance(tolerance, (int, float)) and not isinstance(tolerance, bool) and not tolerance > 0:
+        violations.append(
+            f"/raan_tolerance_deg: {tolerance!r} is not greater than 0; the tolerance governs the window width"
+        )
+    return violations
+
+
 def validate_request_body(body: Any) -> dict[str, Any]:
     """Raise ``ContractViolation`` (422) unless the body satisfies the frozen schema."""
     if not isinstance(body, dict):
@@ -70,6 +104,13 @@ def validate_request_body(body: Any) -> dict[str, Any]:
             f"the request body does not satisfy the frozen {REQUEST_SCHEMA}.json schema",
             schema_name=REQUEST_SCHEMA,
             violations=violations,
+        )
+    out_of_bounds = _bound_violations(body)
+    if out_of_bounds:
+        raise ContractViolation(
+            "the request body is well formed but holds a value the engine cannot interpret",
+            schema_name=REQUEST_SCHEMA,
+            violations=out_of_bounds,
         )
     return body
 

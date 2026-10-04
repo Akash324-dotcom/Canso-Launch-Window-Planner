@@ -317,9 +317,15 @@ def site_for_gate(case: dict) -> str:
 
 
 def equivalent_ltan_hours(case: dict) -> float:
-    """The same plane expressed as an ascending node time, as the schema allows."""
+    """The same plane expressed as an ascending node time, as the schema allows.
+
+    Twelve hours are added for a descending node and the sum is taken on the 24 hour
+    clock: 14:00 descending is 02:00 ascending, not "26:00". The right ascension of the
+    node is the same either way (15 deg per hour, modulo 360), so the plane and every
+    residual are unchanged; the engine now refuses a time of day that does not exist.
+    """
     hours = case["ltan_hours"]
-    return hours + 12.0 if case["ltan_branch"] == "descending" else hours
+    return (hours + 12.0) % 24.0 if case["ltan_branch"] == "descending" else hours
 
 
 def _gate_request(case: dict) -> dict:
