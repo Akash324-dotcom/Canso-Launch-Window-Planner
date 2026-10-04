@@ -1,0 +1,121 @@
+{
+  "id": "cyclone4m",
+  "name": "Cyclone-4M",
+  "description": "Three-stage small launch vehicle for Spaceport Nova Scotia (Canso). Values are taken from the Cyclone-4M SLS Abbreviated User's Guide where it states them, and are flagged ASSUMPTION with the reasoning recorded where it does not.",
+  "guide": {
+    "title": "Cyclone-4M SLS Abbreviated User's Guide, Version 2",
+    "date": "2019-05-15",
+    "url": "https://web.archive.org/web/2020/https://www.maritimelaunch.com/sites/default/files/2019-08/UG_C4M%20abbreviated.pdf",
+    "access_date": "2026-10-03"
+  },
+
+  "t_to_inj_s": 540.0,
+  "t_to_inj_source": "ASSUMPTION. The Abbreviated User's Guide section 2.5.2 Table 2.2 flight timeline gives T+9 s first motion, T+12 s pitch and roll to the launch azimuth, T+75 s cross-range manoeuvre and T+261 s stage 1 separation. It does not publish a time to orbit. 540 s (T+9 min) is taken as the class floor for a direct LEO insertion, consistent with the 10 to 60 min direct-ascent range recorded in spec II.5.",
+
+  "ascent_profile": {
+    "first_motion_s": 9.0,
+    "launch_azimuth_acquisition_s": 12.0,
+    "cross_range_manoeuvre_s": 75.0,
+    "stage1_separation_s": 261.0,
+    "source": "Cyclone-4M Abbreviated User's Guide section 2.5.2 Table 2.2, flight timeline"
+  },
+
+  "hazard_footprint": {
+    "model_class": "ellipse",
+    "downrange_km": 2000.0,
+    "cross_range_km": 200.0,
+    "pad_hazard_area_radius_m": 500.0,
+    "flags": {
+      "downrange_km": "ASSUMPTION",
+      "cross_range_km": "ASSUMPTION",
+      "pad_hazard_area_radius_m": "VERIFIED"
+    },
+    "source": "The Nova Scotia Registration Document June 2018 section 5 places the drop 'just over 2,000 km south of the launch site' and gives the pad hazard area as 'a radius of less than 500 metres'. The cross-range axis is not published and is assumed.",
+    "downrange_rationale": "Registration Document June 2018 section 5: the vehicle would fall into the Atlantic Ocean 'just over 2,000 km south of the launch site'. Treated as the debris downrange extent."
+  },
+
+  "published_azimuths": [
+    {
+      "azimuth_deg": 118.5,
+      "context": "SC insertion into a 200 km orbit inclined at 51.6 deg",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.4.1"
+    },
+    {
+      "azimuth_deg": 180.0,
+      "context": "SSO insertion, with a cross-range manoeuvre to the right at T+75 s to bypass Little Dover",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.5.1"
+    },
+    {
+      "azimuth_deg": 181.0,
+      "context": "approximate trajectory used for the sonic boom overpressure study, 6.9 psf at 60 km",
+      "flag": "VERIFIED",
+      "source": "Nova Scotia Registration Document June 2018, Project 16-5903, section 5, Figure 5.4"
+    }
+  ],
+
+  "lateral_manoeuvre": {
+    "applies_below_inclination_deg": 45.1,
+    "source": "Cyclone-4M Abbreviated User's Guide section 2.3: 'For launches into orbits with inclination less than 45.1 deg, the Cyclone-4M can perform a lateral manoeuvre at the equator.' This is the vehicle guide's own note on the impossibility the engine reports, and it is cited in the response provenance."
+  },
+
+  "advertised_inclinations_deg": [45.1, 51.6, 87.9, 98.1],
+  "advertised_inclinations_source": "Cyclone-4M Abbreviated User's Guide section 2.3 and Figure 2.1: 'inclined at 51.6 deg, 87.9 deg, and 98.1 deg', with the 45.1 deg lateral-manoeuvre threshold in section 2.3.",
+
+  "paired_profile": "cyclone4m_coast",
+  "paired_profile_rationale": "A second profile with a published-coast ascent, so the fixed-point tests can prove that T_to_inj flows through the solver rather than being a constant in it.",
+
+  "rows": [
+    {
+      "key": "t_to_inj_s",
+      "flag": "ASSUMPTION",
+      "source": "Not published. Derived from the section 2.5.2 timeline; see t_to_inj_source."
+    },
+    {
+      "key": "ascent_profile.first_motion_s",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.5.2 Table 2.2"
+    },
+    {
+      "key": "ascent_profile.stage1_separation_s",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.5.2 Table 2.2"
+    },
+    {
+      "key": "hazard_footprint.pad_hazard_area_radius_m",
+      "flag": "VERIFIED",
+      "source": "Nova Scotia Registration Document June 2018, Project 16-5903"
+    },
+    {
+      "key": "hazard_footprint.downrange_km",
+      "flag": "ASSUMPTION",
+      "source": "Registration Document gives 'just over 2,000 km south'; read as the debris downrange extent."
+    },
+    {
+      "key": "hazard_footprint.cross_range_km",
+      "flag": "ASSUMPTION",
+      "source": "Not published in any located document. Assumed from the small-launch-vehicle class."
+    },
+    {
+      "key": "published_azimuths[0].azimuth_deg",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.4.1"
+    },
+    {
+      "key": "published_azimuths[1].azimuth_deg",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.5.1"
+    },
+    {
+      "key": "published_azimuths[2].azimuth_deg",
+      "flag": "VERIFIED",
+      "source": "Nova Scotia Registration Document June 2018 section 5"
+    },
+    {
+      "key": "lateral_manoeuvre.applies_below_inclination_deg",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.3"
+    }
+  ]
+}

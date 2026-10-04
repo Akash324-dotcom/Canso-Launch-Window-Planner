@@ -1,0 +1,43 @@
+{
+  "name": "kourou_ela1",
+  "description": "Guiana Space Centre, ELA-1, Kourou, French Guiana. Present only so the G1 credibility gate can drive the shipped compute_windows seam at a site with a published SSO launch. Not a product site.",
+  "latitude_deg": 5.2392,
+  "longitude_deg": -52.7653,
+  "altitude_m": 0.0,
+  "longitude_convention": "east-positive, converted from 52 deg 45 min 55 s W",
+  "coordinate_source": "Vega launch site coordinates, east-positive. Confirmed by the launch-site azimuth implied by the published 98.18 deg sun-synchronous orbit and the reproduced launch time.",
+  "corridor": {
+    "A_min_deg": 90.0,
+    "A_max_deg": 260.0,
+    "branch": "southbound",
+    "source": "NOT A PUBLISHED CORRIDOR. Set wide enough to admit the azimuth implied by the published inclination, so the gate measures launch TIME rather than range acceptability.",
+    "flags": {
+      "A_min_deg": "ASSUMPTION",
+      "A_max_deg": "ASSUMPTION"
+    }
+  },
+  "car_references": [],
+  "operating_hours": {
+    "utc_window": [
+      "00:00",
+      "23:59"
+    ],
+    "flag": "ASSUMPTION"
+  },
+  "target_classes": {
+    "CUSTOM": {
+      "i_t_deg": null,
+      "h_t_km": null,
+      "raan_tolerance_deg": 1.0,
+      "flag": "VERIFIED"
+    },
+    "SSO": {
+      "i_t_deg": 98.18,
+      "h_t_km": 693.0,
+      "ltan_hours": null,
+      "raan_tolerance_deg": 1.0,
+      "flag": "ASSUMPTION"
+    }
+  },
+  "site_role": "g1_anchor"
+}
