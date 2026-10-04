@@ -27,6 +27,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.api.cache import cache_registry
@@ -121,6 +122,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=f"{prefix}/openapi.json",
         docs_url=f"{prefix}/docs",
         redoc_url=None,
+    )
+    # Demo-only wildcard (no auth on this service); a real deployment must use an explicit origin allowlist.
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        allow_credentials=False,
     )
     application.dependency_overrides[get_settings] = lambda: resolved
     application.state.settings = resolved
