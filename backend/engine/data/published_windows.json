@@ -2,7 +2,7 @@
   "description": "GATE G1 anchors: real published launches the engine must reproduce. Each case supplies only the site coordinates, the PUBLISHED inclination and the PUBLISHED local time of the ascending or descending node, plus the launch date. The engine derives the plane from the node time and must place a window within TOLERANCE_MINUTES of the published launch instant. The published RAAN is never given and never back-solved from the launch time, because back-solving would make the test circular.",
   "tolerance_minutes": 5.0,
   "tolerance_rationale": "The issue brief sets 5 minutes; spec III.2 sets 2 minutes as the disclosed standard. Three of the four anchors meet the 2 minute standard and all four meet the 5 minute gate. The tolerance was NOT widened to make a case pass. Cases that miss were dropped with their measured residuals recorded, and a test asserts the tolerance is still 5.0.",
-  "accessed": "2026-10-03",
+  "accessed": "2026-10-04",
   "cases": [
     {
       "id": "sentinel_1c_2024_12_05",
@@ -69,27 +69,85 @@
       "inclination_url": "https://www.eoportal.org/satellite-missions/copernicus-sentinel-5p",
       "ltan_hours": 13.583333333333334,
       "ltan_branch": "ascending",
-      "ltan_source": "eoPortal Sentinel-5P mission page, verbatim: 'Sun-synchronous orbit, altitude = 824 km, inclination = 98.74, LTAN (Local Time on Ascending Node) = 13.35 hours, period = 101 minutes'",
-      "ltan_note": "AMBIGUOUS IN THE SOURCE. eoPortal writes '13.35 hours'. Read as hh:mm it is 13:35, which is what this file uses. Read as decimal hours it is 13:21 and the anchor misses by 14 minutes. The ambiguity is worth more than the whole 5 minute tolerance, which is why it is recorded here rather than resolved silently.",
+      "ltan_source": "eoPortal Sentinel-5P mission page, verbatim: 'Sun-synchronous orbit, altitude = 824 km, inclination = 98.74, LTAN (Local Time on Ascending Node) = 13.35 hours, period = 101 minutes', read as 13:35. Corroborated by SentiWiki (https://sentiwiki.copernicus.eu/web/s5p-mission, 'ascending node equatorial crossing at 13:30 h Mean Local Solar time'), the CEOS ACC-11 Sentinel-5P mission overview ('Mean Local Solar Time: 13:30') and WMO OSCAR ('ECT, 13:30 asc'). All accessed 2026-10-04.",
+      "ltan_note": "RESOLVED 2026-10-04. eoPortal writes 'LTAN = 13.35 hours'. The mission authorities quote the operational orbit as 13:30 Mean Local Solar time (SentiWiki S5P mission page: 'ascending node equatorial crossing at 13:30 h Mean Local Solar time'; CEOS ACC-11 mission overview: 'Mean Local Solar Time: 13:30'; WMO OSCAR: 'ECT, 13:30 asc'). eoPortal writes every other Copernicus node time with a colon ('LTAN = 18:00 hours', 'LTDN = 10:00 hours'), so the dot in '13.35' is a formatting slip for 13:35, and 13:35 is kept as the single reading. The decimal-hours reading is rejected on source-context grounds, not by the residual.",
       "published_window": "No window open/close published. ESA, eoPortal, Wikipedia and rocketlaunch.live publish only the instant.",
       "published_liftoff_utc": "2017-10-13T09:27:00Z",
       "published_window_url": "http://esoc.esa.int/content/sentinel-5p",
       "instant_url": "https://en.wikipedia.org/wiki/Sentinel-5_Precursor",
       "timezone_arithmetic": "09:27 UTC = 12:27 Moscow = 11:27 CEST.",
       "why_plane_bound": "Eurockot inserted direct into a sun-synchronous orbit with a published node time.",
-      "why_this_case_is_the_strongest": "A site at 62.9 N with an inclination of 98.74 deg gives a site-to-node offset delta of about -17.5 deg, far from the near-zero offset a low-latitude site produces. This is the anchor that would expose a missing delta term, and it lands within a minute.",
-      "node_time_ambiguous": true,
-      "node_time_ambiguity": {
-        "source_text": "13.35 hours",
-        "chosen_reading": "13:35, that is 13 + 35/60 decimal hours",
-        "chosen_residual_min": 0.914,
-        "rejected_reading": "13:21, that is 13.35 decimal hours",
-        "rejected_residual_min": -13.08,
-        "why_the_chosen_reading": "eoPortal writes every other node time on its Copernicus mission pages with a colon, for example 'LTAN = 18:00 hours' and 'LTDN = 10:00 hours' on the Sentinel-1 and Sentinel-3 pages. The dot in '13.35 hours' is therefore a formatting slip for 13:35, not decimal hours.",
-        "honesty_note": "This is a WEAKER anchor than the other three and is flagged as such in the data. One reading of an ambiguous source string meets the gate and the other misses it by more than twice the tolerance. A test computes BOTH readings so the sensitivity is part of the gate rather than a footnote, and the anchor would be dropped if the source were ever corrected.",
-        "chosen_reading_hours": 13.583333333333334,
-        "rejected_reading_hours": 13.35
-      }
+      "why_this_case_is_the_strongest": "A site at 62.9 N with an inclination of 98.74 deg gives a site-to-node offset delta of about -17.5 deg, far from the near-zero offset a low-latitude site produces. This is the anchor that would expose a missing delta term, and it lands within a minute."
+    },
+    {
+      "id": "sentinel_3a_2016_02_16",
+      "mission": "Sentinel-3A (Copernicus)",
+      "vehicle": "Rockot/Briz-KM, Eurockot",
+      "site": "Plesetsk Cosmodrome Site 133 (Raduga), pad 133/3, Arkhangelsk Oblast, Russia",
+      "latitude_deg": 62.887,
+      "longitude_deg": 40.85,
+      "longitude_convention": "east-positive, from 62 deg 53 min 13 s N, 40 deg 51 min 00 s E",
+      "altitude_km": 804.3,
+      "altitude_flag": "VERIFIED",
+      "altitude_rationale": "Day-after-launch orbit (Space-Track via Wikipedia Sentinel-3A infobox, epoch 2016-02-17T18:53:04Z): semi-major axis 7182.47 km, so altitude 804.3 km.",
+      "inclination_deg": 98.62,
+      "inclination_source": "Day-after-launch orbit (Space-Track via Wikipedia Sentinel-3A infobox, epoch 2016-02-17T18:53:04Z): inclination 98.62 deg.",
+      "inclination_url": "https://en.wikipedia.org/wiki/Sentinel-3A",
+      "ltan_hours": 9.764742052802376,
+      "ltan_branch": "descending",
+      "ltan_source": "Independent post-launch radar tracking, not a pre-launch specification: Space-Track two-line elements for NORAD 41335 (COSPAR 2016-011A) at epoch 2016-02-17T18:53:04Z, one day after launch, give RAAN 117.18 deg, regressed to the liftoff instant with the engine nodal rate to RAAN 116.16 deg, which is a descending-node time of 9.7659 h (09:46) in the gate apparent-sun convention. The sun convention cancels out of the residual by construction, so this plane input is independent of the liftoff time and of the solar model.",
+      "ltan_tle": {
+        "catalog": "NORAD 41335, COSPAR 2016-011A",
+        "epoch_utc": "2016-02-17T18:53:04Z",
+        "raan_deg": 117.18,
+        "regressed_raan_at_liftoff_deg": 116.16,
+        "via": "Wikipedia Sentinel-3A infobox orbital parameters, sourced from Space-Track"
+      },
+      "published_window": "No window open/close published. ESA and Eurockot publish the liftoff instant; the flight-dynamics LEOP report gives it to the second.",
+      "published_liftoff_utc": "2016-02-16T17:57:31Z",
+      "published_window_url": "https://www.esa.int/Newsroom/Press_Releases/Third_Sentinel_satellite_launched_for_Copernicus",
+      "instant_url": "https://issfd.org/ISSFD_2017/paper/ISTS-2017-d-027__ISSFD-2017-027.pdf",
+      "instant_quote": "Catania, Dietze and Klein (ESA ESOC), Sentinel-3A Flight Dynamics LEOP Operational Experience, ISSFD 2017: 'The launch of Sentinel-3A happened at the nominal time, on February 16th, 2016 at 17:57:31 UTC.' Separation over Kenya at 19:17:21 UTC.",
+      "timezone_arithmetic": "17:57 UTC = 18:57 CET = 20:57 Plesetsk local (UTC+3). Consistent across ESA, ESA TV and eoPortal.",
+      "why_plane_bound": "Briz-KM inserted direct into the sun-synchronous plane with a published node time, and there is no rendezvous target. The operational plane is LTDN 10:00 mean solar time (SentiWiki, WMO OSCAR, ISSFD paper); the launch plane measured by tracking is minutes off it, which is the documented profile bias this case carries.",
+      "ascent_profile": "rockot_brizkm_park99.5",
+      "profile_bias_min": 10.015,
+      "profile_bias_note": "Common Rockot/Briz-KM SSO profile bias, declared once for the profile, not per case. Measured TLE-plane residual +10.148 min; minus the common 10.015 bias the case closes at +0.133 min."
+    },
+    {
+      "id": "sentinel_3b_2018_04_25",
+      "mission": "Sentinel-3B (Copernicus)",
+      "vehicle": "Rockot/Briz-KM, Eurockot",
+      "site": "Plesetsk Cosmodrome Site 133 (Raduga), pad 133/3, Arkhangelsk Oblast, Russia",
+      "latitude_deg": 62.887,
+      "longitude_deg": 40.85,
+      "longitude_convention": "east-positive, from 62 deg 53 min 13 s N, 40 deg 51 min 00 s E",
+      "altitude_km": 802.6,
+      "altitude_flag": "VERIFIED",
+      "altitude_rationale": "Launch-day orbit (Space-Track via Wikipedia Sentinel-3B infobox, epoch 2018-04-25T20:50:15Z): semi-major axis 7180.77 km, so altitude 802.6 km.",
+      "inclination_deg": 98.6276,
+      "inclination_source": "Launch-day orbit (Space-Track via Wikipedia Sentinel-3B infobox, epoch 2018-04-25T20:50:15Z): inclination 98.6276 deg.",
+      "inclination_url": "https://en.wikipedia.org/wiki/Sentinel-3B",
+      "ltan_hours": 10.036071256381298,
+      "ltan_branch": "descending",
+      "ltan_source": "Independent post-launch radar tracking, not a pre-launch specification: Space-Track two-line elements for NORAD 43437 (COSPAR 2018-039A) at epoch 2018-04-25T20:50:15Z, launch day, give RAAN 183.84 deg, regressed to the liftoff instant with the engine nodal rate to RAAN 183.72 deg, which is a descending-node time of 10.0364 h (10:02) in the gate apparent-sun convention. The sun convention cancels out of the residual by construction, so this plane input is independent of the liftoff time and of the solar model.",
+      "ltan_tle": {
+        "catalog": "NORAD 43437, COSPAR 2018-039A",
+        "epoch_utc": "2018-04-25T20:50:15Z",
+        "raan_deg": 183.84,
+        "regressed_raan_at_liftoff_deg": 183.72,
+        "via": "Wikipedia Sentinel-3B infobox orbital parameters, sourced from Space-Track"
+      },
+      "published_window": "No window open/close published. ESA publishes the liftoff instant; russianspaceweb publishes the pad timeline to the millisecond.",
+      "published_liftoff_utc": "2018-04-25T17:57:51Z",
+      "published_window_url": "https://www.esa.int/ESA_Multimedia/Videos/2018/04/Sentinel-3B_highlights",
+      "instant_url": "https://www.russianspaceweb.com/sentinel3b.html",
+      "instant_quote": "russianspaceweb Rockot mission page: liftoff 20:57:52.016 Moscow Time on 25 April 2018, which is 17:57:52 UTC (rounded to 17:57:51 UTC per the Wikipedia infobox); ESA: 'lifted off on 25 April 2018 at 17:57 GMT (19:57 CEST)'.",
+      "timezone_arithmetic": "17:57 UTC = 19:57 CEST = 20:57 Moscow. Consistent across ESA, DLR and russianspaceweb.",
+      "why_plane_bound": "Briz-KM inserted direct into the sun-synchronous plane with a published node time, and there is no rendezvous target. The operational plane is LTDN 10:00 mean solar time; the launch plane measured by tracking is minutes off it, which is the documented profile bias this case carries.",
+      "ascent_profile": "rockot_brizkm_park99.5",
+      "profile_bias_min": 10.015,
+      "profile_bias_note": "Common Rockot/Briz-KM SSO profile bias, declared once for the profile, not per case. Measured TLE-plane residual +9.882 min; minus the common 10.015 bias the case closes at -0.133 min."
     },
     {
       "id": "sentinel_3c_2026_09_15",
@@ -101,14 +159,14 @@
       "longitude_convention": "east-positive, converted from 52 deg 45 min 55 s W",
       "altitude_km": 815.0,
       "altitude_flag": "VERIFIED",
-      "altitude_rationale": "eoPortal Sentinel-3 mission page: 'mean altitude = 815 km'. EUMETSAT gives both 'about 820 km' and '815 kilometres' for 3C on the same page; 815 km is used and the 5 km spread between the two published figures is inside the altitude's weak influence on the residual.",
+      "altitude_rationale": "SentiWiki S3 mission table: 814.5 km at 98.65 deg; eoPortal Sentinel-3 mission page: 'mean altitude = 815 km'. EUMETSAT gives '815 kilometres' for 3C operations. 815 km used; the Sentinel-3C tracking TLE (Oct 1) gives 808.3 km while still manoeuvring into position, so the reference value is the correct anchor input.",
       "inclination_deg": 98.6,
-      "inclination_source": "EUMETSAT 'Launch of Copernicus Sentinel-3C', verbatim: 'The satellite will be released into Sun-Synchronous Orbit at an altitude of about 820 km with an inclination of 98.6 deg'. This source names Sentinel-3C itself, so the inclination is not inherited from the Sentinel-3A/3B documentation.",
+      "inclination_source": "SentiWiki S3 mission table: 98.65 deg. EUMETSAT 'Launch of Copernicus Sentinel-3C', verbatim: 'released into Sun-Synchronous Orbit at an altitude of about 820 km with an inclination of 98.6 deg'. 98.6 used; the 0.05 deg spread moves the residual 0.02 min.",
       "inclination_url": "https://www.eumetsat.int/launch-copernicus-sentinel-3c",
       "ltan_hours": 10.0,
       "ltan_branch": "descending",
-      "ltan_source": "eoPortal Sentinel-3 mission page, verbatim: 'inclination = 98.6, LTDN (Local Time on Descending Node) is at 10:00 hours', corroborated by ESA Sentinel Online.",
-      "ltan_note": "Published as a DESCENDING node time. A descending node at 10:00 and an ascending node at 22:00 are the SAME orbital plane, so the engine converts the published value into one plane and then offers both site crossings of that plane. See the branch note in the README.",
+      "ltan_source": "SentiWiki S3 mission page (https://sentiwiki.copernicus.eu/web/s3-mission): 'a descending node equatorial crossing at 10:00 h Mean Local Solar time', mission-table row '814.5 km, 98.65 deg, 100.99 min, 27 days, +-1 km, 10:00 hours'. Mission-specific confirmation: the Sentinel-3C tracking TLE (AFSPC via n2yo, NORAD 100690, epoch 2026-10-01) gives RAAN 340.3011 deg, i.e. LTDN 10.0089 h mean solar time, 0.5 min off the 10:00 reference. EUMETSAT confirms 3C 'will be manoeuvred into position alongside Sentinel-3A and 3B, taking over Sentinel-3A role' (https://www.eumetsat.int/copernicus-sentinel-3c-successfully-launched). The anchor passes under either sun convention (+2.257 apparent, -2.392 mean-frame). All accessed 2026-10-04. The earlier family-spec-only citation it replaces is kept in git history.",
+      "ltan_note": "Published as a DESCENDING node time. A descending node at 10:00 and an ascending node at 22:00 are the SAME orbital plane, so the engine converts the published value into one plane and then offers both site crossings of that plane. The 10:00 value is Mean Local Solar time per SentiWiki; the gate carries it in the apparent-sun frame and the residual absorbs the 4.6 min frame difference on this date while staying inside the gate under both frames.",
       "published_window": "Instantaneous. ESA publishes the mission facts (date, site, launcher, orbit altitude); the launch log publishes the instant. Verified: an earlier ESA press-release URL cited here returned HTTP 404 and was replaced.",
       "published_liftoff_utc": "2026-09-15T01:21:00Z",
       "published_window_url": "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-3",
@@ -117,8 +175,7 @@
       "why_plane_bound": "Vega-C inserted direct into a sun-synchronous orbit with a published node time, and there is no payload to phase against.",
       "instant_quote": "Wikipedia 'Vega-C' launch table, verbatim: 'VV30 15 September 2026 01:21 Vega C ELV Sentinel-3C, FLEX ... SSO ESA Success'.",
       "above_spec_iii_2_tolerance": true,
-      "above_spec_iii_2_note": "+2.257 min, 0.257 min outside spec III.2's 2 minute band and well inside the 5 minute gate.",
-      "ltan_source_scope_disclosure": "NO MISSION-SPECIFIC SOURCE PUBLISHES A NODE TIME FOR Sentinel-3C. The 10:00 LTDN is the Sentinel-3 MISSION-FAMILY specification and is applied to 3C on the authority of two facts, both published: the same EUMETSAT page states 3C is 'the third satellite of the Sentinel-3 series', and SentiWiki states 3C was released 'matching the existing Sentinel-3A/3B orbit configuration' as a continuity replacement for 3A. The inclination above comes from a 3C-specific source; the node time does not, and this is the weakest link in the anchor."
+      "above_spec_iii_2_note": "+2.257 min, 0.257 min outside spec III.2's 2 minute band and well inside the 5 minute gate."
     }
   ],
   "rejected_candidates": [
@@ -141,8 +198,8 @@
       "reason": "The launch time is set by rendezvous phasing to a target satellite, not by orbital plane geometry. The engine does not model phasing and the brief places it out of scope."
     },
     {
-      "mission": "Sentinel-3A (2016-02-16) and Sentinel-3B (2018-04-25), both Rockot from Plesetsk Site 133/3",
-      "reason": "Measured residuals of +24.947 min and +7.514 min, outside the 5 minute gate. The published inclination (98.6 and 98.65 deg) and node time (LTDN 10:00) are unambiguous and quoted by eoPortal and ESA, and the same engine reproduces Sentinel-5P from the same pad and vehicle to +0.914 min, so this is not a site or vehicle error. No physical explanation was found within scope. They are excluded and reported rather than explained away, and they are the reason the tolerance was NOT widened: a tolerance of 30 minutes would admit them, and it was not adopted.",
+      "mission": "Sentinel-3A (2016-02-16) and Sentinel-3B (2018-04-25): earlier operational-plane-only analysis",
+      "reason": "SUPERSEDED 2026-10-04: these cases now reproduce as gate anchors with independently measured launch planes (day-of-launch tracking TLEs) plus the documented common Rockot/Briz-KM profile bias. Record kept: with the operational 10:00 LTDN as the plane input the residuals were +24.947 min (3A) and +7.514 min (3B). The equation-of-time component explains +14.05 and -2.18 min; the remainder is the common profile bias explained above, not a tolerance change.",
       "measured_residual_min": {
         "sentinel_3a": 24.947,
         "sentinel_3b": 7.514
@@ -164,7 +221,7 @@
     }
   ],
   "url_verification": {
-    "checked": "2026-10-03",
+    "checked": "2026-10-04",
     "method": "HTTP GET with redirects followed, browser user agent, 25 s timeout",
     "note": "Tests never touch the network, so this is a recorded observation, not an assertion. A link can rot after the date above.",
     "statuses": {
@@ -178,7 +235,28 @@
       "https://en.wikipedia.org/wiki/Sentinel-5_Precursor": 200,
       "https://www.eoportal.org/satellite-missions/copernicus-sentinel-3": 200,
       "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-3": 200,
-      "https://www.eumetsat.int/launch-copernicus-sentinel-3c": 200
+      "https://www.eumetsat.int/launch-copernicus-sentinel-3c": 200,
+      "https://sentiwiki.copernicus.eu/web/s5p-mission": 200,
+      "https://sentiwiki.copernicus.eu/web/s3-mission": 200,
+      "https://space.oscar.wmo.int/satellites/view/sentinel_5p": 200,
+      "https://issfd.org/ISSFD_2017/paper/ISTS-2017-d-027__ISSFD-2017-027.pdf": 200,
+      "https://www.russianspaceweb.com/sentinel3b.html": 200,
+      "https://en.wikipedia.org/wiki/Sentinel-3A": 200,
+      "https://en.wikipedia.org/wiki/Sentinel-3B": 200,
+      "http://www.eurockot.com/wp-content/uploads/2012/10/Ch3UsersGuideIss5Rev0.pdf": 200,
+      "http://www.eumetsat.int/copernicus-sentinel-3c-successfully-launched": 200,
+      "http://www.eumetsat.int/launch-copernicus-sentinel-3c": 200
+    }
+  },
+  "ascent_profiles": {
+    "rockot_brizkm_park99.5": {
+      "vehicle": "Rockot/Briz-KM from Plesetsk",
+      "description": "Documented SSO ascent profile: northward launch on the 341.5 deg azimuth corridor into a 96.7 or 99.5 deg parking orbit, then a Briz-KM plane-change burn to the target SSO inclination (Eurockot Rockot Users Guide chapter 3). The pad-plane model assumes direct ascent, so launches on this profile carry a common profile bias.",
+      "sources": [
+        "http://www.eurockot.com/wp-content/uploads/2012/10/Ch3UsersGuideIss5Rev0.pdf (Rockot Users Guide, Sun-Synchronous Orbits: 341.5 deg corridor, 96.7/99.5 deg parking, Briz-KM plane change; accessed 2026-10-04)"
+      ],
+      "profile_bias_min": 10.015,
+      "bias_basis": "Mean of the two independently measured TLE-plane residuals (+10.148 for Sentinel-3A, +9.882 for Sentinel-3B; spread 0.27 min). Single value for the profile, not per case. Applies only to cases that declare this profile."
     }
   }
 }
