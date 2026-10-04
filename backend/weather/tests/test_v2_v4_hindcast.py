@@ -232,6 +232,9 @@ def cached(monkeypatch, tmp_path):
 
     monkeypatch.setattr(hindcast, "CACHE_DIR", tmp_path / "hindcast")
     monkeypatch.setattr(hindcast, "build_pairs", counting)
+    # The synthetic inputs below stand for two criteria versions. compute() resolves the version name before
+    # it loads anything, so the second version has to exist as far as the name check is concerned.
+    monkeypatch.setattr(hindcast.criteria, "available_versions", lambda: ["criteria_v1", "criteria_v2"])
     monkeypatch.setattr(hindcast, "load_inputs", lambda site, version: {
         "by_run": by_run, "units": {"wind_gusts_10m": "m/s"}, "site_cfg": SITE, "rows": [GUST],
         "run_hours": RUN_HOURS, "min_members": 2, "outcome": lambda day: 1, "n_bins": 10,

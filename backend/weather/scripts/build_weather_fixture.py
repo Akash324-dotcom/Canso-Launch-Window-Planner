@@ -2,8 +2,8 @@
 
     python -m backend.weather.scripts.build_weather_fixture canso [YYYY-MM-DD]
 
-The fixture is one spec IV.3 response, for the given date or else the day after the committed forecast snapshot
-was issued. Inputs are the committed snapshot (backend/weather/data/snapshot/), the committed climatology and the
+The fixture is one spec IV.3 response, for the given date or else the date in data/sources.json under
+'fixture', which is the date the API's offline record is asked for. Inputs are the committed snapshot (backend/weather/data/snapshot/), the committed climatology and the
 criteria table. The local cache is ignored and no request is made, so the output is reproducible byte for byte.
 A stored forecast is labelled source 'snapshot_cache' and keeps its issue time. Run from the repository root.
 """
@@ -14,10 +14,9 @@ import json
 import os
 import sys
 from contextlib import contextmanager
-from datetime import timedelta
 from pathlib import Path
 
-from backend.weather import fetch, service
+from backend.weather import config, fetch, service
 
 FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures"
 FIXTURE_NAME = "weather.json"
@@ -51,8 +50,7 @@ def build(site: str, date_iso: str | None = None) -> str:
         if snapshot is None:
             raise SystemExit(f"no committed forecast snapshot for {site}; run refresh_snapshot first")
         retrieved = fetch.parse_iso_z(snapshot["retrieved_at"])
-        issued = fetch.parse_iso_z(snapshot["forecast_issue_time"]).date()
-        single = date_iso or (issued + timedelta(days=1)).isoformat()
+        single = date_iso or config.load_sources()["fixture"]["date"]
         body = service.compute(single, site, None, now=retrieved)
     return json.dumps(body, indent=1, ensure_ascii=False) + "\n"
 

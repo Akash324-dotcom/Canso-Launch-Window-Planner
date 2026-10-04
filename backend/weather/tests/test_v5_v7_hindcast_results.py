@@ -120,6 +120,26 @@ def test_the_report_states_the_period_the_sources_the_criteria_version_and_n_cas
     assert order == sorted(order)
 
 
+def test_a_lead_with_fewer_than_30_cases_is_reported_with_its_count_stated(real):
+    """Issue #7 V4: such a lead 'is still reported but the observation count is stated in HINDCAST.md'.
+
+    The real run has no such lead, so the report is rendered from the real result with two sample sizes cut.
+    """
+    result = json.loads(json.dumps({key: value for key, value in real["result"].items() if key != "pairs"}))
+    result["observed_violation_frequency"] = hindcast.observed_violation_frequency(
+        "canso", result["criteria_version"], sorted({row["valid_date"] for row in real["result"]["pairs"]}))
+    result["skill_series"][8]["n_cases"] = 20
+    result["skill_series"][9]["n_cases"] = 7
+
+    report = hindcast_report.render(result, hindcast.source_metadata("canso"), climatology.archive_metadata("canso"),
+                                    criteria.load_criteria(result["criteria_version"]), config.load_skill_horizon())
+
+    assert "**Small samples.** Fewer than 30 cases: lead 9 (20 cases), lead 10 (7 cases)." in report
+    assert "a skill value from so few cases is not a validation" in report
+    assert "| 9 | 20 |" in report and "| 10 | 7 |" in report, "the leads are still reported in the BSS table"
+    assert "every lead has at least 30 cases" not in report
+
+
 def test_the_verdict_says_in_plain_words_what_the_numbers_show(real):
     report = (WEATHER / "HINDCAST.md").read_text(encoding="utf-8")
     result = real["result"]

@@ -204,8 +204,10 @@ def render(result: dict, runs_meta: dict, archive_meta: dict, criteria_table: di
     add("- **Four members give a coarse probability.** Only five probability values are possible, which limits the "
         "resolution of the reliability table and of the Brier score.")
     if small:
-        add(f"- **Small samples.** Leads {', '.join(map(str, small))} have fewer than {SMALL_SAMPLE} cases; a skill "
-            "value from so few cases is not a validation.")
+        counts = {entry["lead_time_days"]: entry["n_cases"] for entry in series}
+        listed = ", ".join(f"lead {lead} ({counts[lead]} cases)" for lead in small)
+        add(f"- **Small samples.** Fewer than {SMALL_SAMPLE} cases: {listed}. The scores of these leads are in the "
+            "table above, but a skill value from so few cases is not a validation.")
     else:
         add(f"- Sample sizes: every lead has at least {SMALL_SAMPLE} cases, between "
             f"{min(entry['n_cases'] for entry in series)} and {max(entry['n_cases'] for entry in series)}. "

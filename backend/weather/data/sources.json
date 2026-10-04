@@ -220,6 +220,10 @@
     ],
     "aggregate_leads_source": "spec III.4 pass criterion 1: BSS aggregated over leads 1-7 days"
   },
+  "fixture": {
+    "date": "2026-10-06",
+    "date_basis": "backend/fixtures/weather.json is the API's offline record. The API tests request it for 2026-10-06 (backend/api/tests/test_client.py, test_cache_and_limits.py) and the frozen window rows in backend/fixtures/windows.json are centred on that date. It is three days after the issue time of the committed forecast snapshots, inside the FORECAST boundary."
+  },
   "probed_at": "2026-10-04T01:21Z",
   "probes": [
     {

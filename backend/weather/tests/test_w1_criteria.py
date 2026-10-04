@@ -188,6 +188,29 @@ def test_unknown_criteria_version_raises_the_error_api_maps_to_criteria_version_
     assert raised.value.criteria_version == "nonexistent"
 
 
+def test_the_short_form_of_a_version_name_is_accepted_and_resolved_to_the_file_name():
+    """Found at integration: the API and the contract examples say "v1", the table is criteria_v1.json.
+
+    The windows request schema describes the field as 'the current data/criteria_v*.json', so "v1" names
+    criteria_v1.json. Before this rule the API's default was refused and every window lost its weather factor.
+    """
+    assert criteria.canonical_version("v1") == "criteria_v1"
+    assert criteria.canonical_version("criteria_v1") == "criteria_v1"
+    assert criteria.canonical_version(None) == criteria.current_criteria_version()
+    assert criteria.load_criteria("v1") == criteria.load_criteria("criteria_v1")
+    assert criteria.load_criteria("v1")["criteria_version"] == "criteria_v1"
+
+
+@pytest.mark.parametrize("name", ["v9", "criteria_v9", "nonexistent", "1", "V1", "v1 ", "", "v"])
+def test_only_the_two_exact_forms_are_accepted(name):
+    """No guessing: any other spelling, and any version without a table, is refused under the name given."""
+    with pytest.raises(CriteriaVersionMissingError) as raised:
+        criteria.canonical_version(name)
+
+    assert raised.value.criteria_version == name
+    assert raised.value.constraint_fired == "criteria_version_missing"
+
+
 def test_the_default_version_is_resolved_from_the_data_directory_not_from_a_literal():
     assert criteria.current_criteria_version() in criteria.available_versions()
     assert criteria.load_criteria(None)["criteria_version"] == criteria.current_criteria_version()
