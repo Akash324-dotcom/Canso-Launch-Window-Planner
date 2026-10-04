@@ -124,7 +124,7 @@ def test_the_block_echoes_the_row_flags_verbatim():
     block = provenance.build_provenance_block(REQUEST)
     assert block["row_flags"]
     for key, flag in block["row_flags"].items():
-        assert flag in {"VERIFIED", "ASSUMPTION"}, f"{key} carries {flag!r}"
+        assert flag in {"VERIFIED", "ASSUMPTION", "DERIVED"}, f"{key} carries {flag!r}"
 
 
 def test_row_flags_cover_the_vehicle_and_the_corridor_bounds():
@@ -134,10 +134,10 @@ def test_row_flags_cover_the_vehicle_and_the_corridor_bounds():
     assert "corridor.A_max_deg" in block["row_flags"]
 
 
-def test_corridor_bounds_are_reported_as_assumption_until_the_ea_figure_is_read():
+def test_corridor_bounds_are_reported_as_derived_from_the_committed_derivation():
     block = provenance.build_provenance_block(REQUEST)
-    assert block["row_flags"]["corridor.A_min_deg"] == "ASSUMPTION"
-    assert block["row_flags"]["corridor.A_max_deg"] == "ASSUMPTION"
+    assert block["row_flags"]["corridor.A_min_deg"] == "DERIVED"
+    assert block["row_flags"]["corridor.A_max_deg"] == "DERIVED"
 
 
 def test_re_reading_the_files_reproduces_the_numbers():

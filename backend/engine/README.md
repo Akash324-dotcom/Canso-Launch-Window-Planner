@@ -146,17 +146,18 @@ branch matched.
 
 ## Every ASSUMPTION row in the data files
 
-No corridor bound, no ascent duration and no footprint is published. Each is
-flagged and the flag is carried on the response.
+No corridor bound, no ascent duration and no published stage footprint exists.
+Each is flagged and the flag is carried on the response. DERIVED means
+reproducible from the committed derivation script, not a published figure.
 
 **`data/site_canso.json`**
 
 | Row | Flag | Why |
 |---|---|---|
-| `corridor.A_min_deg` = 90 | ASSUMPTION | Not published. Set to due east, the azimuth giving exactly the pad latitude, which the reachability algebra makes the minimum reachable inclination. A consequence of geometry, not a range constraint. |
-| `corridor.A_max_deg` = 200 | ASSUMPTION | Not published. Extends past due south to cover the 98.1 deg SSO azimuth plus margin. Caps the reachable inclination at about 104 deg, as spec II.2 states. |
-| `corridor` as a whole | ASSUMPTION | The Canso environmental assessment (Registration Document June 2018, Project 16-5903; Focus Report March 2019) was searched in full and publishes **no** numeric corridor. Figure 2.9 exists but is a two-panel illustration with no degree axis. |
-| `operating_hours` | ASSUMPTION | No published operating-hours restriction located. Treated as continuously available so operating hours never silently removes a window. |
+| `corridor.A_min_deg` = 115 | DERIVED | `derive_canso_corridor.py`: min nominal flown azimuth 117.98 (51.6 deg via II.2) minus 3.0 deg dispersion, 1 deg resolution. Geography cross-checked (open-Atlantic east ray). |
+| `corridor.A_max_deg` = 195 | DERIVED | `derive_canso_corridor.py`: max nominal flown azimuth 191.56 (98.1 deg SSO via II.2) plus 3.0 deg dispersion, 1 deg resolution. Caps the reachable inclination at about 100.5 deg. |
+| `corridor` as a whole | DERIVED | The Canso environmental assessment (Registration Document June 2018, Project 16-5903; Focus Report March 2019) was searched in full and publishes **no** numeric corridor. Figure 2.9 exists but is a two-panel illustration with no degree axis. Bounds are derived from geography plus physics, reproducible from the committed script. |
+| `operating_hours` | ASSUMPTION | No published operating-hours RESTRICTION located (documents checked listed in the data file). Engine treats all hours admissible. Nominal practice per Reg Doc 2.2.5/2.2.5.4 is majority 7:00 a.m. to 12:00 p.m. local, which is not a restriction. |
 | `target_classes.CUSTOM` | VERIFIED | Carries no defaults, because spec IV.1 requires explicit fields for CUSTOM. |
 | `target_classes.LEO.h_t_km` = 400 | ASSUMPTION | The advertised inclination is published, the class altitude is not. 400 km is chosen because it is the altitude at which the spec's own 26.8 m/s penalty reproduces; at 600 km the same formula gives 25.15 m/s. Affects only the penalty of an unreachable target. |
 | `coordinate_variants` | VERIFIED | Alternate published coordinates recorded by spec II.1. |
@@ -169,7 +170,7 @@ flagged and the flag is carried on the response.
 |---|---|---|
 | `t_to_inj_s` = 540 | ASSUMPTION | **Not published.** The Abbreviated User's Guide gives a flight timeline (T+9 s first motion, T+12 s azimuth acquisition, T+75 s cross range, T+261 s stage 1 separation) but no time to orbit. 540 s is the class floor for a direct insertion, consistent with the 10 to 60 min range in spec II.5. |
 | `hazard_footprint.downrange_km` = 2000 | ASSUMPTION | Registration Document gives "just over 2,000 km south of the launch site"; read as the debris downrange extent. |
-| `hazard_footprint.cross_range_km` = 200 | ASSUMPTION | **Not published in any located document.** Assumed from the small-launch-vehicle class. |
+| `hazard_footprint.cross_range_km` = 105 | DERIVED | **Not published in any located document.** Ellipse half-width = 2000 km times sin(3 deg) = 104.67 km, rounded to 105 km at 5 km resolution; same dispersion as the corridor. |
 | `hazard_footprint.pad_hazard_area_radius_m` = 500 | VERIFIED | Registration Document: "a radius of less than 500 metres". |
 | `ascent_profile.*` | VERIFIED | Abbreviated User's Guide section 2.5.2 Table 2.2. |
 | `published_azimuths` 118.5, 180, 181 | VERIFIED | AUG sections 2.4.1 and 2.5.1; Registration Document section 5. |
@@ -192,7 +193,8 @@ altitude does not enter the comparison.
 ## Known-unread and unresolved items
 
 1. **The environmental assessment Figure 2.9 three-sigma corridor check** (spec
-   SCIENCE Sec G.2). Both corridor bounds remain ASSUMPTION until this is read.
+   SCIENCE Sec G.2). A published numeric corridor would supersede the DERIVED
+   bounds; until then the derivation script plus its test is the provenance.
    This is the single largest open item and it is why the reachable set could
    change without any code change.
 2. **Sentinel-3A and Sentinel-3B do not reproduce.** Measured residuals are

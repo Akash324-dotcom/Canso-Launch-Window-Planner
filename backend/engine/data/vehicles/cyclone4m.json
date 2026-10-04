@@ -23,14 +23,15 @@
   "hazard_footprint": {
     "model_class": "ellipse",
     "downrange_km": 2000.0,
-    "cross_range_km": 200.0,
+    "cross_range_km": 105.0,
+    "cross_range_convention": "ellipse half-width (semi-axis) at the stage-impact distance",
     "pad_hazard_area_radius_m": 500.0,
     "flags": {
       "downrange_km": "ASSUMPTION",
-      "cross_range_km": "ASSUMPTION",
+      "cross_range_km": "DERIVED",
       "pad_hazard_area_radius_m": "VERIFIED"
     },
-    "source": "The Nova Scotia Registration Document June 2018 section 5 places the drop 'just over 2,000 km south of the launch site' and gives the pad hazard area as 'a radius of less than 500 metres'. The cross-range axis is not published and is assumed.",
+    "source": "The Nova Scotia Registration Document June 2018 section 5 places the drop 'just over 2,000 km south of the launch site' and gives the pad hazard area as 'a radius of less than 500 metres'. The cross-range axis is DERIVED, not published: half-width = 2000 km * sin(3 deg) = 104.67 km, rounded to 105 km at 5 km resolution, using the same 3 deg dispersion half-width as the corridor derivation (backend/engine/data/derive_canso_corridor.py:derive_cross_range_km). No published Cyclone-4M stage footprint data was found in the Abbreviated User's Guide or the Registration Document.",
     "downrange_rationale": "Registration Document June 2018 section 5: the vehicle would fall into the Atlantic Ocean 'just over 2,000 km south of the launch site'. Treated as the debris downrange extent."
   },
 
@@ -94,8 +95,8 @@
     },
     {
       "key": "hazard_footprint.cross_range_km",
-      "flag": "ASSUMPTION",
-      "source": "Not published in any located document. Assumed from the small-launch-vehicle class."
+      "flag": "DERIVED",
+      "source": "DERIVED: 2000 km * sin(3 deg) = 104.67 km -> 105 km half-width; see derive_canso_corridor.py:derive_cross_range_km. No published stage footprint found in the AUG or Registration Document."
     },
     {
       "key": "published_azimuths[0].azimuth_deg",
