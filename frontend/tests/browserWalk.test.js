@@ -6,7 +6,13 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURES, MODE_LIVE, MODE_OFFLINE, TRACK_START_TOLERANCE_KM } from '../src/config.js';
+import {
+  FIXTURES,
+  MODE_LIVE,
+  MODE_OFFLINE,
+  OMEGA_SID_RAD_S,
+  TRACK_START_TOLERANCE_KM,
+} from '../src/config.js';
 import { corridorCheck } from '../src/geo.js';
 import {
   boot,
@@ -61,7 +67,7 @@ function liveApi(overrides = {}) {
       return jsonResponse(clone(overrides.ephemeris ?? loadExample(EPHEMERIS)));
     }
     if (target.includes('/site')) {
-      return jsonResponse(clone(loadExample(SITE)));
+      return jsonResponse(clone(overrides.site ?? loadExample(SITE)));
     }
     if (target.includes('/weather/probability')) {
       return jsonResponse(clone(loadExample(FORECAST)));
@@ -452,5 +458,128 @@ describe('walk: console errors of the shipped page', () => {
     const html = readFileSync(path.join(process.cwd(), 'index.html'), 'utf8');
 
     expect(html).toMatch(/<link rel="icon" href="data:,"\s*\/>/);
+  });
+});
+
+describe('walk item 8: the guard and the frame the corridor is stated in', () => {
+  // What GET /v1/orbits/sso981/ephemeris answers for the live row 2026-10-04T02:55:51Z once the
+  // engine serves the ascent of the row: on the pad at liftoff, in the plane of the row at
+  // injection. The row passes the hazard screen at the launch azimuth 191.56 deg.
+  const liftoff = '2026-10-04T02:55:51Z';
+  const injection = '2026-10-04T03:04:51Z';
+  const ASCENT = [
+    { t_utc: liftoff, lat_deg: 45.3, lon_deg: -61.0, alt_km: 0.0 },
+    { t_utc: '2026-10-04T03:00:51Z', lat_deg: 40.304834, lon_deg: -63.125278, alt_km: 392.935528 },
+    { t_utc: injection, lat_deg: 29.07295, lon_deg: -66.986692, alt_km: 674.0 },
+  ];
+  const canso = () => {
+    const document_ = clone(loadExample(SITE));
+    document_.phi_s_deg = 45.3;
+    document_.lambda_s_deg = -61.0;
+    document_.corridor.A_min_deg = 115.0;
+    document_.corridor.A_max_deg = 195.0;
+    return document_;
+  };
+  const ascent = { start: liftoff, end: injection };
+
+  it('does not refuse an ascent whose ground track the Earth has turned west of its plane', () => {
+    const check = corridorCheck(canso(), ASCENT, { ascent });
+
+    // Seen from the site on the turning Earth the injection point bears 198.3 deg, outside 195.
+    expect(check.bearing_max_deg).toBeGreaterThan(198);
+    expect(check.bearing_max_deg).toBeLessThan(198.6);
+    // In the frame fixed at liftoff it lies on the launch azimuth of the row, inside.
+    expect(check.plane_azimuth_deg).toBeGreaterThan(191.4);
+    expect(check.plane_azimuth_deg).toBeLessThan(191.7);
+    expect(check.earth_rotation_deg).toBeCloseTo((OMEGA_SID_RAD_S * 540 * 180) / Math.PI, 6);
+    expect(check.violations).toHaveLength(0);
+    expect(check.inside).toBe(true);
+    expect(check.ground_bearings_inside).toBe(false);
+  });
+
+  it('reports both bearings of every sample that is off the pad', () => {
+    const check = corridorCheck(canso(), ASCENT, { ascent });
+    const [pad, middle, last] = check.samples;
+
+    expect(pad.on_pad).toBe(true);
+    expect(middle.bearing_deg).toBeGreaterThan(197.5);
+    expect(middle.plane_azimuth_deg).toBeGreaterThan(186);
+    expect(middle.plane_azimuth_deg).toBeLessThan(190);
+    expect(last.plane_azimuth_deg).toBeCloseTo(check.plane_azimuth_deg, 9);
+  });
+
+  it('still refuses a northbound ascent: both bearings are outside the corridor', () => {
+    const north = [
+      ASCENT[0],
+      { t_utc: '2026-10-04T03:00:51Z', lat_deg: 50.3, lon_deg: -63.6, alt_km: 392.9 },
+      { t_utc: injection, lat_deg: 61.5, lon_deg: -69.5, alt_km: 674.0 },
+    ];
+    const check = corridorCheck(canso(), north, { ascent });
+
+    expect(check.inside).toBe(false);
+    expect(check.violations).toHaveLength(2);
+    expect(check.violations[0].plane_azimuth_deg).toBeGreaterThan(300);
+  });
+
+  it('refuses a sample whose two bearings are both beyond the same bound', () => {
+    const west = [
+      ASCENT[0],
+      { t_utc: injection, lat_deg: 31.0, lon_deg: -77.0, alt_km: 674.0 },
+    ];
+    const check = corridorCheck(canso(), west, { ascent });
+
+    expect(check.samples[1].bearing_deg).toBeGreaterThan(195);
+    expect(check.samples[1].plane_azimuth_deg).toBeGreaterThan(195);
+    expect(check.inside).toBe(false);
+  });
+
+  it('keeps the ground bearing as the only test when no liftoff instant fixes a frame', () => {
+    const check = corridorCheck(canso(), ASCENT);
+
+    expect(check.inside).toBe(false);
+    expect(check.violations).toHaveLength(2);
+    expect(check.plane_azimuth_deg).toBeNull();
+  });
+
+  it('takes the rotation rate from the caller and falls back on the spec II.10 value', () => {
+    const still = corridorCheck(canso(), ASCENT, { ascent, omegaSidRadS: 0 });
+
+    expect(OMEGA_SID_RAD_S).toBe(7.292115e-5);
+    expect(still.earth_rotation_deg).toBe(0);
+    expect(still.plane_azimuth_deg).toBeCloseTo(still.samples[2].bearing_deg, 9);
+    expect(still.inside).toBe(false);
+  });
+
+  it('says on the page which frame put the track inside the corridor', async () => {
+    const windows = clone(loadExample(STUB));
+    windows.windows = [
+      {
+        ...clone(windows.windows[0]),
+        t_liftoff_utc: liftoff,
+        t_injection_utc: injection,
+        constraint_fired: null,
+        screens: { hazard: 'pass', conjunction: 'clear', notam: 'none' },
+      },
+    ];
+    const live = clone(loadExample(EPHEMERIS));
+    live.points = ASCENT;
+    const { handler } = liveApi({ windows, ephemeris: live, site: canso() });
+    installContractApi(handler);
+    const { app } = boot();
+    app.start();
+    await settle();
+    selectFirstRow();
+    await settle();
+
+    const guard = document.getElementById('corridor-check');
+    expect(guard.getAttribute('data-inside')).toBe('true');
+    expect(guard.getAttribute('data-starts-at-site')).toBe('true');
+    expect(guard.textContent).not.toContain('HAZARD REJECTION');
+    expect(guard.textContent).toContain('191.6 deg');
+    expect(guard.textContent).toContain('the Earth turns 2.26 deg');
+    expect(guard.textContent).toContain('frame fixed at liftoff');
+    expect(guard.textContent).toContain('northbound track over land is refused by this guard');
+
+    app.stop();
   });
 });
