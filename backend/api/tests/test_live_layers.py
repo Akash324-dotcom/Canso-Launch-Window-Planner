@@ -62,27 +62,34 @@ def test_windows_come_from_the_real_engine_and_say_so(
     assert settings.relative(settings.fixture_path("windows")) not in sources
 
 
-def test_every_window_carries_the_real_weather_answer_for_the_request(
+def test_every_window_carries_the_real_weather_answer_for_its_date(
     client: TestClient, settings: Settings, sso_request: dict[str, Any]
 ) -> None:
-    """The defect: the weather factor was the neutral 1.0 on every row of every response."""
+    """The defect: the weather factor was the neutral 1.0 on every row of every response.
+
+    The first version of this test accepted one answer for the whole response, the
+    answer for the first day of the range, because that was how the route worked. It
+    now works by date (``test_window_weather_by_date.py``), so every row is compared
+    with the layer's answer for the date of that row. 2026-10-06 starts the range
+    because the committed forecast gives it a probability strictly between 0 and 1,
+    so neither a neutral 1.0 nor a dropped factor could pass.
+    """
     from backend import weather
 
-    # The route asks the weather layer once per response, for the first day of the range.
-    # 2026-10-06 is used because the committed forecast gives it a probability strictly
-    # between 0 and 1, so neither a neutral 1.0 nor a dropped factor could pass.
     request = {**sso_request, "date_range": {"start": "2026-10-06", "end": "2026-10-15"}}
-    expected = weather.probability(
-        date_iso=request["date_range"]["start"],
-        site=request["site"],
-        criteria_version=settings.default_criteria_version,
-    )
     body = client.post("/v1/windows", json=request).json()
 
     assert body["windows"]
-
-    assert 0.0 < expected["p_launch"] < 1.0, "a neutral 1.0 would hide the defect this test is for"
+    first = weather.probability(
+        date_iso="2026-10-06", site=request["site"], criteria_version=settings.default_criteria_version
+    )
+    assert 0.0 < first["p_launch"] < 1.0, "a neutral 1.0 would hide the defect this test is for"
     for row in body["windows"]:
+        expected = weather.probability(
+            date_iso=row["t_liftoff_utc"][:10],
+            site=request["site"],
+            criteria_version=settings.default_criteria_version,
+        )
         components = row["p_success_components"]
         assert components["weather"] == expected["p_launch"]
         assert row["p_success"] == pytest.approx(

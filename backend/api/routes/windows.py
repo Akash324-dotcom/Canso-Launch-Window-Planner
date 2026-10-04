@@ -268,7 +268,12 @@ def compose_response(
     configuration, which is the only place the constants and the site record live.
     """
     from backend.api.provenance import stamp_provenance
-    from backend.api.weather import CRITERIA_VERSION_MISSING, compose_window_row, window_weather
+    from backend.api.weather import (
+        CRITERIA_VERSION_MISSING,
+        compose_window_row,
+        row_date,
+        window_weather_by_date,
+    )
 
     body: dict[str, Any] = {
         "reachable": bool(engine_body["reachable"]),
@@ -278,10 +283,13 @@ def compose_response(
         "engine_version": engine_version,
         "computation_ms": engine_body.get("computation_ms", 0.0),
     }
-    document, weather_origin = window_weather(settings, request, registry)
-    for window in engine_body.get("windows", []):
+    engine_rows = engine_body.get("windows", [])
+    documents, weather_origin = window_weather_by_date(
+        settings, request, [row_date(window) for window in engine_rows], registry
+    )
+    for window in engine_rows:
         row = copy.deepcopy(window)
-        row.update(compose_window_row(document, window))
+        row.update(compose_window_row(documents.get(row_date(window)), window))
         if weather_origin == CRITERIA_VERSION_MISSING and row.get("constraint_fired") is None:
             # A constraint the engine fired on the row is kept: it stopped the row first.
             row["constraint_fired"] = CRITERIA_VERSION_MISSING
