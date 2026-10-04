@@ -449,7 +449,8 @@ export function createWindowEngineScreen({ root, store, onInputsChanged, onRowSe
       el('h1', { text: 'Canso Launch Windows' }),
       el('p', {
         class: 'hint',
-        text: 'Spaceport Nova Scotia. Every number below is rendered from one POST /v1/windows response.',
+        text:
+          'Spaceport Nova Scotia. The window rows, probabilities and flags below come from one POST /v1/windows response; the site, weather, ephemeris and skill panels read their own GET endpoints.',
       }),
     ]),
     form,

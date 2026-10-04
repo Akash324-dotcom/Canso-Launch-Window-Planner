@@ -76,7 +76,8 @@ export function createTrajectoryScreen({ root, store, footprintRegistry = VEHICL
       sub,
     ]),
     el('p', { class: 'hint' }, [
-      'The corridor polygon comes from GET /v1/site, the ground track from GET /v1/orbits/{id}/ephemeris for the ' +
+      'The corridor polygon comes from GET /v1/site (its two azimuths; the wedge length is drawn at ' +
+      `${CORRIDOR_FALLBACK_ARC_KM} km or the track extent, whichever is larger, and is not data), the ground track from GET /v1/orbits/{id}/ephemeris for the ` +
       'lifter to the injection instant of the selected row, and the hazard buffer from the configured vehicle ' +
       'footprint. The 3D globe of the inherited prototype is not carried over: spec V.2 makes it optional and ' +
       'the 2D map is primary.',
