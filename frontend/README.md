@@ -76,7 +76,7 @@ Mock payloads are the frozen examples in `tests/contract/examples/good/`, except
 | Population centre coordinates | `src/data/centres.json`, every row flagged `ASSUMPTION` |
 | Solar position | Low precision series, formula source named in `src/config.js`, carried as `ASSUMPTION` pending citation verification |
 | 3D globe | Cut, as spec V.2 permits |
-| Expected delay cost | Not implemented: it belongs to the decision layer of spec II.9 (iv) and VI.3, has no field in the frozen schema, and is listed as NOT DONE in `REQUIREMENTS_MAP.md` |
+| Expected delay cost | Built in the engine (`backend/engine/decision.py`) and served by `GET /v1/decision/delay-cost`; shown by the "Expected delay" panel of the prototype page, which computes nothing itself. The daily cost is entered by the user and has no default. The planner screens of this app do not show it yet |
 | Network | Never used except the API calls and the reads of the repository fixture files |
 
 # Screens 2, 3 and 4 (F3, F4 and F5)

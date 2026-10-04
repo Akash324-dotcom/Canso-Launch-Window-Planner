@@ -430,6 +430,24 @@ export function compass8(azimuthDeg) {
   return COMPASS_8[Math.round((((azimuthDeg % 360) + 360) % 360) / 45) % 8];
 }
 
+/* ------------------------------------------------------------------ the delay decision (spec II.9 iv) */
+
+/**
+ * The daily success series the decision layer takes: for each UTC day of the response, the
+ * best p_success among its usable rows, or 0 when the day has none. This is selection, not
+ * arithmetic on the physics; the expectation itself is computed by the service
+ * (GET /v1/decision/delay-cost), never here.
+ */
+export function dailySeries(windows) {
+  const best = new Map();
+  for (const row of windows) {
+    const day = new Date(row.t).toISOString().slice(0, 10);
+    const value = row.ok && Number.isFinite(row.p) ? row.p : 0;
+    best.set(day, Math.max(best.get(day) ?? 0, value));
+  }
+  return [...best.keys()].sort().map((day) => ({ day, p: best.get(day) }));
+}
+
 /* ------------------------------------------------------------------ the data source */
 
 function messageOf(error) {
@@ -528,6 +546,21 @@ export function createPrototypeSource(options = {}) {
         }
         return client.getValidationSkill({ periodStart: period.start, periodEnd: period.end }, perCall);
       });
+    },
+
+    async delayCost(series, cDay = null) {
+      if (!Array.isArray(series) || series.length === 0) {
+        return { body: null, error: 'no days to take a series from' };
+      }
+      const query = new URLSearchParams({ p: series.map((day) => day.p).join(',') });
+      if (cDay !== null && cDay !== '' && Number.isFinite(Number(cDay))) {
+        query.set('c_day', String(Number(cDay)));
+      }
+      try {
+        return { body: await requestJson(`${baseUrl}/decision/delay-cost?${query}`, fixtureCall), error: null };
+      } catch (error) {
+        return { body: null, error: messageOf(error) };
+      }
     },
 
     async centres() {

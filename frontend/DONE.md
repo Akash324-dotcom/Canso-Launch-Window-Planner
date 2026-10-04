@@ -38,7 +38,7 @@ $ /Users/rafathossain/MDA_Mission_Accepted_Hackathon/.venv/bin/python -m pytest 
 
 ## Known unfinished
 
-1. **Expected delay cost, the slide line "a missed window can cost millions", is not implemented.** Spec II.9 (iv) and VI.3 place the cost of a delay in the decision layer, which is ENGINE's, and no field of the frozen `windows_response` schema carries it. Nothing is invented in the browser. Listed as NOT DONE in `REQUIREMENTS_MAP.md`.
+1. **Expected delay cost (built after this list was first written).** Spec II.9 (iv): `backend/engine/decision.py` computes the expected extra days and, from a daily cost the user supplies, the expected cost; `GET /v1/decision/delay-cost` serves it without touching any frozen schema; the "Expected delay" panel of `Canso Launch Prototype.html` shows it. It is a lower bound on a finite horizon and assumes independent days, both stated on the page. No default daily cost exists. The planner screens of `src/` do not show it yet. Derivation and the correction to (II.27) as printed: `docs/physics/delay_cost.md`.
 2. **The 3D globe is cut.** Spec V.2 makes it optional and says to cut it before any 2D feature. Screen 2 is the 2D Leaflet map only.
 3. **No tile layer on either map.** The demo runs with the network off, so no tile request is made. Adding one is a single line in `src/mapLeaflet.js` when a network is available.
 4. **The hazard buffer is not drawn by default.** `hazard_half_width_km` is `null` in `src/config.js` because the value is ENGINE vehicle data at `backend/engine/data/vehicles/cyclone4m.json`, which does not exist on this branch. The buffer renders and is tested through an injected width, and the screen states the gap.
