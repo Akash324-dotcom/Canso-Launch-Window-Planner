@@ -13,6 +13,7 @@ dependencies = [
     "pydantic",
     "httpx",
     "pandas",
+    "jsonschema",
 ]
 
 [project.optional-dependencies]
