@@ -862,7 +862,7 @@ function renderEvidence(){
   if(!k){ el.innerHTML='<div class="hint">Validation data unavailable: GET /v1/validation/skill failed and the skill fixture could not be read.</div>'; return; }
   const row=(a,b)=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span class="hint">${esc(a)}</span><span class="mono">${esc(b)}</span></div>`;
   const lead=k.leads.length?k.leads.map(p=>`${p.lead}d ${p.bss.toFixed(2)}`).join(' · '):'none';
-  el.innerHTML=`<div class="hint" style="font-size:13px">Weather hindcast skill from GET /v1/validation/skill${S.origins.skill==='fixture'?' (offline fixture)':''}. Window times are checked against six published launches in the engine tests (all within the 5 min gate; Sentinel-3A and 3B only after a declared 10.015 min vehicle-profile offset). The API has no endpoint for that comparison, so the page does not show it.</div>`
+  el.innerHTML=`<div class="hint" style="font-size:13px">Weather hindcast skill from GET /v1/validation/skill${S.origins.skill==='fixture'?' (offline fixture)':''}. Window times are checked against six published launches in the engine tests (all within the 5 min gate; Sentinel-3A and 3B only after a declared 10.015 min vehicle-profile offset).</div>`
     +row('Period',k.period??'n/a')+row('Verified against',k.source??'n/a')+row('Reference forecast',k.reference??'n/a')+row('Base rate',k.baseRate===null?'n/a':k.baseRate.toFixed(2))
     +`<div class="hint" style="font-size:12px">Brier skill score by lead time: ${esc(lead)}</div>`;
 }
