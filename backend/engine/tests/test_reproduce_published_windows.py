@@ -449,9 +449,16 @@ def test_end_to_end_rows_pass_the_hazard_screen(case):
             frames.julian_date_from_iso(row["t_liftoff_utc"]) - published_jd
         ),
     )
-    assert abs(
+    # Profile cases are judged on the bias-corrected residual, exactly as the two
+    # gate tests above judge them: this test was written before the ascent-profile
+    # anchors (Sentinel-3A and 3B) joined the gate, and without the correction it
+    # would contradict the gate it says it re-asserts.
+    nearest_residual_min = (
         frames.julian_date_from_iso(nearest["t_liftoff_utc"]) - published_jd
-    ) * 1440.0 <= TOLERANCE_MIN, (
+    ) * 1440.0
+    if case.get("ascent_profile"):
+        nearest_residual_min -= _profile_bias(case)
+    assert abs(nearest_residual_min) <= TOLERANCE_MIN, (
         f"{case['id']}: the nearest row is no longer the reproduced instant, which the "
         "gate above already asserts; recorded here so the two cannot drift apart"
     )
