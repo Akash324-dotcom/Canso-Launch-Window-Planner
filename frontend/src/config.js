@@ -24,7 +24,7 @@ export const FIXTURES = {
 };
 
 export const SITES = [
-  { id: 'canso', label: 'Canso, Spaceport Nova Scotia (45.3 N, 61.0 W)' },
+  { id: 'canso', label: 'Canso, Spaceport Nova Scotia' },
 ];
 
 export const ORBIT_PRESETS = [
@@ -92,7 +92,7 @@ export const WEATHER_THRESHOLDS = {
   yellow_min: 0.4,
   flag: 'ASSUMPTION',
   source:
-    'src/config.js WEATHER_THRESHOLDS, the defaults spec V.3 states for the backend config/weather.json',
+    'src/config.js WEATHER_THRESHOLDS, the defaults spec V.3 states; the backend serves no weather thresholds, so they are kept in this file',
 };
 
 export const WEATHER_BAND_LABELS = {
