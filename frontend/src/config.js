@@ -148,6 +148,14 @@ export const EARTH_RADIUS_M = 6378137.0;
 export const EARTH_RADIUS_SOURCE =
   'constants_block.R_e of the ephemeris response, with the spec II.10 value 6378137.0 m as the fallback';
 
+// Sidereal rotation rate of the Earth. The corridor guard turns the Earth back by this rate
+// to read a ground track sample in the frame fixed at liftoff, the frame the corridor azimuth
+// is stated in.
+export const OMEGA_SID_RAD_S = 7.292115e-5;
+
+export const OMEGA_SID_SOURCE =
+  'constants_block.omega_sid_rad_s of the ephemeris response, with the spec II.10 value 7.292115e-5 rad/s as the fallback';
+
 export const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 
 export const DAY_MS = 86400000;

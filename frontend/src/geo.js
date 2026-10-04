@@ -1,4 +1,9 @@
-import { CORRIDOR_ARC_SAMPLES, EARTH_RADIUS_M, TRACK_START_TOLERANCE_KM } from './config.js';
+import {
+  CORRIDOR_ARC_SAMPLES,
+  EARTH_RADIUS_M,
+  OMEGA_SID_RAD_S,
+  TRACK_START_TOLERANCE_KM,
+} from './config.js';
 
 export const DEG = Math.PI / 180;
 
@@ -254,6 +259,26 @@ export function withinCorridor(bearingDeg, bounds, toleranceDeg = 0) {
 }
 
 /**
+ * Whether any azimuth between two bearings lies inside the corridor. The two bearings are the
+ * ends of the short arc between them; the arc meets the corridor when either end is inside
+ * it or when a corridor bound lies on the arc.
+ */
+export function bracketMeetsCorridor(firstDeg, secondDeg, bounds, toleranceDeg = 0) {
+  if (bounds === null) {
+    return true;
+  }
+  if (withinCorridor(firstDeg, bounds, toleranceDeg) || withinCorridor(secondDeg, bounds, toleranceDeg)) {
+    return true;
+  }
+  const sweep = ((secondDeg - firstDeg + 540) % 360) - 180;
+  const onArc = (angleDeg) => {
+    const offset = ((angleDeg - firstDeg + 540) % 360) - 180;
+    return sweep >= 0 ? offset >= 0 && offset <= sweep : offset <= 0 && offset >= sweep;
+  };
+  return onArc(bounds.a_min_deg - toleranceDeg) || onArc(bounds.a_max_deg + toleranceDeg);
+}
+
+/**
  * The UI level guard for the northbound bug of the inherited prototype: every ground track
  * sample of the ascent must lie inside the azimuth wedge of the site corridor, so a track
  * running north over Quebec is refused and surfaced rather than drawn as a corridor track.
@@ -268,9 +293,30 @@ export function withinCorridor(bearingDeg, bounds, toleranceDeg = 0) {
  * - The sample at the liftoff instant must be on the pad. A track that is somewhere else at
  *   liftoff is not an ascent from the site, whatever its bearing from the site happens to be.
  *   `starts_at_site` is null when the track has no sample at the liftoff instant.
+ *
+ * And a fourth, from the first real ascent the API served. The corridor bounds the launch
+ * azimuth, the direction of the orbit plane at the site in the frame fixed at liftoff. A
+ * ground track is drawn on the turning Earth, which moves east under that plane by
+ * omega_sid * (t - t_liftoff): 2.26 deg over a 540 s ascent, enough to put the injection
+ * point of a launch on azimuth 191.6 deg at bearing 198.3 deg from Canso. The launch azimuth
+ * of a sample cannot be read from its position alone, because it depends on how much of the
+ * Earth's rotation the vehicle still carries. It is bracketed by two bearings from the site:
+ * `bearing_deg`, the sample where it is on the ground, which is the azimuth if the vehicle
+ * were still fixed to the Earth, and `plane_azimuth_deg`, the sample with the Earth turned
+ * back to the liftoff instant, which is the azimuth if it had been in a plane fixed in
+ * space since liftoff. A sample is refused only when the whole bracket lies outside the
+ * corridor. The bracket needs the liftoff instant, so without `ascent` the ground bearing
+ * alone decides, as before. `plane_azimuth_deg` of the result is that of the last sample of
+ * the ascent, the plane the ascent reaches.
  */
 export function corridorCheck(siteResponse, trackPoints, options = {}) {
-  const { toleranceDeg = 0, ascent = null, startToleranceKm = TRACK_START_TOLERANCE_KM } = options;
+  const {
+    toleranceDeg = 0,
+    ascent = null,
+    startToleranceKm = TRACK_START_TOLERANCE_KM,
+    omegaSidRadS = OMEGA_SID_RAD_S,
+  } = options;
+  const omegaDegPerS = (Number.isFinite(omegaSidRadS) ? omegaSidRadS : OMEGA_SID_RAD_S) * (180 / Math.PI);
   const site = siteOf(siteResponse);
   const bounds = corridorBounds(siteResponse);
   const all = Array.isArray(trackPoints) ? trackPoints : [];
@@ -302,12 +348,26 @@ export function corridorCheck(siteResponse, trackPoints, options = {}) {
     const distanceKm = greatCircleDistanceKm(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg);
     const bearingDeg = initialBearingDeg(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg);
     const onPad = distanceKm <= startToleranceKm;
-    const inside = onPad || withinCorridor(bearingDeg, bounds, toleranceDeg);
+    const rotationDeg =
+      ascent === null ? null : (omegaDegPerS * (Date.parse(point.t_utc) - startMs)) / 1000;
+    const planeAzimuthDeg =
+      rotationDeg === null
+        ? null
+        : initialBearingDeg(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg + rotationDeg);
+    const groundInside = withinCorridor(bearingDeg, bounds, toleranceDeg);
+    const inside =
+      onPad ||
+      (planeAzimuthDeg === null
+        ? groundInside
+        : bracketMeetsCorridor(bearingDeg, planeAzimuthDeg, bounds, toleranceDeg));
     const sample = {
       t_utc: point.t_utc ?? null,
       lat_deg: point.lat_deg,
       lon_deg: point.lon_deg,
       bearing_deg: bearingDeg,
+      plane_azimuth_deg: planeAzimuthDeg,
+      earth_rotation_deg: rotationDeg,
+      ground_inside: onPad || groundInside,
       distance_km: distanceKm,
       on_pad: onPad,
       inside,
@@ -320,10 +380,21 @@ export function corridorCheck(siteResponse, trackPoints, options = {}) {
   const atLiftoff =
     ascent === null ? null : (samples.find((sample) => Date.parse(sample.t_utc) === startMs) ?? null);
   const startsAtSite = atLiftoff === null ? null : atLiftoff.on_pad;
-  const bearings = samples.filter((sample) => !sample.on_pad).map((sample) => sample.bearing_deg);
+  const offPad = samples.filter((sample) => !sample.on_pad);
+  const bearings = offPad.map((sample) => sample.bearing_deg);
+  const planeAzimuths = offPad
+    .map((sample) => sample.plane_azimuth_deg)
+    .filter((value) => value !== null);
+  const reached = ascent === null || offPad.length === 0 ? null : offPad[offPad.length - 1];
   return {
     available: true,
     inside: violations.length === 0 && startsAtSite !== false,
+    ground_bearings_inside: samples.every((sample) => sample.ground_inside),
+    plane_azimuth_deg: reached === null ? null : reached.plane_azimuth_deg,
+    plane_t_utc: reached === null ? null : reached.t_utc,
+    earth_rotation_deg: reached === null ? null : reached.earth_rotation_deg,
+    plane_azimuth_min_deg: planeAzimuths.length === 0 ? null : Math.min(...planeAzimuths),
+    plane_azimuth_max_deg: planeAzimuths.length === 0 ? null : Math.max(...planeAzimuths),
     bounds,
     samples,
     violations,

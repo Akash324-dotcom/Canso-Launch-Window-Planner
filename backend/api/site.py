@@ -66,6 +66,7 @@ def build_site_response(settings: Settings, site_id: str | None = None) -> dict[
         "source_files": [
             settings.relative(settings.constants_path),
             settings.relative(path),
+            *([document["corridor_file"]] if "corridor_file" in document else []),
         ],
         "spec_gaps": MISSING_FROM_SPECIFICATION,
         "constants_block": constants_block_for(settings, kind=f"site:{resolved}"),

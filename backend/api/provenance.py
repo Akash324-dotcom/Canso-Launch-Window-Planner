@@ -278,6 +278,8 @@ def stamp_provenance(
 
     read = [settings.relative(constants.config_path), settings.relative(settings.service_path)]
     read.append(settings.relative(settings.site_path(site_id)))
+    if "corridor_file" in site_document:
+        read.append(str(site_document["corridor_file"]))
     criteria_file = settings.criteria_file
     if criteria_file.is_file():
         read.append(settings.relative(criteria_file))

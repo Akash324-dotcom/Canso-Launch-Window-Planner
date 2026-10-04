@@ -82,7 +82,8 @@ Nothing in the task backlog is unfinished. The following are unfinished
 ## Not built, by design
 
 Weather and probability (WEATHER owns it), NOTAM querying, SGP4 propagation,
-ephemeris endpoint content beyond the plane model, phasing, and everything spec
+ephemeris endpoint content beyond the kinematic ascent of `ascent.py` (flagged
+ASSUMPTION, not an integrated trajectory) and the plane model, phasing, and everything spec
 I.4 places out of scope: general manoeuvre design, 6-DOF, attitude control, force
 models beyond secular J2 in the window core, rideshare manifesting, SDE
 trajectory layer.

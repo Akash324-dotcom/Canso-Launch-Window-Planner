@@ -53,6 +53,40 @@ def _engine_compute_windows() -> Any:
     return getattr(engine, "compute_windows", None)
 
 
+def _bound_violations(body: dict[str, Any]) -> list[str]:
+    """Values the frozen schema types but does not bound, and that mean nothing out of bounds.
+
+    The schema is frozen, so these two bounds live here. Without them the service
+    answered ``ltan_hours`` "25:99" with windows for a node time that does not exist,
+    and ``raan_tolerance_deg`` 0 with windows of no width (spec II.12: the width is
+    twice the tolerance over the sweep rate). Spec IV.7 rule 2 makes both a 422.
+    """
+    violations: list[str] = []
+    target = body.get("target")
+    ltan = target.get("ltan_hours") if isinstance(target, dict) else None
+    if isinstance(ltan, str):
+        text = ltan.strip()
+        valid = False
+        if ":" in text:
+            hours, _, minutes = text.partition(":")
+            valid = hours.isdigit() and minutes.isdigit() and int(hours) <= 23 and int(minutes) <= 59
+        else:
+            try:
+                valid = 0.0 <= float(text) < 24.0
+            except ValueError:
+                valid = False
+        if not valid:
+            violations.append(
+                f"/target/ltan_hours: {ltan!r} is not a local time; expected HH:MM from 00:00 to 23:59"
+            )
+    tolerance = body.get("raan_tolerance_deg")
+    if isinstance(tolerance, (int, float)) and not isinstance(tolerance, bool) and not tolerance > 0:
+        violations.append(
+            f"/raan_tolerance_deg: {tolerance!r} is not greater than 0; the tolerance governs the window width"
+        )
+    return violations
+
+
 def validate_request_body(body: Any) -> dict[str, Any]:
     """Raise ``ContractViolation`` (422) unless the body satisfies the frozen schema."""
     if not isinstance(body, dict):
@@ -70,6 +104,13 @@ def validate_request_body(body: Any) -> dict[str, Any]:
             f"the request body does not satisfy the frozen {REQUEST_SCHEMA}.json schema",
             schema_name=REQUEST_SCHEMA,
             violations=violations,
+        )
+    out_of_bounds = _bound_violations(body)
+    if out_of_bounds:
+        raise ContractViolation(
+            "the request body is well formed but holds a value the engine cannot interpret",
+            schema_name=REQUEST_SCHEMA,
+            violations=out_of_bounds,
         )
     return body
 
@@ -227,7 +268,12 @@ def compose_response(
     configuration, which is the only place the constants and the site record live.
     """
     from backend.api.provenance import stamp_provenance
-    from backend.api.weather import CRITERIA_VERSION_MISSING, compose_window_row, window_weather
+    from backend.api.weather import (
+        CRITERIA_VERSION_MISSING,
+        compose_window_row,
+        row_date,
+        window_weather_by_date,
+    )
 
     body: dict[str, Any] = {
         "reachable": bool(engine_body["reachable"]),
@@ -237,10 +283,13 @@ def compose_response(
         "engine_version": engine_version,
         "computation_ms": engine_body.get("computation_ms", 0.0),
     }
-    document, weather_origin = window_weather(settings, request, registry)
-    for window in engine_body.get("windows", []):
+    engine_rows = engine_body.get("windows", [])
+    documents, weather_origin = window_weather_by_date(
+        settings, request, [row_date(window) for window in engine_rows], registry
+    )
+    for window in engine_rows:
         row = copy.deepcopy(window)
-        row.update(compose_window_row(document, window))
+        row.update(compose_window_row(documents.get(row_date(window)), window))
         if weather_origin == CRITERIA_VERSION_MISSING and row.get("constraint_fired") is None:
             # A constraint the engine fired on the row is kept: it stopped the row first.
             row["constraint_fired"] = CRITERIA_VERSION_MISSING

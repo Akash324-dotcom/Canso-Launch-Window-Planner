@@ -333,6 +333,75 @@ def window_weather(
     return document, "record"
 
 
+def row_date(window: dict[str, Any]) -> str:
+    """The date a window row is forecast for: the UTC date of its liftoff instant.
+
+    It is the date the page asks ``GET /v1/weather/probability`` for when the row is
+    selected, so a row and the weather panel show the same number.
+    """
+    return str(window["t_liftoff_utc"])[:10]
+
+
+def window_weather_by_date(
+    settings: Settings,
+    effective_request: dict[str, Any],
+    dates: list[str],
+    registry: CacheRegistry | None = None,
+) -> tuple[dict[str, dict[str, Any] | None], str]:
+    """The weather document of every date that has a window row, and how the set was obtained.
+
+    With a live layer each distinct date is asked once and cached under the key the
+    weather endpoint uses, so ``p_success`` is the date-resolved probability of the
+    specification: a row past the forecast horizon is labelled CLIMATOLOGY by the
+    layer, and a day with a poor forecast does not colour its neighbours. A date the
+    layer fails on gets no document, which composes to the neutral set for that row
+    only. A criteria version the layer has no table for is an answer about the whole
+    request and is handed back as the origin, as in ``window_weather``.
+
+    Without a live layer the single recorded forecast serves every row: that is the
+    offline floor, and it is resolved exactly as ``window_weather`` resolves it.
+    """
+    days = sorted(set(dates))
+    if not bool(effective_request.get("include_weather", True)):
+        return {day: None for day in days}, "excluded"
+
+    layer = live_probability()
+    if layer is None:
+        document, origin = window_weather(settings, effective_request, registry)
+        return {day: document for day in days}, origin
+
+    site = str(effective_request.get("site") or settings.default_site)
+    criteria_version = effective_request.get("criteria_version")
+    documents: dict[str, dict[str, Any] | None] = {}
+    origins: set[str] = set()
+    # The answer this request received earlier, if it was composed from one document
+    # (the recorded forecast, before the layer appeared). The outage policy of the
+    # service is that a cached answer survives a dead layer, so it stands in for a
+    # date the layer fails on and has no entry of its own.
+    earlier = _lookup(registry, window_weather_cache_key(effective_request))
+    for day in days:
+        key = weather_cache_key(day, site, criteria_version)
+        cached = _lookup(registry, key)
+        if cached is not None:
+            documents[day] = cached
+            origins.add("cache")
+            continue
+        try:
+            document = dict(layer(date_iso=day, site=site, criteria_version=criteria_version))
+        except Exception as failure:
+            if getattr(failure, "constraint_fired", None) == CRITERIA_VERSION_MISSING:
+                return {entry: None for entry in days}, CRITERIA_VERSION_MISSING
+            documents[day] = earlier
+            origins.add("unavailable" if earlier is None else "cache")
+            continue
+        documents[day] = _store(registry, key, document)
+        origins.add("live")
+    for origin in ("live", "cache", "unavailable"):
+        if origin in origins:
+            return documents, origin
+    return documents, "live"
+
+
 def compose_window_row(
     document: dict[str, Any] | None, window: dict[str, Any]
 ) -> dict[str, Any]:

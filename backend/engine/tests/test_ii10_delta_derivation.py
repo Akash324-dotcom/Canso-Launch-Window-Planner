@@ -248,38 +248,39 @@ def test_the_sin_form_miss_is_latitude_dependent_so_no_constant_offset_recovers_
 # --- Hazard screen -----------------------------------------------------------
 
 
-def test_the_hard_coded_southbound_rule_is_redundant_at_every_configured_site():
-    """It never rejects anything the site's own corridor would admit, so it is
-    inert today. It is still wrong in construction: Canso's environmental
-    assessment is a site fact, not a global constant. See docs/physics/ii10_delta.md.
+def test_the_hazard_verdict_follows_the_site_corridor_at_every_configured_site():
+    """The hard-coded southbound rule is gone, so the screen judges a site by its own file.
+
+    Earlier this test pinned that rule as redundant at every configured site, and the
+    next one pinned the defect that it refused a northbound corridor by citing Canso. The
+    rule was removed (docs/physics/ii10_delta_hazard_policy.md section 9, and
+    test_hazard_direction_policy.py), so both now pin the corrected behaviour: the
+    verdict for a flown azimuth agrees with membership of the site's corridor, and a
+    direction policy applies only where the site file states one.
     """
     from backend.engine import reachability, screens, target
 
     for site_name in ("canso", "kourou_ela1", "plesetsk_133", "vandenberg_slc4e"):
-        corridor = target.load_site(site_name)["corridor"]
-        a_min, a_max = float(corridor["A_min_deg"]), float(corridor["A_max_deg"])
-        assert 90.0 <= a_min and a_max <= 270.0, (
-            f"{site_name}: corridor [{a_min:g}, {a_max:g}] is not inside [90, 270], so "
-            "membership no longer implies southbound and the hard-coded rule starts to bite"
+        site = target.load_site(site_name)
+        corridor = site["corridor"]
+        azimuth = reachability.launch_azimuth_deg(98.6, float(site["latitude_deg"]))
+        verdict = screens.hazard_screen(azimuth, corridor, {})
+        assert (verdict.hazard == "pass") == reachability.azimuth_in_corridor(azimuth, corridor), (
+            f"{site_name}: the hazard verdict must follow the site corridor"
         )
-        azimuth = reachability.launch_azimuth_deg(
-            98.6, float(target.load_site(site_name)["latitude_deg"])
-        )
-        assert reachability.azimuth_in_corridor(azimuth, corridor) == screens._is_southbound(azimuth)
 
 
-def test_a_northbound_corridor_is_rejected_by_the_canso_specific_rule():
-    """The latent bug: a site may declare a northbound corridor and be refused.
+def test_a_northbound_corridor_is_admitted_when_the_site_states_no_direction_policy():
+    """A site may declare a northbound corridor and is no longer refused for it.
 
     The Rockot/Briz-KM SSO profile recorded in published_windows.json flies a
-    341.5 deg corridor out of Plesetsk, which is exactly this shape.
+    341.5 deg corridor out of Plesetsk, which is exactly this shape. The refusal that
+    named Canso's assessment while screening a different site was the defect; it is
+    removed, and the verdict now names only the corridor.
     """
     from backend.engine import screens
 
     northbound = {"A_min_deg": 330.0, "A_max_deg": 350.0, "branch": "northbound"}
     verdict = screens.hazard_screen(341.5, northbound, {})
-    assert verdict.hazard == "fail"
-    assert "Canso" in verdict.reason, (
-        "the rejection names Canso's assessment while screening a different site, which is "
-        "the defect this test pins"
-    )
+    assert verdict.hazard == "pass"
+    assert "Canso" not in verdict.reason

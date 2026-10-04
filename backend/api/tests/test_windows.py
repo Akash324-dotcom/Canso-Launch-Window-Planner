@@ -234,7 +234,11 @@ def test_composition_adds_the_provenance_block(client: TestClient, sso_request: 
     assert provenance["corridor"]["A_min_deg"] == settings.site_document("canso")["corridor"]["A_min_deg"]
     assert provenance["vehicle_profile_id"] == "cyclone4m"
     assert provenance["criteria_version"] == settings.default_criteria_version
-    assert provenance["row_flags"]["corridor_A_min_deg"] == "ASSUMPTION"
+    assert (
+        provenance["row_flags"]["corridor_A_min_deg"]
+        == settings.site_document("canso")["row_flags"]["corridor_A_min_deg"]
+    )
+    assert provenance["row_flags"]["corridor_A_min_deg"] in {"VERIFIED", "ASSUMPTION", "DERIVED"}
     assert settings.relative(settings.fixture_path("windows")) in provenance["source_files"]
 
 
