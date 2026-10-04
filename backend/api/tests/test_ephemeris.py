@@ -528,6 +528,7 @@ def test_the_ephemeris_endpoint_delegates_to_the_engine_seam_once_it_exists(
     assert calls[0]["orbit_id"] == "sso981"
     assert calls[0]["start"] == RECORDED_EPOCH
     assert calls[0]["step_s"] == 900
+    assert calls[0]["site"] == settings.default_site, "the ascent is drawn from the site of the service"
 
 
 def test_a_seam_answer_that_breaks_the_contract_falls_through_to_the_record(

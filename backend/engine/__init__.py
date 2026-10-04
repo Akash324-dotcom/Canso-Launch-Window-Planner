@@ -10,6 +10,7 @@ Pure function. No network. The only file I/O is reads from ``backend/engine/data
 The API composes the response from three importable pieces:
 
     compute_windows(request)          the engine's share of the response body
+    ephemeris(orbit_id, start, ...)   the ascent of a row and its orbit, spec IV.2
     provenance.constants_block(run)   the constants block
     provenance.build_provenance_block(request)   the provenance block
 
@@ -25,6 +26,7 @@ import time
 from typing import Any, Mapping
 
 from backend.engine import frames, injection, j2, provenance, reachability, screens, sso, target, window
+from backend.engine.ascent import ephemeris
 from backend.engine.engine import compose
 
 ENGINE_VERSION = "engine-0.1.0"
@@ -33,6 +35,7 @@ __all__ = [
     "ENGINE_VERSION",
     "compute_windows",
     "compose",
+    "ephemeris",
     "frames",
     "injection",
     "j2",

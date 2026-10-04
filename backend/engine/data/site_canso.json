@@ -5,6 +5,8 @@
   "longitude_deg": -61.0,
   "longitude_convention": "east-positive, so 61.0 W is -61.0",
   "altitude_m": 0.0,
+  "vehicle_profile_id": "cyclone4m",
+  "vehicle_profile_source": "The vehicle the site is configured for: the Cyclone-4M of the Abbreviated User's Guide, whose section 2.2 gives the pad coordinates above. backend.engine.ephemeris draws the ascent of this profile when a caller names no vehicle.",
   "coordinate_source": "Cyclone-4M Abbreviated User's Guide section 2.2, pad 45.3 N 61.0 W. Spec II.1 records this as VERIFIED (SCIENCE Sec F.2).",
   "coordinate_variants": [
     {

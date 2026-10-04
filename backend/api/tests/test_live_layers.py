@@ -343,3 +343,81 @@ def test_skill_is_the_real_hindcast_and_lead_max_only_truncates_the_series(
     assert limited["skill_series"] == full["skill_series"][:5]
     assert limited["reliability_bins"] == full["reliability_bins"]
     assert limited["skill_horizon_measured_days"] == full["skill_horizon_measured_days"]
+
+
+# --------------------------------------------------------------------------
+# The ephemeris of a window row (browser walk defect B1)
+# --------------------------------------------------------------------------
+
+
+def test_the_ephemeris_of_a_window_row_is_the_ascent_of_that_row(
+    client: TestClient, settings: Settings, sso_request: dict[str, Any]
+) -> None:
+    """The page asks from t_liftoff_utc to t_injection_utc of the selected row.
+
+    The answer was a segment of the orbit, 16,812 km from the pad at the liftoff
+    instant and at orbit altitude. It is now the ascent: on the pad at liftoff, at
+    the altitude of the orbit at injection, both instants sampled.
+    """
+    body = client.post("/v1/windows", json=sso_request).json()
+    site = client.get("/v1/site").json()
+    usable = [row for row in body["windows"] if row["screens"]["hazard"] == "pass"]
+    assert usable
+
+    for row in usable[:3]:
+        response = client.get(
+            "/v1/orbits/sso981/ephemeris",
+            params={"start": row["t_liftoff_utc"], "end": row["t_injection_utc"], "step_s": 300},
+        )
+        assert response.status_code == 200, response.text
+        answer = response.json()
+        assert errors_for("ephemeris_response", answer) == []
+        first, last = answer["points"][0], answer["points"][-1]
+
+        assert first["t_utc"] == row["t_liftoff_utc"]
+        assert first["lat_deg"] == pytest.approx(site["phi_s_deg"], abs=1.0e-6)
+        assert first["lon_deg"] == pytest.approx(site["lambda_s_deg"], abs=1.0e-6)
+        assert first["alt_km"] == 0.0
+        assert last["t_utc"] == row["t_injection_utc"]
+        assert last["alt_km"] == pytest.approx(674.0, abs=1.0e-6)
+        assert last["lat_deg"] < first["lat_deg"], "Canso flies south"
+        altitudes = [point["alt_km"] for point in answer["points"]]
+        assert altitudes == sorted(altitudes)
+
+
+def test_the_ephemeris_endpoint_agrees_with_the_engine_seam_point_for_point(
+    client: TestClient, settings: Settings
+) -> None:
+    from backend import engine
+    from backend.api.ephemeris import preset_orbit
+
+    orbit = preset_orbit(settings, "polar879")
+    query = {"start": "2026-10-05T02:55:37Z", "end": "2026-10-05T03:04:37Z", "step_s": 60}
+    expected = engine.ephemeris(
+        orbit_id="polar879",
+        start=query["start"],
+        end=query["end"],
+        step_s=60.0,
+        i_t_deg=orbit.i_t_deg,
+        h_t_km=orbit.h_t_km,
+        site=settings.default_site,
+    )
+
+    served = client.get("/v1/orbits/polar879/ephemeris", params=query).json()
+
+    assert served["points"] == expected["points"]
+    assert len(served["points"]) == 10
+
+
+def test_an_orbit_the_site_cannot_reach_is_served_from_its_record_not_as_an_ascent(
+    client: TestClient, settings: Settings
+) -> None:
+    """leo45 has no ascent from Canso (spec II.4), so the recorded orbit segment answers."""
+    query = {"start": "2026-10-05T02:55:37Z", "end": "2026-10-05T03:04:37Z", "step_s": 300}
+
+    response = client.get("/v1/orbits/leo45/ephemeris", params=query)
+
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert errors_for("ephemeris_response", answer) == []
+    assert answer["points"][0]["alt_km"] > 100.0

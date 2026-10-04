@@ -1,8 +1,13 @@
 """Ground tracks for ``GET /v1/orbits/{id}/ephemeris``, spec IV.2, task A5.
 
-The endpoint answers from ``backend.engine.ephemeris`` the moment that function
-exists, and from an offline record until then. Two offline records exist, and the
-difference between them is stated here rather than left to be discovered:
+The endpoint answers from ``backend.engine.ephemeris`` and, where that seam is absent
+or refuses, from an offline record. The seam returns the direct ascent from the site
+of the service that lifts off at ``start``, followed by the orbit: on the pad at the
+first instant, at orbit altitude at injection. That is what makes the track asked for
+between ``t_liftoff_utc`` and ``t_injection_utc`` of a window row the ascent of that
+row. The seam refuses a target the site cannot reach by direct ascent (spec II.4), and
+the offline record then answers. Two offline records exist, and the difference between
+them is stated here rather than left to be discovered:
 
 * the three named classes of spec IV.2 are served from **recorded segments**, one per
   class, listed in ``service.json`` under ``ephemeris.base_tracks``. Each lives under
@@ -342,7 +347,7 @@ def _empty_registry() -> Any:
 
 
 def live_ephemeris() -> Any | None:
-    """``backend.engine.ephemeris`` once ENGINE lands it, else None."""
+    """``backend.engine.ephemeris``, or None where the engine layer is not importable."""
     try:
         engine = importlib.import_module("backend.engine")
     except ImportError:
@@ -410,8 +415,11 @@ def _from_seam(
             step_s=step_s,
             i_t_deg=orbit.i_t_deg,
             h_t_km=orbit.h_t_km,
+            site=settings.default_site,
         )
     except Exception:
+        # A target the site cannot reach has no ascent (spec II.4), and the seam says so
+        # by raising. The recorded segment of the class then answers, as it did before.
         return None
     points = answer.get("points") if isinstance(answer, dict) else None
     if not isinstance(points, list) or not points:

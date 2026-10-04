@@ -1,9 +1,9 @@
 """``GET /v1/orbits/{id}/ephemeris``, spec IV.2, task A5 of issue #4.
 
 The route resolves the id, samples the track and stamps the constants block. It
-delegates the geometry to ``backend.api.ephemeris``, which uses
-``backend.engine.ephemeris`` once ENGINE lands it and a recorded offline segment
-until then.
+delegates the geometry to ``backend.api.ephemeris``, which asks
+``backend.engine.ephemeris`` for the ascent that lifts off at ``start`` and the orbit
+after it, and serves a recorded offline segment where that seam is absent or refuses.
 
 An id the service does not know is a 404, because it is a genuine resource miss
 and spec IV.7 rule 2 reserves 404 for exactly that. A request the service cannot
@@ -29,10 +29,15 @@ router = APIRouter(tags=["orbits"])
 EPHEMERIS_SCHEMA = "ephemeris_response"
 
 DESCRIPTION = (
-    "An ECEF ground track for one orbit id, spec IV.2. leo45, polar879 and sso981 "
-    "are served from recorded offline segments; a custom id recorded by "
-    "POST /v1/windows is served from the closed-form circular track of its own "
-    "target. ground_track_valid is false beyond the three-day propagation horizon."
+    "An ECEF ground track for one orbit id, spec IV.2. The track is the direct ascent "
+    "from the site that lifts off at start, then the orbit: the first point is on the "
+    "pad, and the point t_to_inj_s later is at orbit altitude, so the interval from "
+    "t_liftoff_utc to t_injection_utc of a window row is the ascent of that row. The "
+    "end instant is sampled even when step_s does not land on it. The path between "
+    "liftoff and injection is kinematic and flagged ASSUMPTION, not an integrated "
+    "trajectory. An orbit the site cannot reach by direct ascent, and any orbit when "
+    "the engine layer is absent, is served from a recorded or closed-form orbit "
+    "segment. ground_track_valid is false beyond the three-day propagation horizon."
 )
 
 
