@@ -1,8 +1,8 @@
 {
- "date": "2026-10-04",
+ "date": "2026-10-06",
  "site": "canso",
  "criteria_version": "criteria_v1",
- "p_launch": 0.45098039215686275,
+ "p_launch": 0.7058823529411765,
  "horizon_label": "FORECAST",
  "forecast_issue_time": "2026-10-03T12:00:00Z",
  "ensemble_size": 82,
@@ -14,12 +14,12 @@
   },
   {
    "criterion_id": "surface_wind_gust",
-   "p_violation": 0.0,
+   "p_violation": 0.21568627450980393,
    "flag": "VERIFIED"
   },
   {
    "criterion_id": "wind_direction",
-   "p_violation": 0.5490196078431373,
+   "p_violation": 0.0,
    "flag": "PROXY"
   },
   {
@@ -39,7 +39,7 @@
   },
   {
    "criterion_id": "ceiling_proxy_low_cloud",
-   "p_violation": 0.0,
+   "p_violation": 0.0784313725490196,
    "flag": "PROXY"
   },
   {
@@ -64,29 +64,4 @@
   }
  ],
  "source": "snapshot_cache"
-  "date": "2026-10-06",
-  "site": "canso",
-  "p_launch": 0.36,
-  "horizon_label": "FORECAST",
-  "forecast_issue_time": "2026-10-03T09:00:00Z",
-  "ensemble_size": 31,
-  "criteria_version": "v1",
-  "components": [
-    {
-      "criterion_id": "wind_850hPa",
-      "p_violation": 0.12,
-      "flag": "VERIFIED"
-    },
-    {
-      "criterion_id": "lightning_3h",
-      "p_violation": 0.21,
-      "flag": "PROXY"
-    },
-    {
-      "criterion_id": "cloud_ceiling",
-      "p_violation": 0.08,
-      "flag": "VERIFIED"
-    }
-  ],
-  "source": "snapshot_cache"
 }

@@ -91,3 +91,24 @@ def test_fixture_windows_and_the_weather_snapshot_agree() -> None:
         assert window["p_success"] == pytest.approx(expected)
         assert window["horizon_label"] == weather["horizon_label"]
         assert window["forecast_issue_time"] == weather["forecast_issue_time"]
+
+
+def test_every_fixture_constants_block_carries_the_configured_constants() -> None:
+    """Found at integration: two fixtures held J2 = 0.000108262668, a tenth of spec II.10.
+
+    The constants live in ``backend/api/data/constants.json`` and nowhere else, so a
+    fixture that prints a constants block must print those values.
+    """
+    from backend.api.provenance import load_constants
+
+    constants = load_constants()
+    checked = 0
+    for name in sorted(path.name for path in FIXTURE_DIR.glob("*.json")):
+        document = json.loads((FIXTURE_DIR / name).read_text(encoding="utf-8"))
+        block = document.get("constants_block")
+        if block is None:
+            continue
+        checked += 1
+        for constant, value in constants.values.items():
+            assert block[constant] == value, f"{name}: {constant}"
+    assert checked >= 3

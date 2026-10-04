@@ -36,6 +36,7 @@ and spec IV.2 sets it false beyond the three-day horizon.
 
 from __future__ import annotations
 
+import importlib
 import datetime as dt
 import json
 import math
@@ -343,7 +344,7 @@ def _empty_registry() -> Any:
 def live_ephemeris() -> Any | None:
     """``backend.engine.ephemeris`` once ENGINE lands it, else None."""
     try:
-        from backend import engine
+        engine = importlib.import_module("backend.engine")
     except ImportError:
         return None
     return getattr(engine, "ephemeris", None)

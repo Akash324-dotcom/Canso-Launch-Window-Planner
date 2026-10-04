@@ -14,6 +14,7 @@ that assertion. Interpretation 42 of the G0 log already recorded the exclusion.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Callable
 
@@ -33,9 +34,15 @@ SSO_REQUEST = {
     "include_weather": True,
 }
 
+# The period the recorded hindcast covers is read from the record: the file is generated
+# by WEATHER's script, so a literal here would break the day it is regenerated.
+RECORDED_SKILL_PERIOD = json.loads(
+    (Path(__file__).resolve().parents[2] / "fixtures" / "skill.json").read_text(encoding="utf-8")
+)["period"]
+
 READ_PATHS = (
     "/v1/site",
-    "/v1/validation/skill?period_start=2026-05-01&period_end=2026-08-31",
+    "/v1/validation/skill?period_start={start}&period_end={end}".format(**RECORDED_SKILL_PERIOD),
     "/v1/weather/probability?date=2026-10-06",
     "/v1/orbits/sso981/ephemeris?start=2026-10-05T13:40:00Z&end=2026-10-05T15:40:00Z&step_s=900",
 )

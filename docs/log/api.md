@@ -1143,3 +1143,50 @@ Numbering continues from the G0 list, the A1-A3 list and the A4-A7 list above.
     module's own name in its own docstring examples, replaced by a walk of the parse tree.
     No test was weakened: each expectation was either corrected to the contract or, where the
     contract was silent, replaced by an assertion of the documented decision.
+
+## Integration fixes after ENGINE and WEATHER landed (4 October 2026)
+
+Made on the branch `feature-weather-validation` by the WEATHER workflow at the repository owner's request, after
+pull requests #12 and #17 put the real `backend.engine` and `backend.weather` on `main`. Before: 61 failing tests
+in the repository, 40 of them in `backend/api/tests/`. After: `pytest backend/api -q` 349 passed, 3 skipped; whole
+repository 949 passed, 4 skipped.
+
+### Code
+
+| File | Change | Why |
+|---|---|---|
+| `backend/api/weather.py`, `routes/windows.py`, `ephemeris.py` | the seams resolve the layer with `importlib.import_module` | `from backend import weather` returns the attribute of the `backend` package once the real module is imported, so a stand-in placed in `sys.modules` was never called |
+| `backend/api/routes/windows.py` | the site is resolved before the engine is asked | the engine raises `ValueError` for an unknown site; spec IV.7 rule 2 says 404 |
+| `backend/api/weather.py`, `routes/windows.py` | a weather error carrying `constraint_fired == "criteria_version_missing"` is not treated as an outage; rows without an engine constraint get that value | spec IV.1 enumerates it and spec IV.7 rule 3 puts constraint outcomes in the body. Before, the refusal was swallowed and every row was served with the neutral weather factor 1.0 |
+| `backend/api/weather.py` | the live hindcast is asked for its full lead range and the series is cut afterwards | `lead_max` changed the reliability bins on the live path and only the series on the recorded path; the README documents the second |
+
+The service default `criteria_version` stays `v1`. The weather layer now accepts `v1` as the short form of
+`criteria_v1`, the name of its table.
+
+### Tests
+
+- `conftest.py`: the autouse fixture `layers` hides `backend.engine` and `backend.weather` from the import system
+  for every test, which is the state the suite was written for, and sets `LAUNCHWIN_WEATHER_OFFLINE=1`. A test
+  marked `live_layers` gets the real modules. No assertion of an existing test was removed.
+- `test_live_layers.py`, new: the routes against the real engine and the real weather layer. Nine tests, one for
+  each defect above plus the pass-through of a corridor-blocked target.
+- `test_cache_and_limits.py`, `test_client.py`: the recorded skill period and leads are read from
+  `backend/fixtures/skill.json`, which WEATHER generates, in place of the stand-in's literals.
+- `test_client.py`: the out-of-repository call keeps its assertion `rows=3 engine=stub` on the offline path and
+  gains a second test against the live engine.
+- `test_citation.py`: `test_no_vehicle_row_is_invented_while_engine_has_not_landed` is skipped now that the
+  vehicle file exists, and `test_the_vehicle_rows_are_the_rows_of_the_engine_file_and_nothing_else` asserts the
+  rows the file provides.
+- `test_fixtures.py`: every fixture's constants block must carry the values of `data/constants.json`.
+
+### Open, for the API owner
+
+1. The window route asks the weather layer once per response, for `date_range.start`, and applies the answer to
+   every row. With the real layer a request starting 2026-10-05 returns the weather factor 0.0 and `FORECAST` on
+   every row up to 2026-10-15. A date-resolved `p_success` needs one call per row date, and a decision on which
+   date a liftoff near 02:40 UTC (23:40 local on the previous day) belongs to.
+2. The table "Area, Status, Source served today" in `backend/api/README.md` still calls the window, weather and
+   skill endpoints stubs. They answer from the real modules now; a note was added above the table.
+3. The frozen contract examples under `tests/contract/examples/` carry `J2: 0.000108262668`, a tenth of the
+   spec II.10 value. The fixtures were corrected; the examples were not touched.
+

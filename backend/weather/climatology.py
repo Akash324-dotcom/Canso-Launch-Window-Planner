@@ -251,7 +251,7 @@ def _for_version(site: str, criteria_version: str) -> dict:
 
 def climatology_table(site: str, criteria_version: str | None = None) -> dict:
     """The climatology for a criteria version: the committed file if it matches, else built from the archive."""
-    return _for_version(site, criteria_version or criteria.current_criteria_version())
+    return _for_version(site, criteria.canonical_version(criteria_version))
 
 
 def climatology(month: int, hour: int, site: str = "canso", criteria_version: str | None = None) -> dict:

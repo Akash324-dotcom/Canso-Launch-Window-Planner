@@ -4,7 +4,9 @@
 FRONTEND owns the content of ``backend/fixtures/`` (integration contract seam 3),
 API owns the directory. This script rewrites ``windows.json`` and ``ephemeris.json``
 from one internally consistent geometry and then validates all five fixture files
-against the frozen schemas in ``tests/contract/schemas/``.
+against the frozen schemas in ``tests/contract/schemas/``. The weather fields of the
+window rows are restated from ``weather.json``, which WEATHER generates, and the
+constants of both files from ``backend/api/data/constants.json``.
 
 WHAT THIS IS NOT
 ----------------
@@ -57,6 +59,9 @@ from typing import Any, Iterable
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = REPO_ROOT / "backend" / "fixtures"
 SCHEMA_DIR = REPO_ROOT / "tests" / "contract" / "schemas"
+# The one place the physical constants of spec II.10 live. Every constants block this
+# script writes restates these values, so a fixture cannot drift from the service.
+CONSTANTS_FILE = REPO_ROOT / "backend" / "api" / "data" / "constants.json"
 
 # Target orbit of the shipped fixture. These are the slide values of spec II and the
 # SSO preset of frontend/src/config.js ORBIT_PRESETS.
@@ -442,7 +447,7 @@ def build_ephemeris(
         "frame": "ECEF",
         "points": points,
         "ground_track_valid": True,
-        "constants_block": existing["constants_block"],
+        "constants_block": restate_constants(existing["constants_block"]),
     }
 
     injection_lat, injection_lon, injection_radius = orbit_subpoint(
@@ -488,12 +493,42 @@ def build_ephemeris(
 # --------------------------------------------------------------------------------------
 
 
+def restate_constants(block: dict[str, Any]) -> dict[str, Any]:
+    """The constants block with every value taken from the constants file.
+
+    The citation id and the source strings of the frozen block are kept. Only the
+    values are restated, because a fixture once carried J2 a factor of ten too small.
+    """
+    values = read_json(CONSTANTS_FILE)["values"]
+    restated = json.loads(json.dumps(block))
+    for name, value in values.items():
+        restated[name] = value
+    return restated
+
+
+def restate_weather(rows: list[dict[str, Any]], weather: dict[str, Any]) -> None:
+    """Give every row the weather fields of the recorded forecast, as the API composes them.
+
+    One weather document serves every row of a response. ``p_success`` is the product of
+    the three components, so the frozen rows agree with what the window route returns
+    when it reads ``weather.json``.
+    """
+    p_launch = float(weather["p_launch"])
+    for row in rows:
+        components = row["p_success_components"]
+        components["weather"] = p_launch
+        row["p_success"] = p_launch * float(components["range"]) * float(components["conjunction"])
+        row["horizon_label"] = weather["horizon_label"]
+        row["forecast_issue_time"] = weather["forecast_issue_time"]
+
+
 def build_windows(existing: dict[str, Any]) -> dict[str, Any]:
     """The window rows with injection exactly INJECTION_OFFSET_S after liftoff.
 
-    Every other field of the frozen fixture is carried over untouched, including the
-    reachable verdict, the constants and provenance blocks, engine_version "stub" and
-    computation_ms.
+    The weather fields of each row are restated from ``weather.json`` and the constants
+    from the constants file. Every other field of the frozen fixture is carried over
+    untouched, including the reachable verdict, the provenance block, engine_version
+    "stub" and computation_ms.
     """
     rows = existing.get("windows")
     if not isinstance(rows, list) or len(rows) != 3:
@@ -510,6 +545,8 @@ def build_windows(existing: dict[str, Any]) -> dict[str, Any]:
     for row, liftoff in zip(regenerated["windows"], liftoffs):
         row["t_liftoff_utc"] = format_instant(liftoff)
         row["t_injection_utc"] = format_instant(liftoff + dt.timedelta(seconds=INJECTION_OFFSET_S))
+    restate_weather(regenerated["windows"], read_json(FIXTURE_DIR / "weather.json"))
+    regenerated["constants_block"] = restate_constants(regenerated["constants_block"])
     regenerated["engine_version"] = "stub"
     return regenerated
 

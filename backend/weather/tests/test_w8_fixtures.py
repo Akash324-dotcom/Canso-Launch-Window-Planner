@@ -37,6 +37,20 @@ def test_the_weather_fixture_is_a_stored_forecast_with_its_own_issue_time():
     assert "visibility" in [component["criterion_id"] for component in body["components"]]
 
 
+def test_the_fixture_is_for_the_date_the_offline_record_is_asked_for():
+    """The API reads this file as its offline record and its tests and the frozen window rows use 2026-10-06.
+
+    Found on the merged tree: a fixture for another date makes the offline weather endpoint answer 503.
+    """
+    from backend.weather import config
+
+    cfg = config.load_sources()["fixture"]
+    body = json.loads((FIXTURES / "weather.json").read_text(encoding="utf-8"))
+
+    assert cfg["date"] == "2026-10-06" and cfg["date_basis"].strip()
+    assert body["date"] == cfg["date"]
+
+
 def test_the_committed_snapshots_hold_no_missing_value():
     """Both stored ensembles are complete for every hour they cover, so offline answers never meet a null."""
     from backend.weather import fetch

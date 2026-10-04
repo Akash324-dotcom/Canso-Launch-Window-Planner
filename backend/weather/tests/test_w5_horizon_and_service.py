@@ -56,6 +56,26 @@ def test_the_boundary_comes_from_the_config_file_not_from_a_literal_in_code(monk
     assert outside["horizon_label"] == "CLIMATOLOGY"                   # lead 2, horizon 1
 
 
+def test_the_short_version_name_gives_the_same_answer_under_the_canonical_name():
+    Upstream().install()
+    canonical = service.compute("2026-10-05", "canso", "criteria_v1", now=NOW)
+    service.clear_memo()
+    short = service.compute("2026-10-05", "canso", "v1", now=NOW)
+
+    assert short == canonical
+    assert short["criteria_version"] == "criteria_v1"
+
+
+def test_the_hindcast_climatology_and_outcome_accept_the_short_version_name():
+    from backend.weather import climatology, hindcast, observations
+
+    assert climatology.daily_window(1, "canso", "v1") == climatology.daily_window(1, "canso", "criteria_v1")
+    assert observations.observed_launchable("2024-07-01", "v1") == observations.observed_launchable(
+        "2024-07-01", "criteria_v1")
+    assert hindcast.load_inputs("canso", "v1")["criteria_sha256"] == hindcast.load_inputs(
+        "canso", "criteria_v1")["criteria_sha256"]
+
+
 # FORECAST mode ---------------------------------------------------------------------------------------------
 
 def test_a_date_inside_the_horizon_is_answered_from_the_ensemble():

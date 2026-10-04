@@ -1493,3 +1493,170 @@ climatology under the measured boundary of 5 days.
   `xarray` and `netCDF4` are installed: 32 passed in that environment).
 - Committed locally on `feature-weather` in the commit that contains this line, with a second commit for
   `docs/log/weather.md`. Not pushed. No pull request opened.
+
+## Issue #7 audit on branch `feature-weather-validation` (4 October 2026)
+
+Branch `feature-weather-validation` at c9e25c2, which is `main` after pull requests #11, #16 and #17. Issue #7 was
+implemented on `feature-weather` (V0 to V8, logged above) and reached `main` through pull request #17. This
+section audits the issue checkbox by checkbox on the merged tree and repairs what the merge broke.
+
+### Finding: the merge commit 3f37b62 corrupted both weather fixtures
+
+`backend/fixtures/skill.json` and `backend/fixtures/weather.json` existed on both sides (the API workflow had
+committed hand-typed stand-ins in 209e37a). The add/add conflict was resolved by keeping both bodies: each file
+is now the generated document without its closing brace, followed by the API stand-in without its opening brace.
+Neither file is valid JSON. The stand-in half of `skill.json` carries hand-typed skill numbers (BSS 0.489 at
+lead 1 on 96 cases, measured horizon 8.0), which issue #7 V7 forbids in the demo's evidence.
+
+**V7 RED on the merged tree: fixtures are not the script's output and are not valid JSON; whole repository** (2026-10-04T02:49Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest -q 2>&1 | grep -E 'FAILED (backend/weather|tests/contract)|passed|failed' | tail -9
+E             comparison failed
+FAILED tests/contract/test_weather_schema.py::test_the_weather_fixture_validates
+FAILED tests/contract/test_weather_schema.py::test_the_skill_fixture_validates
+FAILED backend/weather/tests/test_v5_v7_hindcast_results.py::test_the_skill_fixture_is_the_hindcast_response_written_by_the_committed_script
+FAILED backend/weather/tests/test_w8_fixtures.py::test_the_weather_fixture_matches_the_schema
+FAILED backend/weather/tests/test_w8_fixtures.py::test_the_weather_fixture_is_a_stored_forecast_with_its_own_issue_time
+FAILED backend/weather/tests/test_w8_fixtures.py::test_running_the_script_again_reproduces_the_committed_fixture_exactly
+61 failed, 864 passed, 3 skipped, 1 warning in 9.94s
+```
+
+**W8 RED on the merged tree: the weather fixture must be for the date the API's offline record is asked for (2026-10-06)** (2026-10-04T02:51Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_w8_fixtures.py -q 2>&1 | tail -4
+backend/weather/tests/test_w8_fixtures.py:47: KeyError
+=========================== short test summary info ============================
+FAILED backend/weather/tests/test_w8_fixtures.py::test_the_fixture_is_for_the_date_the_offline_record_is_asked_for
+1 failed, 5 passed in 0.30s
+```
+
+**W8 GREEN: weather fixture generated for 2026-10-06; weather and contract suites** (2026-10-04T02:51Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather tests/contract -q 2>&1 | tail -2
+..................                                                       [100%]
+305 passed, 1 skipped in 3.16s
+```
+
+**V4/V6 RED: a lead under 30 cases must have its count stated in the report (audit finding: the caveat named the leads without their counts and the branch had no test)** (2026-10-04T02:53Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_v5_v7_hindcast_results.py -q -k fewer_than_30 2>&1 | tail -5
+
+backend/weather/tests/test_v5_v7_hindcast_results.py:137: AssertionError
+=========================== short test summary info ============================
+FAILED backend/weather/tests/test_v5_v7_hindcast_results.py::test_a_lead_with_fewer_than_30_cases_is_reported_with_its_count_stated
+1 failed, 18 deselected in 0.88s
+```
+
+**V4/V6 GREEN: small-sample leads listed with their counts** (2026-10-04T02:53Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_v5_v7_hindcast_results.py -q 2>&1 | tail -2
+...................                                                      [100%]
+19 passed in 1.14s
+```
+
+### Repair and audit result
+
+- `python scripts/build_skill_fixture.py` and `python -m backend.weather.scripts.build_weather_fixture canso`
+  rewrote both fixtures. `skill.json` is byte for byte the file of commit f76d79a (`cmp` reported no difference).
+- `weather.json` is now generated for 2026-10-06 (`fixture.date` in `data/sources.json`), the date the API's
+  offline tests request and the frozen window rows use. Before, it was the day after the snapshot issue time,
+  and the API's offline weather endpoint answered 503 for the date its tests ask for. Red and green logged above.
+- Audit of the issue #7 checkboxes against the tests on the merged tree:
+
+| Task | Checkbox | Covered by |
+|---|---|---|
+| V0 | Brier score, three cases with hand computation | `test_v0_v1_scoring.py`, first three tests |
+| V0 | BSS formula, 1.0, 0.0, negative not clipped | `test_skill_is_one_minus_the_ratio_of_scores`, `test_a_forecast_worse_than_the_reference_...` |
+| V0 | reference from the base rate of the sample | `test_the_reference_score_comes_from_the_base_rate_of_the_sample_not_from_a_constant` |
+| V1 | equal-width bins, empty bins dropped, counts add up, ten pairs in one bin | four tests in `test_v0_v1_scoring.py` |
+| V2 | source recorded with URL, access date, coverage | `data/hindcast/source.json`; `test_v2_v4_hindcast.py` |
+| V2 | loader from a committed sample, gaps as a count, leads 1 to 10 supported | `test_the_loader_parses_...`, `test_issue_dates_with_every_run_...`, `test_the_sample_supports_every_lead_from_one_to_ten` |
+| V3 | outcome 0, 1 or None by the same function and table | `test_w6_seam.py`, four tests; `test_the_forecast_side_uses_the_same_evaluator_as_the_operational_layer` |
+| V3 | missing observation excluded and counted | `test_a_day_with_missing_observations_is_excluded_and_counted` |
+| V4 | one row per issue date and lead; one series entry per lead; true `n_cases`; base rate by hand | four tests in `test_v2_v4_hindcast.py` |
+| V4 | lead under 30 cases reported with its count in the report | **was not covered; added in this audit**, `test_a_lead_with_fewer_than_30_cases_is_reported_with_its_count_stated` |
+| V4 | cache key, no recompute on unchanged key, recompute on changed criteria version | three cache tests in `test_v2_v4_hindcast.py` |
+| V5 | longest period recorded, raw outputs, reference, IV.4 valid | `test_v5_v7_hindcast_results.py`; `tests/contract/test_weather_schema.py` |
+| V6 | report sections in order, verdict wording, crossover and boundary, anti-tuning record | `test_v5_v7_hindcast_results.py` |
+| V7 | script, twice byte-identical, fixture equals the script's output | `test_v5_v7_hindcast_results.py` |
+| V8 | `validation_README.md`, result line in `DONE.md` | files; `test_the_readme_quotes_the_skill_series_of_the_committed_result` |
+
+- One gap was found and closed: the small-sample caveat named the leads without their counts and had no test.
+- Not changed, because the data cannot give more: the period (archive starts 2026-04-02) and the forecast system
+  (no open archive of past ensemble runs). The hindcast numbers are identical to those reported before.
+- Whole repository on this branch: 890 passed, 37 failed, 3 skipped. All 37 are in `backend/api/tests/`; 36 fail
+  with the API's own stand-in fixtures too. Causes are listed at the end of `DONE.md`. No file outside the
+  WEATHER lane was edited.
+- Not committed and not pushed: the owner has not asked for a commit on this branch.
+
+**Integration RED (cause 3): the API passes criteria_version 'v1'; the weather module refuses it and the window route then uses a neutral weather factor of 1.0** (2026-10-04T03:03Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather/tests/test_w1_criteria.py backend/weather/tests/test_w5_horizon_and_service.py -q 2>&1 | tail -6
+FAILED backend/weather/tests/test_w1_criteria.py::test_only_the_two_exact_forms_are_accepted[v1 ]
+FAILED backend/weather/tests/test_w1_criteria.py::test_only_the_two_exact_forms_are_accepted[]
+FAILED backend/weather/tests/test_w1_criteria.py::test_only_the_two_exact_forms_are_accepted[v]
+FAILED backend/weather/tests/test_w5_horizon_and_service.py::test_the_short_version_name_gives_the_same_answer_under_the_canonical_name
+FAILED backend/weather/tests/test_w5_horizon_and_service.py::test_the_hindcast_climatology_and_outcome_accept_the_short_version_name
+11 failed, 59 passed in 0.83s
+```
+
+**Integration GREEN (cause 3, weather side): 'v1' and 'criteria_v1' name the same table; anything else is refused** (2026-10-04T03:04Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest backend/weather tests/contract -q 2>&1 | tail -2
+FAILED backend/weather/tests/test_v2_v4_hindcast.py::test_a_changed_criteria_version_period_or_lead_forces_a_recompute
+1 failed, 316 passed, 1 skipped in 3.80s
+```
+
+**Integration GREEN: whole repository after the five causes were fixed (weather, API, fixtures, fixture tool)** (2026-10-04T03:11Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest -q 2>&1 | tail -2
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+949 passed, 4 skipped, 1 warning in 10.43s
+```
+
+### Integration fixes on `feature-weather-validation` (4 October 2026, about 03:00 to 03:25 UTC)
+
+The owner asked for every cause of the 37 remaining failures to be fixed, including those outside the WEATHER
+lane. Red and green runs for the WEATHER part are logged above. Summary of the whole change:
+
+- Cause 3, criteria version name. Traced with a live request: the API called
+  `probability(date_iso="2026-10-05", site="canso", criteria_version="v1")`, the layer raised
+  `CriteriaVersionMissingError`, the route caught it as an outage and wrote the neutral factor 1.0. Fixed here by
+  `criteria.canonical_version`: `v1` and `criteria_v1` name the same table, nothing else is accepted. Fixed in the
+  API by firing `constraint_fired: "criteria_version_missing"` on the rows for a version no table exists for.
+- Cause 2, stand-ins bypassed: the API seams now use `importlib.import_module`.
+- Cause 1, tests written for absent layers: an autouse fixture in `backend/api/tests/conftest.py` hides the two
+  real modules by default; `test_live_layers.py` runs the routes against the real ones, offline.
+- Cause 4, skill expectations: the live hindcast is asked for its full range and the API cuts the series; two
+  tests read the recorded period from `skill.json`.
+- Cause 5, `windows.json` against `weather.json`, and the wrong J2: `frontend/tools/make_fixtures.py` restates
+  both from their sources.
+- One weather test of this layer needed its fixture extended: the cache test uses a fictitious `criteria_v2`
+  with synthetic inputs, and the version name is now checked before the inputs are loaded, so the fixture
+  declares that second version. The assertion is unchanged.
+- Verified on the running application with the real modules: 22 engine rows for the demo request; unknown site
+  404; unknown criteria version fires the constraint; skill with `lead_max=5` returns five leads and the full
+  reliability bins.
+- Open, not changed: the window route uses one weather answer, for the first day of the range, on every row.
+  Recorded in `DONE.md` and `docs/log/api.md` with the numbers.
+- Frontend suite, run under Node 22 fetched by `npx` into its cache: 9 files, 57 tests passed. The temporary
+  `frontend/node_modules` was removed afterwards.
+- Nothing is committed or pushed.
+
+**Final: whole repository** (2026-10-04T03:14Z, exit 0)
+
+```
+$ .venv/bin/python -m pytest -q 2>&1 | tail -1
+949 passed, 4 skipped, 1 warning in 10.45s
+```
+- Committed and pushed on `feature-weather-validation` at the owner's request (4 October 2026, about 03:20 UTC),
+  in four commits: `weather:`, `frontend:`, `api:`, `docs:`. The earlier lines of this section that say nothing
+  is committed describe the state before that request.

@@ -335,6 +335,7 @@ def test_the_citation_date_part_is_the_request_start(
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.live_layers
 @pytest.mark.skipif(LIVE_ENGINE is None, reason="backend.engine.compute_windows has not landed yet")
 def test_the_live_engine_path_produces_schema_valid_output(
     client: TestClient, sso_request: dict[str, Any]

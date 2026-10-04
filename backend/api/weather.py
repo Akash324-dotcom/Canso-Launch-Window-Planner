@@ -38,6 +38,7 @@ document, and only when that is unavailable too do they return 503.
 from __future__ import annotations
 
 import datetime as dt
+import importlib
 import json
 from typing import Any
 
@@ -49,25 +50,36 @@ from backend.api.stubs import load_weather_document
 WEATHER_CACHE = "weather"
 WINDOW_CACHE_NAMESPACE = "weather-windows"
 
+# The enumerated ``constraint_fired`` value of spec IV.1 for a criteria version no table exists for.
+CRITERIA_VERSION_MISSING = "criteria_version_missing"
+
 NEUTRAL_HORIZON_LABEL = "CLIMATOLOGY"
 NEUTRAL_WEATHER_COMPONENT = 1.0
 
 
-def live_probability() -> Any | None:
-    """``backend.weather.probability`` once WEATHER lands, else None."""
+def _weather_module() -> Any | None:
+    """The weather layer as the import system resolves it, or None when it is absent.
+
+    ``importlib.import_module`` reads ``sys.modules``, so the module a test installs or
+    removes there is the one the service sees. ``from backend import weather`` would
+    return the attribute of the ``backend`` package once the real module has been
+    imported, whatever ``sys.modules`` holds.
+    """
     try:
-        from backend import weather
+        return importlib.import_module("backend.weather")
     except ImportError:
         return None
+
+
+def live_probability() -> Any | None:
+    """``backend.weather.probability`` once WEATHER lands, else None."""
+    weather = _weather_module()
     return getattr(weather, "probability", None)
 
 
 def live_hindcast() -> Any | None:
     """``backend.weather.hindcast`` once WEATHER lands, else None."""
-    try:
-        from backend import weather
-    except ImportError:
-        return None
+    weather = _weather_module()
     return getattr(weather, "hindcast", None)
 
 
@@ -223,9 +235,9 @@ def skill_document(
     layer = live_hindcast()
     if layer is not None:
         try:
-            document = dict(
-                layer(period_start=period_start, period_end=period_end, lead_max=lead_max)
-            )
+            # The layer is asked for its full lead range and the series is cut below,
+            # so that lead_max does to a live answer exactly what it does to the record.
+            document = dict(layer(period_start=period_start, period_end=period_end))
         except Exception:
             document = _skill_record(settings, period_start, period_end)
     else:
@@ -280,10 +292,15 @@ def window_weather(
 ) -> tuple[dict[str, Any] | None, str]:
     """The one weather document of a window request, and how it was obtained.
 
-    The origin is one of ``excluded``, ``unavailable``, ``cache``, ``live`` or
-    ``record``, and is resolved once per response rather than once per row: every
-    row of a response shares one weather answer, which is also what makes the
-    provenance block of two identical requests identical.
+    The origin is one of ``excluded``, ``unavailable``, ``cache``, ``live``,
+    ``record`` or ``criteria_version_missing``, and is resolved once per response
+    rather than once per row: every row of a response shares one weather answer,
+    which is also what makes the provenance block of two identical requests identical.
+
+    ``criteria_version_missing`` is not an outage. The weather layer answered that it
+    has no criteria table of the requested version, by raising an error that carries
+    ``constraint_fired``. Spec IV.7 rule 3 puts that outcome in the body, so the origin
+    is handed back for the route to fire the constraint on the rows.
     """
     if not bool(effective_request.get("include_weather", True)):
         return None, "excluded"
@@ -303,7 +320,10 @@ def window_weather(
                     criteria_version=effective_request.get("criteria_version"),
                 )
             )
-        except Exception:
+        except Exception as failure:
+            fired = getattr(failure, "constraint_fired", None)
+            if fired == CRITERIA_VERSION_MISSING:
+                return None, CRITERIA_VERSION_MISSING
             return None, "unavailable"
         _store(registry, key, document)
         return document, "live"

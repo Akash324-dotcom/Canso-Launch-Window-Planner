@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.api import citation as run_store
@@ -219,6 +220,32 @@ def test_the_config_hash_changes_with_the_configuration(
         assert run_store.config_hash(moved) != baseline
 
 
+VEHICLE_FILE_LANDED = Settings.load().vehicle_profile_path("cyclone4m").is_file()
+
+
+def test_the_vehicle_rows_are_the_rows_of_the_engine_file_and_nothing_else(
+    client: TestClient, settings: Settings
+) -> None:
+    """Once ENGINE ships the vehicle file, the citation reports its rows, each flagged, and lists the file."""
+    if not VEHICLE_FILE_LANDED:
+        pytest.skip("backend/engine/data/vehicles/cyclone4m.json has not landed yet")
+    path = settings.vehicle_profile_path("cyclone4m")
+    shipped = json.loads(path.read_text(encoding="utf-8"))["rows"]
+
+    citation_id = run_a(client)["constants_block"]["citation_id"]
+    body = citation_of(client, citation_id)
+
+    assert body["vehicle_profile_id"] == "cyclone4m"
+    assert len(body["vehicle_rows"]) == len(shipped) > 0
+    for served, row in zip(body["vehicle_rows"], shipped):
+        assert {key: value for key, value in served.items() if key != "flag"} == {
+            key: value for key, value in row.items() if key != "flag"
+        }
+        assert served["flag"] == row.get("flag", row.get("row_flag", "ASSUMPTION"))
+    assert settings.relative(path) in body["source_files"]
+
+
+@pytest.mark.skipif(VEHICLE_FILE_LANDED, reason="ENGINE has landed its vehicle file, so the rows are no longer absent")
 def test_no_vehicle_row_is_invented_while_engine_has_not_landed(
     client: TestClient, settings: Settings
 ) -> None:

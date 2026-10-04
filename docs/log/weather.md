@@ -8,7 +8,8 @@ maintain. This file is the summary and the pointer.
 
 Date of this entry: 4 October 2026 (UTC), revision 3 (no null parameter, no assumed limit, no stand-in data),
 with the hindcast run on real data. Branch `feature-weather`. Status: W0 to W9 and V0 to V8 done, tests green,
-committed locally, not pushed.
+merged to `main` through pull request #17. A later audit on `feature-weather-validation` repaired the two weather
+fixtures and fixed the integration failures (see findings 8 and 9); that work is committed on that branch and pushed.
 
 ### What shipped
 
@@ -45,8 +46,9 @@ committed locally, not pushed.
 - Hindcast result: Brier skill score against the climatological base rate 0.456, 0.373, 0.223, 0.223, 0.152 at
   leads 1 to 5 (169 to 173 cases each), negative at leads 6 to 10; 0.151 pooled over leads 1 to 7 (1,190 cases).
   Verified forecasts are four GFS deterministic runs per issue date, not the operational ensembles.
-- `pytest backend/weather -q`: 227 passed, 1 skipped. `pytest tests/contract -q`: 77 passed. Whole repository:
-  304 passed, 1 skipped.
+- `pytest backend/weather -q`: 240 passed, 1 skipped. `pytest tests/contract -q`: 77 passed. Whole repository on
+  the merged tree after the integration fixes: 949 passed, 4 skipped, none failed. Frontend: 57 passed.
+- `criteria_version` is accepted as `criteria_v1` or as `v1`; the response carries `criteria_v1`.
 
 ### What is not done
 
@@ -77,3 +79,13 @@ committed locally, not pushed.
    crossover. Spec II.7 and the frontend copy may still say 10 days; the response label is what is authoritative.
 7. With a Copernicus key the archive reaches the latest published ERA5 day, which the hindcast needs for its 2026
    outcomes. The key is read from the environment and is in no committed file.
+8. Merge commit 3f37b62 corrupted `backend/fixtures/skill.json` and `weather.json` (two JSON bodies joined in one
+   file). Both are regenerated from the committed scripts; `weather.json` is now for 2026-10-06, the date the
+   API's offline record is asked for.
+9. The merged tree had 61 failing tests. The causes were the corrupted fixtures, a criteria version name the two
+   sides spelled differently (`v1` against `criteria_v1`, which made the window route serve a neutral weather
+   factor of 1.0 on every row), API seams that bypassed the tests' stand-in modules, an unknown site that crashed
+   in the engine, a `lead_max` that meant two things, and API tests written for the time before the engine and
+   weather modules existed. All are fixed; the list by owner is at the end of `backend/weather/DONE.md`.
+10. Open, and for the API and ENGINE owners: the window route applies the weather answer of the first day of the
+    date range to every row. See the last item of that list.

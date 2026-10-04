@@ -345,6 +345,7 @@ def test_a_live_seam_answer_for_a_date_outside_the_record_is_served(
     assert calls[0]["kwargs"]["date_iso"] == "2026-10-06"
 
 
+@pytest.mark.live_layers
 @pytest.mark.skipif(LIVE_WEATHER is None, reason="backend.weather.probability has not landed yet")
 def test_the_live_weather_module_is_the_served_source_once_it_lands(
     client: TestClient, settings: Settings

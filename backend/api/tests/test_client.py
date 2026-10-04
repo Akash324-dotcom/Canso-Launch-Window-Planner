@@ -564,12 +564,17 @@ def test_weather_takes_a_site(client: TestClient) -> None:
 def test_skill_returns_the_spec_iv_4_document_truncated_to_lead_max(
     client: TestClient,
 ) -> None:
-    full = launchwin.skill("2026-05-01", "2026-08-31", client=client)
-    short = launchwin.skill("2026-05-01", "2026-08-31", lead_max=1, client=client)
+    recorded = json.loads(Settings.load().fixture_path("skill").read_text(encoding="utf-8"))
+    period = recorded["period"]
+    recorded_leads = [row["lead_time_days"] for row in recorded["skill_series"]]
 
-    assert full["period"] == {"start": "2026-05-01", "end": "2026-08-31"}
+    full = launchwin.skill(period["start"], period["end"], client=client)
+    short = launchwin.skill(period["start"], period["end"], lead_max=1, client=client)
+
+    assert full["period"] == period
     assert full["verification_source"] == "era5"
-    assert [row["lead_time_days"] for row in full["skill_series"]] == [1, 5, 9]
+    assert [row["lead_time_days"] for row in full["skill_series"]] == recorded_leads
+    assert len(recorded_leads) > 1, "the record must hold more than one lead for the truncation to show"
     assert [row["lead_time_days"] for row in short["skill_series"]] == [1]
     assert full["reliability_bins"] and full["roc_points"]
     assert full["constants_block"]["citation_id"]
@@ -792,23 +797,31 @@ def test_launchwin_imports_from_a_directory_outside_the_repository() -> None:
     assert module_path.is_relative_to(REPO_ROOT) or "site-packages" in module_path.parts
 
 
+_OUTSIDE_CALL = (
+    "import launchwin",
+    "from fastapi.testclient import TestClient",
+    "from backend.api.app import create_app",
+    "from backend.api.config import Settings",
+    "settings = Settings.load().with_runs_dir(" + repr(str(PROBE_DIR / "runs")) + ")",
+    "with TestClient(create_app(settings)) as service:",
+    "    frame = launchwin.windows(",
+    '        target="SSO", site="canso", dates=("2026-10-04", "2027-01-01"),',
+    "        client=service,",
+    "    )",
+    'summary = "rows=%d engine=%s" % (len(frame), frame.attrs["response"]["engine_version"])',
+    "print(summary)",
+)
+
+
 @pytest.mark.skipif(not LAUNCHWIN_INSTALLED, reason=NOT_INSTALLED)
 def test_launchwin_imports_and_calls_from_a_directory_outside_the_repository() -> None:
-    runs_directory = str(PROBE_DIR / "runs")
     statement = "\n".join(
         [
-            "import launchwin",
-            "from fastapi.testclient import TestClient",
-            "from backend.api.app import create_app",
-            "from backend.api.config import Settings",
-            "settings = Settings.load().with_runs_dir(" + repr(runs_directory) + ")",
-            "with TestClient(create_app(settings)) as service:",
-            "    frame = launchwin.windows(",
-            '        target="SSO", site="canso", dates=("2026-10-04", "2027-01-01"),',
-            "        client=service,",
-            "    )",
-            'summary = "rows=%d engine=%s" % (len(frame), frame.attrs["response"]["engine_version"])',
-            "print(summary)",
+            "import sys",
+            # The offline path, as in the rest of this suite (see conftest.layers).
+            'sys.modules["backend.engine"] = None',
+            'sys.modules["backend.weather"] = None',
+            *_OUTSIDE_CALL,
         ]
     )
 
@@ -816,3 +829,30 @@ def test_launchwin_imports_and_calls_from_a_directory_outside_the_repository() -
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "rows=3 engine=stub"
+
+
+@pytest.mark.skipif(not LAUNCHWIN_INSTALLED, reason=NOT_INSTALLED)
+def test_launchwin_calls_the_live_engine_from_a_directory_outside_the_repository() -> None:
+    """The same call against the real engine and the real weather layer, read offline."""
+    from backend import engine
+
+    runs_directory = str(PROBE_DIR / "runs-live")
+    statement = "\n".join(
+        [
+            "import os",
+            'os.environ["LAUNCHWIN_WEATHER_OFFLINE"] = "1"',
+            *[line.replace(repr(str(PROBE_DIR / "runs")), repr(runs_directory)) for line in _OUTSIDE_CALL],
+            'rows = frame.attrs["response"]["windows"]',
+            'print("weather=%s" % sorted({row["horizon_label"] for row in rows}))',
+            'print("sources=%s" % frame.attrs["response"]["provenance_block"]["source_files"])',
+        ]
+    )
+
+    result = _run_in_a_directory_outside_the_repository(statement)
+
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.strip().splitlines()
+    rows, version = re.fullmatch(r"rows=(\d+) engine=(\S+)", lines[0]).groups()
+    assert version == engine.ENGINE_VERSION
+    assert int(rows) > 3, "a three month range holds more crossings than the three recorded rows"
+    assert "backend/fixtures/windows.json" not in lines[2]

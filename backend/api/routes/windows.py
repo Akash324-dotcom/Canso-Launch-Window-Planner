@@ -16,6 +16,7 @@ constraint fired are 200 with a body, per spec IV.7 rules 1 and 3.
 from __future__ import annotations
 
 import copy
+import importlib
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Request
@@ -46,7 +47,7 @@ def _engine_compute_windows() -> Any:
     source of numbers and never selects an HTTP status.
     """
     try:
-        from backend import engine
+        engine = importlib.import_module("backend.engine")
     except ImportError:
         return None
     return getattr(engine, "compute_windows", None)
@@ -130,6 +131,11 @@ def create_windows(
     entry = registry[WINDOWS_CACHE].get(key) if registry is not None else None
     if entry is not None:
         return copy.deepcopy(entry.value)
+
+    # Spec IV.7 rule 2: an unknown site id is a 404. The check is made here so that it
+    # holds for the engine as for the stub; the engine raises ValueError for a site it
+    # has no file for, which is not an answer a client can read.
+    settings.site_path(str(request["site"]))
 
     compute_windows = _engine_compute_windows()
     if compute_windows is not None:
@@ -221,7 +227,7 @@ def compose_response(
     configuration, which is the only place the constants and the site record live.
     """
     from backend.api.provenance import stamp_provenance
-    from backend.api.weather import compose_window_row, window_weather
+    from backend.api.weather import CRITERIA_VERSION_MISSING, compose_window_row, window_weather
 
     body: dict[str, Any] = {
         "reachable": bool(engine_body["reachable"]),
@@ -235,6 +241,9 @@ def compose_response(
     for window in engine_body.get("windows", []):
         row = copy.deepcopy(window)
         row.update(compose_window_row(document, window))
+        if weather_origin == CRITERIA_VERSION_MISSING and row.get("constraint_fired") is None:
+            # A constraint the engine fired on the row is kept: it stopped the row first.
+            row["constraint_fired"] = CRITERIA_VERSION_MISSING
         body["windows"].append(row)
 
     if sources is None:

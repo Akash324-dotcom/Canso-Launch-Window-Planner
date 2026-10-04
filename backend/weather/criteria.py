@@ -41,6 +41,26 @@ def current_criteria_version() -> str:
     return versions[-1]
 
 
+_SHORT_VERSION = re.compile(r"^v(\d+)$")
+
+
+def canonical_version(criteria_version: str | None) -> str:
+    """The name of the table a version string refers to. None means the current default version.
+
+    Two exact forms are accepted: the file stem ('criteria_v1') and its short form ('v1'), which is what the
+    contract examples and the API default use for data/criteria_v1.json. Anything else, and any version without
+    a table, raises CriteriaVersionMissingError under the name that was given.
+    """
+    if criteria_version is None:
+        return current_criteria_version()
+    versions = available_versions()
+    short = _SHORT_VERSION.match(criteria_version)
+    name = f"criteria_v{short.group(1)}" if short else criteria_version
+    if name not in versions:
+        raise CriteriaVersionMissingError(criteria_version, versions)
+    return name
+
+
 def validate_table(table: dict) -> None:
     """Raise ValueError if the table breaks a structural rule, including the VERIFIED evidence rule."""
     seen = set()
@@ -102,7 +122,7 @@ def load_criteria(criteria_version: str | None = None) -> dict:
 
     Raises CriteriaVersionMissingError for a version with no table.
     """
-    return _load(criteria_version or current_criteria_version())
+    return _load(canonical_version(criteria_version))
 
 
 def rows_with_fields(table: dict, fields) -> list[dict]:

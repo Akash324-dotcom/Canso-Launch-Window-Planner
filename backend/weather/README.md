@@ -150,6 +150,11 @@ Exports of `backend.weather`:
 | `criteria_version()` | the current default criteria version, resolved from `data/criteria_v*.json` |
 | `observed_launchable(date_iso, criteria_version=None, site="canso")` | verification outcome 1, 0 or None from the hourly archive, for issue #7 |
 
+A `criteria_version` argument is accepted in two exact forms: the file stem (`criteria_v1`) and its short form
+(`v1`), which is what the API default and the contract examples use. Both name `data/criteria_v1.json`; the
+response always carries the file stem. Any other spelling, and any version without a table, raises
+`CriteriaVersionMissingError`. `None` means the current version.
+
 Errors, for API to map (spec IV.7):
 
 | Raised | Meaning | Mapping |
@@ -330,7 +335,8 @@ under the stated proxy criteria. They are not a statement about any vehicle's re
 by error type only. With `era5_cds` a failure is an error. The archive is refused if any value is missing.
 
 The fixture is generated from the committed snapshots and climatology, and a test regenerates it and compares the
-bytes. `weather.json` is the spec IV.3 response for the day after the snapshots were issued.
+bytes. `weather.json` is the spec IV.3 response for 6 October 2026, the date the API's offline record and the
+frozen window rows use (`fixture.date` in `data/sources.json`), three days after the snapshots were issued.
 
 ## The hindcast and the BSS result
 

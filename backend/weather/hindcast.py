@@ -270,7 +270,7 @@ def load_inputs(site: str, criteria_version: str) -> dict:
         "verification_source": VERIFICATION_SOURCE,
         "fingerprint": f"runs:{runs['meta']['csv_sha256']} archive:{archive_meta['csv_sha256']}",
         "criteria_sha256": hashlib.sha256(
-            (config.DATA_DIR / f"{criteria_version}.json").read_bytes()).hexdigest(),
+            (config.DATA_DIR / f"{table['criteria_version']}.json").read_bytes()).hexdigest(),
         "constants_block": {key: value for key, value in constants.items() if not key.startswith("_")},
     }
 
@@ -287,7 +287,7 @@ def compute(period_start: str, period_end: str, lead_max: int = 10, site: str = 
         raise ValueError("period_end is before period_start")
     if lead_max < 1:
         raise ValueError("lead_max must be at least 1")
-    version = criteria_version or criteria.current_criteria_version()
+    version = criteria.canonical_version(criteria_version)
     inputs = load_inputs(site, version)
     key = {"period_start": period_start, "period_end": period_end, "lead_max": lead_max, "site": site,
            "criteria_version": version, "forecast_source": inputs["forecast_source"],
