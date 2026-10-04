@@ -207,12 +207,12 @@ an error that the evidence establishes. No change is proposed here.
 
 ## 9. The hazard screen's southbound rule
 
-`backend/engine/screens.py` refuses every azimuth outside 90 to 270 deg before it looks at the
+Until the change of section 9.1, `backend/engine/screens.py` refused every azimuth outside 90 to 270 deg before it looked at the
 corridor of the site, with the reason "The Canso environmental assessment states that all launches
 are conducted to the south over the Atlantic Ocean".
 
 **Verdict: the rule is correct for Canso and wrong as a rule for all sites. It needs a per-site
-policy.**
+policy.** The policy is now in place (section 9.1); the evidence below is the state that led to it.
 
 Evidence, from `compute_windows` on the gate request of each anchor. The row nearest the published
 instant is the launch that was flown.
@@ -245,13 +245,43 @@ What is right and what is not:
   would still be refused, by a placeholder. The per-site policy therefore needs real data for those
   sites, not only the removal of the constant.
 
-Recommended change, for a separate reviewed pull request as the issue requires: let the admissible
-direction come from the site file (the corridor bounds, with a sector that may cross north) and let
-the reason name the site and its source; delete `_is_southbound` or make it Canso data. This does not
-touch gate G1, which is a gate on time: the time residuals above are unaffected by the screen.
+### 9.1 The change made
 
-No change is made here. The two tests at the end of `test_ii10_delta.py` pin today's behaviour so
-that this verdict rests on a run; they will be rewritten when the policy changes.
+The admissible direction is now site data, and `screens.py` names no site.
+
+- `site_canso.json` carries `corridor.direction_policy`: `admitted_branch` southbound, the statement
+  and its source (Registration Document sections 2.2.5 and 2.2.5.4), flag VERIFIED.
+  `reachability.direction_policy` reads it; `_is_southbound` as a rule of the screen is deleted.
+- A site whose file states no policy has none applied. Its corridor bounds alone decide, over a
+  sector that may cross north (`A_min_deg` greater than `A_max_deg` runs from `A_min_deg` through
+  360 deg to `A_max_deg`). `corridor_inclination_bounds` includes the turning points of the
+  inclination at 90 and 270 deg, which the sector may now contain.
+- `reachable_in_corridor` asks whether the site admits either crossing of the plane, the southbound
+  azimuth of (II.2) or its northbound partner, by the same two tests the screen applies to a row.
+- A request that overrides the corridor bounds at Canso keeps the policy of the site: the override
+  moves bounds, not the statement of the environmental assessment.
+- Every reason names the corridor that decided and the flag of its bounds, for example
+  "leaves the corridor [90, 260] deg (bounds flagged ASSUMPTION)".
+
+At Canso nothing changes in any verdict. The tests are in
+`backend/engine/tests/test_hazard_direction_policy.py`.
+
+### 9.2 What is still open
+
+The five northbound launches are still marked refused, now by the placeholder corridors of the gate
+sites and with a reason that says the bounds are an ASSUMPTION. The table above is unchanged. To
+close it each gate site needs a published corridor in its file, and none is written here because
+none was confirmed from a primary document:
+
+| Site | Lead found | Standing |
+|---|---|---|
+| Kourou | launch azimuths from -10.5 to 93.5 deg are attributed to the Guiana Space Centre in secondary references; the Vega C User's Manual is the document to quote | not read at the page; not entered |
+| Vandenberg | secondary references disagree: 147 to 201 deg, 158 to 201 deg, 170 to 240 deg | no primary document found; not entered |
+| Plesetsk | the Eurockot Plesetsk User's Manual (EHB0006) is distributed on request | not obtained; not entered |
+
+With the Kourou figures entered as the sector 349.5 to 93.5 deg, the two Kourou launches (351.79 and
+351.36 deg) would pass and their southbound partners would be refused, which the sector logic above
+already supports. This does not touch gate G1, which is a gate on time.
 
 ## 10. Reproducing this note
 
@@ -259,4 +289,5 @@ that this verdict rests on a run; they will be rewritten when the policy changes
     .venv/bin/python -m pytest backend/engine/tests/test_reproduce_published_windows.py -q
 
 The first file holds the geometry of sections 2 to 5, the engine pin, the residuals of section 6
-under both forms, and the hazard-screen evidence of section 9.
+under both forms, and the hazard-screen evidence of section 9. The per-site policy of section 9.1 is
+in `backend/engine/tests/test_hazard_direction_policy.py`.

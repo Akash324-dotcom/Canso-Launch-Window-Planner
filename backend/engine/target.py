@@ -85,6 +85,9 @@ def _parse_ltan(text: str) -> float:
     return value
 
 
+REQUEST_OVERRIDE_FLAG = "UNSOURCED_REQUEST_OVERRIDE"
+
+
 def _corridor_for(request: Mapping[str, Any], site: Mapping[str, Any]) -> Mapping[str, Any]:
     """The corridor of the request: the site corridor, with any bound the request overrides.
 
@@ -100,11 +103,16 @@ def _corridor_for(request: Mapping[str, Any], site: Mapping[str, Any]) -> Mappin
         for key in ("A_min_deg", "A_max_deg")
         if override.get(key) is not None
     }
-    if len(given) == 2:
-        return override
     merged = dict(override)
+    site_flags = site["corridor"].get("flags", {})
+    merged["flags"] = {}
     for key in ("A_min_deg", "A_max_deg"):
         merged[key] = given.get(key, site["corridor"][key])
+        merged["flags"][key] = REQUEST_OVERRIDE_FLAG if key in given else site_flags.get(key)
+    # The override moves bounds. The direction policy is a statement about the site
+    # and travels with every corridor of that site.
+    if "direction_policy" in site["corridor"]:
+        merged["direction_policy"] = site["corridor"]["direction_policy"]
     return merged
 
 

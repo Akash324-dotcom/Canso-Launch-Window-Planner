@@ -288,7 +288,9 @@ def test_the_crossing_that_reproduces_a_launch_from_kourou_or_plesetsk_is_northb
     The row of compute_windows nearest the published instant is the launch that was
     flown. From Kourou and from Plesetsk it has an azimuth between 340 and 352 deg.
     The screen marks it ``hazard: fail``. From Vandenberg, which does fly south, the
-    nearest row passes.
+    nearest row passes. The refusal is now the work of the placeholder corridors of
+    the gate sites alone (90 to 260 deg, ASSUMPTION); it stands until a published
+    corridor replaces them.
     """
     from backend.engine import compute_windows, frames
 
@@ -311,8 +313,14 @@ def test_the_crossing_that_reproduces_a_launch_from_kourou_or_plesetsk_is_northb
             assert nearest["screens"]["hazard"] == "pass"
 
 
-def test_the_refusal_at_another_site_cites_the_canso_assessment():
-    """The rule is a fact about Canso written as a constant, so its reason is wrong elsewhere."""
+def test_the_refusal_at_another_site_no_longer_cites_the_canso_assessment():
+    """The southbound statement is Canso data now; another site is refused by its own corridor.
+
+    Before the per-site policy, this test pinned the reason "Canso environmental
+    assessment" on a refusal at Kourou and at Plesetsk. The refusal remains, because
+    the corridors of the gate sites are placeholders (90 to 260 deg, ASSUMPTION), and
+    the reason now says exactly that.
+    """
     from backend.engine import provenance, screens
 
     for site, azimuth in (("kourou_ela1", 351.79), ("plesetsk_133", 340.52)):
@@ -320,9 +328,10 @@ def test_the_refusal_at_another_site_cites_the_canso_assessment():
         verdict = screens.hazard_screen(azimuth, corridor, {})
 
         assert verdict.hazard == "fail"
-        assert "Canso environmental assessment" in verdict.reason, site
+        assert "Canso" not in verdict.reason, site
+        assert "[90, 260] deg (bounds flagged ASSUMPTION)" in verdict.reason, site
+        assert "NOT A PUBLISHED CORRIDOR" in corridor["source"], site
 
     canso = provenance.load_json("site_canso.json")["corridor"]
-    assert 90.0 <= canso["A_min_deg"] and canso["A_max_deg"] <= 270.0, (
-        "at Canso the corridor already lies inside the southbound half, so the constant adds nothing there"
-    )
+    assert canso["direction_policy"]["admitted_branch"] == "southbound"
+    assert 90.0 <= canso["A_min_deg"] and canso["A_max_deg"] <= 270.0

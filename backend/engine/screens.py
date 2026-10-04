@@ -21,6 +21,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from backend.engine import reachability
+
 CONSTRAINT_PRE_SCREEN = "screen_level: pre_screen"
 CONSTRAINT_DISPLAY_ONLY = "display_only"
 
@@ -90,48 +92,59 @@ def hazard_screen(
 ) -> HazardVerdict:
     """Deterministic hazard-area test for one launch azimuth.
 
-    The environmental assessment admits only southbound trajectories over the
-    Atlantic, so a northbound azimuth is rejected regardless of where the numeric
-    corridor bounds happen to sit. Inside the southbound branch the test is the
-    corridor membership of (II.3).
+    Two tests, both from the site configuration and neither from this module. The
+    direction policy of the site, where its file states one with a source, refuses
+    the other direction regardless of where the numeric bounds sit: a request that
+    moves the bounds does not move the statement of an environmental assessment.
+    A site whose file states no policy has none applied. Then the corridor
+    membership of (II.3), over a sector that may cross north.
     """
-    if not _is_southbound(azimuth_deg):
+    direction = "southbound" if reachability.is_southbound(azimuth_deg) else "northbound"
+    policy = reachability.direction_policy(corridor)
+    if policy is not None and not reachability.direction_admitted(azimuth_deg, corridor):
         return HazardVerdict(
             hazard="fail",
             p_range=0,
             reason=(
-                f"Azimuth {azimuth_deg:.2f} deg is northbound. The Canso environmental "
-                "assessment states that all launches are conducted to the south over the "
-                "Atlantic Ocean, so only the southbound branch is admissible."
+                f"Azimuth {azimuth_deg:.2f} deg is {direction}. The site admits the "
+                f"{policy['admitted_branch']} branch only: {policy['statement']} "
+                f"({policy['source']}; flag {policy['flag']})."
             ),
             constraint_fired=HAZARD_AREA,
         )
 
     a_min = corridor["A_min_deg"]
     a_max = corridor["A_max_deg"]
-    if a_min - 1.0e-9 <= azimuth_deg <= a_max + 1.0e-9:
+    bounds = f"[{a_min:g}, {a_max:g}] deg ({_bounds_standing(corridor)})"
+    if reachability.azimuth_in_corridor(azimuth_deg, corridor):
         return HazardVerdict(
             hazard="pass",
             p_range=1,
             reason=(
-                f"Southbound azimuth {azimuth_deg:.2f} deg lies inside the corridor "
-                f"[{a_min:g}, {a_max:g}] deg."
+                f"The {direction} azimuth {azimuth_deg:.2f} deg lies inside the corridor "
+                f"{bounds}."
             ),
         )
     return HazardVerdict(
         hazard="fail",
         p_range=0,
         reason=(
-            f"Southbound azimuth {azimuth_deg:.2f} deg leaves the corridor "
-            f"[{a_min:g}, {a_max:g}] deg, so the buffered footprint is not contained in "
-            "the over-ocean hazard area."
+            f"The {direction} azimuth {azimuth_deg:.2f} deg leaves the corridor {bounds}, "
+            "so the buffered footprint is not contained in the hazard area of the site."
         ),
         constraint_fired=HAZARD_AREA,
     )
 
 
-def _is_southbound(azimuth_deg: float) -> bool:
-    return 90.0 - 1.0e-9 <= azimuth_deg <= 270.0 + 1.0e-9
+def _bounds_standing(corridor: Mapping[str, Any]) -> str:
+    """How well the bounds are known, in the words of the file that supplied them."""
+    flags = corridor.get("flags")
+    if not flags:
+        return "bounds given without a flag"
+    low, high = flags.get("A_min_deg"), flags.get("A_max_deg")
+    if low == high:
+        return f"bounds flagged {low}"
+    return f"A_min flagged {low}, A_max flagged {high}"
 
 
 # --- Conjunction (spec II.8) -------------------------------------------------
