@@ -73,9 +73,15 @@ say('site and vehicle selectors', true, `site options ${await page.$$eval('#site
 // keyboard row selection
 await page.focus('#window-table tbody tr[data-hazard-rejected="false"]'); await page.keyboard.press('Enter'); await settle();
 say('keyboard Enter selects a row', (await page.$$eval('#window-table tbody tr[data-selected="true"]', (r) => r.length)) === 1, `selected rows ${await page.$$eval('#window-table tbody tr[data-selected="true"]', (r) => r.length)}, trajectory status "${(await text('#trajectory-status') ?? '').slice(0, 90)}"`);
-// selecting a hazard-rejected row
-await page.evaluate(() => document.querySelector('#window-table tbody tr[data-hazard-rejected="true"]').click()); await settle();
-say('selecting a rejected row', true, `guard "${(await text('#corridor-check') ?? '').slice(0, 150)}"; ephemeris ${[...net].reverse().find((e) => e.url.includes('/ephemeris'))?.url.replace('http://localhost:8000', '').slice(0, 110)}`);
+// selecting a hazard-rejected row, when the response has one
+const rejectedShown = await page.$$eval('#window-table tbody tr[data-hazard-rejected="true"]', (r) => r.length);
+if (rejectedShown === 0) {
+  const azimuths = [...new Set(lastPost().body.windows.map((w) => w.azimuth_deg.toFixed(1)))].join(', ');
+  say('selecting a rejected row', true, `not exercised: the response has no hazard-rejected row (azimuths ${azimuths}, constraints ${[...new Set(lastPost().body.windows.map((w) => String(w.constraint_fired)))].join(', ')})`);
+} else {
+  await page.evaluate(() => document.querySelector('#window-table tbody tr[data-hazard-rejected="true"]').click()); await settle();
+  say('selecting a rejected row', (await page.$$eval('#window-table tbody tr[data-selected="true"]', (r) => r.length)) === 1, `guard "${(await text('#corridor-check') ?? '').slice(0, 150)}"; ephemeris ${[...net].reverse().find((e) => e.url.includes('/ephemeris'))?.url.replace('http://localhost:8000', '').slice(0, 110)}`);
+}
 // the other downloads
 await page.evaluate(() => document.querySelector('#window-table tbody tr[data-hazard-rejected="false"]').click()); await settle();
 for (const [button, table, kind] of [['#download-skill-csv', '#analysis-skill-rows tr', 'csv'], ['#download-reliability-csv', '#analysis-reliability-rows tr', 'csv'], ['#download-response-json', null, 'json']]) {

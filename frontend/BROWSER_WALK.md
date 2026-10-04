@@ -7,42 +7,45 @@ running API, not in jsdom. It is recorded here because the scope of the issue is
 
 | | |
 |---|---|
-| Date | 4 October 2026, 08:30 to 09:30 ADT |
+| Date | 4 October 2026. First run 08:30 to 09:00 ADT; repeated on the merged tree at 09:20 ADT, which is the run recorded below |
 | Browser | Google Chrome, headless, driven by `tools/browser_walk.mjs` (the eleven items) and `tools/browser_controls.mjs` (every control), puppeteer-core |
 | Page | `http://localhost:8090/frontend/`, served by `python -m http.server 8090` from the repository root |
-| API | `uvicorn backend.api.app:app`, from `main` at 8f00062 plus commit 52cc728 of `fix/three-confirmed-bugs` (the CORS change of issue #24, not yet on `main`) |
+| API | `uvicorn backend.api.app:app --port 8000`, from this branch with `main` at 0a89ec9 merged in, so with the CORS change of issue #24 (pull request #30) |
 | Frontend | branch `feature-browser-Walk`, with the fixes of this record |
-| Weather layer | live, `source: open_meteo`, forecast issued 2026-10-03T18:00Z |
+| Weather layer | live, `source: open_meteo`, forecast issued 2026-10-04T00:00Z |
 
 Two things about the setup that a reader must know:
 
-- **Issue #24 is a precondition.** On `main` without the CORS change the page cannot read the API from another
-  origin and every screen falls back to the fixtures with the offline banner. The walk therefore ran against
-  `main` plus that one commit. The merge order of the issue (24, then this walk) holds.
-- **Port 8000 was occupied on the walk machine** by an unrelated container. The API listened on another port and
-  Chrome was started with `--host-rules=MAP localhost:8000 127.0.0.1:<port>`. The page, its `API_BASE`
-  (`http://localhost:8000/v1`) and every request are exactly as shipped; only the socket the browser connects to
-  differs. `API_PORT=8000` (the default) runs the tool without the rule.
+- **Issue #24 is merged.** The first run was made before that, against `main` plus the CORS commit of
+  `fix/three-confirmed-bugs`, with the API on another port because 8000 was occupied on the walk machine. The run
+  recorded here needs neither: the page calls `http://localhost:8000/v1` as shipped and the API listens there.
+  Without the CORS change the page cannot read the API from another origin and every screen falls back to the
+  fixtures with the offline banner.
+- **The two runs differ in one respect, which is the engine's and not the page's.** The first run included the
+  per-branch azimuth fix of `fix/three-confirmed-bugs`, which is not on `main`. On `main` both daily crossings of
+  a plane carry the same azimuth and none is rejected by the hazard screen; see B6. Every item gave the same
+  verdict in both runs.
 
-To repeat it: see the header of `tools/browser_walk.mjs`. Both tools exit with the result on the console.
+To repeat it: see the header of `tools/browser_walk.mjs`. Both tools print the result on the console. When port
+8000 is taken on a machine, `API_PORT=<port>` starts Chrome with a host rule so that the page stays as shipped.
 
 ## Result
 
 | # | Item | Result | Control, file:line | Evidence |
 |---|---|---|---|---|
 | 1 | Window table fills from `POST /v1/windows`; engine is not the stub | PASS | `#window-table`, `src/screens/windowEngine.js:298` (`renderTable`); request sent by `src/app.js:245` (`dispatch`) | `POST /v1/windows -> 200`, `engine_version: engine-0.1.0`, 10 rows in the response and 10 in the table, banner hidden |
-| 2 | Countdown ticks against a live `t_liftoff_utc` | PASS | `#countdown-value-text`, `src/countdown.js:45` (`renderReadout`) | three readings 15:19:13, 15:19:12, 15:19:11; target 2026-10-05T02:55:33Z, the earliest usable upcoming row of the response; reading equals liftoff minus clock to the second |
+| 2 | Countdown ticks against a live `t_liftoff_utc` | PASS | `#countdown-value-text`, `src/countdown.js:45` (`renderReadout`) | three readings 01:27:43, 01:27:42, 01:27:41; target 2026-10-04T13:49:43Z, the earliest usable upcoming row of the response; reading equals liftoff minus clock to the second |
 | 3 | Empty-result path: a message, not a blank table, not a crash | PASS after fix | `#window-rows` empty row, `src/screens/windowEngine.js:294`; `#countdown-reason`, `src/countdown.js:45`; `#honesty-explanation`, `src/screens/windowEngine.js:328` | see "Item 3" below |
 | 4 | LEO 45.1: honesty panel with the plane-change penalty | PASS | `#honesty-panel`, `#honesty-plane-change-dv-ms`, `src/screens/windowEngine.js:328` (`renderHonesty`) | `reachable: false`, `plane_change_dv_ms: 26.768304218158054`; panel shows "26.768304218158054 m/s"; table "No windows returned for this request."; no error, banner hidden |
-| 5 | Weather badge: probability, horizon label, skill curve, all live | PASS after fix | `#weather-launch-indicator`, `src/screens/weather.js:89`; `#weather-skill-curve-host`, `src/screens/weather.js:92`; request built in `src/app.js:344` (`readSkill`) | `GET /v1/weather/probability?date=2026-10-04&site=canso -> 200`: 60.8%, FORECAST, ensemble 82; `GET /v1/validation/skill?period_start=2026-04-02&period_end=2026-09-27 -> 200`, 10 points drawn; banner hidden |
+| 5 | Weather badge: probability, horizon label, skill curve, all live | PASS after fix | `#weather-launch-indicator`, `src/screens/weather.js:89`; `#weather-skill-curve-host`, `src/screens/weather.js:92`; request built in `src/app.js:344` (`readSkill`) | `GET /v1/weather/probability?date=2026-10-04&site=canso -> 200`: 60.8%, FORECAST issued 2026-10-04T00:00Z, ensemble 82; `GET /v1/validation/skill?period_start=2026-04-02&period_end=2026-09-27 -> 200`, 10 points drawn; banner hidden |
 | 6 | Analysis view from `/v1/validation/skill` and `/v1/citation` | PASS after fix | `#analysis-skill-rows`, `src/screens/analysis.js:312`; `#analysis-reliability-host`, `src/screens/analysis.js:338`; `#analysis-provenance-body` and `#analysis-config-hash`, `src/screens/analysis.js:172`; request in `src/app.js:215` (`readCitation`) | skill table 10 rows from the live response; reliability diagram drawn, 5 bins; `GET /v1/citation?id=run_20261004_c70d343fe413 -> 200`; constants origin "citation"; config hash ce4fb517...0d4a3a shown |
 | 7 | CSV download: file rows equal table rows | PASS | `#download-window-csv`, `src/screens/analysis.js:114`; `src/export.js:41` (`renderedTableCsv`) | file `canso-windows-run_20261004_c70d343fe413.csv` downloaded by Chrome: 10 data rows, 10 table rows |
 | 8 | Row select: trajectory on the map, southbound, inside the corridor | **FAIL, backend** | `#trajectory-map`, `#corridor-check`, `src/screens/trajectory.js:309` (`renderGuard`); `src/geo.js:272` (`corridorCheck`) | the ephemeris of the selected row is not an ascent from the site; see "Item 8" below. The page now refuses the track instead of calling it inside the corridor |
 | 9 | Viewing map: a centre with elevation and sunlit or dark status | **FAIL, backend** | `#viewing-rows`, `src/screens/viewing.js:34` | 7 centres drawn, each with an elevation and an illumination status, but every peak elevation is -74 to -77 deg: the numbers are computed from the ephemeris of item 8 |
-| 10 | Offline: API stopped, reload, fixtures, banner, countdown | PASS | `#mode-banner`, `src/app.js:49` (`renderBanner`); `src/app.js:186` (`switchToOffline`) | `POST /v1/windows` refused (connection refused); banner "OFFLINE PRECOMPUTED DATA ... source windows.json, site.json, ephemeris.json, weather.json, skill.json"; 3 rows; countdown 1d 00:02:21 then 1d 00:02:19; all five fixtures read; every screen rendered; no page error |
+| 10 | Offline: API stopped, reload, fixtures, banner, countdown | PASS | `#mode-banner`, `src/app.js:49` (`renderBanner`); `src/app.js:186` (`switchToOffline`) | `POST /v1/windows` refused (connection refused); banner "OFFLINE PRECOMPUTED DATA ... source windows.json, site.json, ephemeris.json, weather.json, skill.json"; 3 rows; countdown 23:19:50 then 23:19:48; all five fixtures read; every screen rendered; no page error |
 | 11 | No ghost writes | PASS after fix | whole page | 10 rows by 7 columns equal to `POST /v1/windows`; weather badge equal to `GET /v1/weather/probability`; skill table equal to `GET /v1/validation/skill`; constants equal to `GET /v1/citation`; see "Item 11" below |
 
-Suites after the fixes: `vitest run` 81 passed (10 files); `pytest -q` 987 passed, 4 skipped, the same as before the change, since no file outside `frontend/` was touched.
+Suites after the fixes: `vitest run` 81 passed (10 files); `pytest -q` 994 passed, 4 skipped, the same as on `main`, since no file outside `frontend/` is changed by this branch.
 
 ## What failed in the frontend and was fixed here
 
@@ -103,6 +106,7 @@ risk. `tools/browser_controls.mjs` changes each control in the live page and com
 | `#corridor-a-min-deg`, `#corridor-a-max-deg` | item 3 | the override | `reachable: false`, rows with `hazard_area` | honoured with both bounds; one bound is B2 |
 | `#site`, `#vehicle-profile` | one option each: canso, cyclone4m | | | nothing to switch |
 | Window row | click, and keyboard focus plus Enter | the four reads of a row | | selected, `data-selected="true"` |
+| Hazard-rejected row | click, when the response has one | the reads of that row | none in the default response on `main` (B6); with a corridor override the rows are rejected and selectable | not exercised on `main` |
 | `#download-window-csv` | item 7 | | 10 rows, 10 on the page | equal |
 | `#download-skill-csv` | click | | 10 data rows, 10 on the page | equal |
 | `#download-reliability-csv` | click | | 5 data rows, 5 on the page | equal |
@@ -116,7 +120,7 @@ No control is dead and no parameter is ignored by the service. No page error and
 With the live engine a reachable target has two plane crossings a day, so `reachable: true` with an empty list
 cannot be forced by a date range. The three empty-result paths that exist were walked:
 
-- Past range 2026-01-05 to 2026-01-06: 4 rows returned and shown; countdown "No window in range", reason "All 2
+- Past range 2026-01-05 to 2026-01-06: 4 rows returned and shown; countdown "No window in range", reason "All 4
   returned windows have a liftoff instant earlier than the current clock."
 - Corridor override 120 to 150: `reachable: false`, 10 rows, all rejected; countdown "No window in range", reason
   "Every returned window was rejected by the hazard screen."; honesty panel as fixed above.
@@ -169,11 +173,11 @@ site corridor; the live path does not.
 ### B3. Every row carries the weather of the first day of the range. Owner: #4 API
 
 ```
-POST /v1/windows, date_range 2026-10-04 to 2026-10-08: p_success_components.weather of the usable rows
+POST /v1/windows, date_range 2026-10-04 to 2026-10-08: p_success_components.weather of every row
   2026-10-04T02:55:51Z 0.6078   2026-10-05T02:55:33Z 0.6078   2026-10-06T02:55:15Z 0.6078
-  2026-10-07T02:54:57Z 0.6078   2026-10-08T02:54:40Z 0.6078      (all FORECAST, issued 2026-10-03T18:00:00Z)
+  2026-10-07T02:54:57Z 0.6078   2026-10-08T02:54:40Z 0.6078      (all FORECAST, issued 2026-10-04T00:00:00Z)
 GET /v1/weather/probability?date=<d>&site=canso
-  2026-10-04 0.6078   2026-10-05 0.0   2026-10-06 0.6078   2026-10-07 0.9804   2026-10-08 0.549
+  2026-10-04 0.6078   2026-10-05 0.0   2026-10-06 0.7647   2026-10-07 1.0   2026-10-08 0.7647
 ```
 
 The page prints what the response holds, so the `p_success` column is not date-resolved. Selecting a row shows
@@ -184,6 +188,21 @@ the correct per-date value in the weather panel, beside the row's own value, whi
 `GET /v1/site` and `provenance_block.corridor` of every window response say `A_min_deg 90, A_max_deg 200, flag
 ASSUMPTION`. `backend/engine/data/site_canso.json` on `main` holds `A_min_deg 115, A_max_deg 195`, flag DERIVED.
 The trajectory screen draws its corridor wedge and runs its guard from `GET /v1/site`, so it shows 90 to 200.
+
+### B6. Both daily crossings carry the same azimuth and neither is rejected. Owner: #2 ENGINE
+
+```
+POST /v1/windows, SSO, ltan_hours 10:30, 2026-10-04 to 2026-10-08, on main at 0a89ec9
+  2026-10-04T02:55:51Z azimuth_deg 191.5 azimuth_compass_deg 193.8 constraint_fired null screens.hazard pass
+  2026-10-04T13:49:43Z azimuth_deg 191.5 azimuth_compass_deg 193.8 constraint_fired null screens.hazard pass
+  ... 10 rows, azimuths {191.5}, constraints {null}
+```
+
+The two crossings of a plane on one day are a southbound and a northbound pass, 180 degrees of heading apart. On
+`main` both rows report the southbound azimuth and both pass the hazard screen, so the page offers a northbound
+launch over land as a usable window and counts down to it. Commit 52cc728 on `fix/three-confirmed-bugs` gives the
+northbound row its own azimuth (348.5) and the screen then rejects it; that branch is not merged. The first run of
+this walk was made with that commit and showed five usable rows of ten.
 
 ### B5. Smaller findings
 
@@ -218,7 +237,7 @@ already labelled on the page; they are listed for W4 as the issue asks, and none
 
 ## Coordination
 
-- #24 must merge first: without it the live page shows the offline banner on every screen.
+- #24 is merged (pull request #30). Without it the live page shows the offline banner on every screen.
 - #26 (researcher layer) adds controls for the skill period and provenance. This branch wires the two requests
   those controls will drive (`readSkill`, `readCitation`). New controls from #26 have to pass this walk again;
   `tools/browser_walk.mjs` is the way to run it.
