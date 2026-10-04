@@ -64,7 +64,7 @@
   ],
   "skill_horizon_measured_days": 8.0,
   "constants_block": {
-    "J2": 0.000108262668,
+    "J2": 0.00108262668,
     "GM": 398600441800000.0,
     "R_e": 6378137.0,
     "omega_sid_rad_s": 7.292115e-05,
