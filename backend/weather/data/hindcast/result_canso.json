@@ -3,9 +3,43 @@
   "start": "2026-04-02",
   "end": "2026-09-27"
  },
+ "lead_max": 10,
+ "site": "canso",
+ "criteria_version": "criteria_v1",
+ "criteria_sha256": "a48b2bf833ea51a5ce7741d9bd83e706de28b790a6e794f835b98f86988a2421",
+ "criteria_evaluated": [
+  "surface_wind_speed",
+  "surface_wind_gust",
+  "wind_direction",
+  "visibility",
+  "precipitation_type_frozen",
+  "precipitation_rate",
+  "ceiling_proxy_low_cloud",
+  "temperature_hot",
+  "lightning_proxy_cape",
+  "cloud_cover_thick_layer_proxy",
+  "ground_operations_wind"
+ ],
+ "forecast_source": "open_meteo_gfs_single_runs",
  "verification_source": "era5",
  "reference_forecast": "climatology_base_rate",
- "base_rate": 0.29608938547486036,
+ "members_per_issue_date": 4,
+ "coverage": {
+  "issue_dates_expected": 179,
+  "issue_dates_complete": 176,
+  "runs_expected": 716,
+  "runs_missing": 4,
+  "issue_dates_incomplete": [
+   "2026-06-10",
+   "2026-06-11",
+   "2026-09-14"
+  ]
+ },
+ "excluded": {
+  "issue_date_without_every_run": 3,
+  "forecast_with_missing_value": 30,
+  "outcome_missing": 45
+ },
  "skill_series": [
   {
    "lead_time_days": 1,
@@ -78,6 +112,8 @@
    "n_cases": 164
   }
  ],
+ "base_rate": 0.29608938547486036,
+ "verified_days": 179,
  "reliability_bins": [
   {
    "p_center": 0.05,
@@ -105,6 +141,28 @@
    "n": 114
   }
  ],
+ "reliability_mean_forecast": [
+  {
+   "p_center": 0.05,
+   "mean_forecast": 0.0
+  },
+  {
+   "p_center": 0.25,
+   "mean_forecast": 0.25
+  },
+  {
+   "p_center": 0.55,
+   "mean_forecast": 0.5
+  },
+  {
+   "p_center": 0.75,
+   "mean_forecast": 0.75
+  },
+  {
+   "p_center": 0.95,
+   "mean_forecast": 1.0
+  }
+ ],
  "roc_points": [
   {
    "threshold": 0.25,
@@ -128,6 +186,16 @@
   }
  ],
  "skill_horizon_measured_days": 5,
+ "aggregate": {
+  "leads": [
+   1,
+   7
+  ],
+  "bs": 0.17741596638655463,
+  "bs_ref": 0.2089852411552862,
+  "bss": 0.15105982888654823,
+  "n_cases": 1190
+ },
  "constants_block": {
   "J2": 0.00108262668,
   "GM": 398600441800000.0,
@@ -142,81 +210,18 @@
    "gmst_model": "spec II.10: IAU 1982 sidereal time; nutation omitted (SCIENCE Sec G.11)"
   },
   "citation_id": "run_20260927_hindcast_2c5e775a"
+ },
+ "observed_violation_frequency": {
+  "surface_wind_speed": 0.0335195530726257,
+  "surface_wind_gust": 0.0446927374301676,
+  "wind_direction": 0.35195530726256985,
+  "visibility": 0.31843575418994413,
+  "precipitation_type_frozen": 0.0111731843575419,
+  "precipitation_rate": 0.3687150837988827,
+  "ceiling_proxy_low_cloud": 0.49162011173184356,
+  "temperature_hot": 0.0,
+  "lightning_proxy_cape": 0.0111731843575419,
+  "cloud_cover_thick_layer_proxy": 0.2737430167597765,
+  "ground_operations_wind": 0.0111731843575419
  }
-  "period": {
-    "start": "2026-05-01",
-    "end": "2026-08-31"
-  },
-  "verification_source": "era5",
-  "reference_forecast": "climatology_base_rate",
-  "base_rate": 0.231,
-  "skill_series": [
-    {
-      "lead_time_days": 1,
-      "bs": 0.118,
-      "bs_ref": 0.231,
-      "bss": 0.489,
-      "n_cases": 96
-    },
-    {
-      "lead_time_days": 5,
-      "bs": 0.201,
-      "bs_ref": 0.231,
-      "bss": 0.13,
-      "n_cases": 96
-    },
-    {
-      "lead_time_days": 9,
-      "bs": 0.246,
-      "bs_ref": 0.231,
-      "bss": -0.065,
-      "n_cases": 72
-    }
-  ],
-  "reliability_bins": [
-    {
-      "p_center": 0.15,
-      "observed_freq": 0.11,
-      "n": 31
-    },
-    {
-      "p_center": 0.45,
-      "observed_freq": 0.39,
-      "n": 28
-    },
-    {
-      "p_center": 0.75,
-      "observed_freq": 0.81,
-      "n": 22
-    }
-  ],
-  "roc_points": [
-    {
-      "threshold": 0.2,
-      "pod": 0.94,
-      "far": 0.51
-    },
-    {
-      "threshold": 0.5,
-      "pod": 0.78,
-      "far": 0.28
-    },
-    {
-      "threshold": 0.8,
-      "pod": 0.41,
-      "far": 0.11
-    }
-  ],
-  "skill_horizon_measured_days": 8.0,
-  "constants_block": {
-    "J2": 0.000108262668,
-    "GM": 398600441800000.0,
-    "R_e": 6378137.0,
-    "omega_sid_rad_s": 7.292115e-05,
-    "gmst_model": "IAU_1982",
-    "citation_id": "run_20261003_7f3a91c2",
-    "source": {
-      "J2": "spec II.10 constants table"
-    }
-  }
 }

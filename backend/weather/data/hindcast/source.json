@@ -1,0 +1,66 @@
+{
+  "site": "canso",
+  "forecast_source_id": "open_meteo_gfs_single_runs",
+  "description": "Archived individual runs of the NCEP GFS deterministic model, four per day, as served by the Open-Meteo single runs API",
+  "url": "https://single-runs-api.open-meteo.com/v1/forecast",
+  "model": "gfs_seamless",
+  "licence": "Open-Meteo free tier is for non-commercial use; data CC BY 4.0. Underlying data: NOAA NCEP, public domain.",
+  "accessed": "2026-10-04T01:09Z",
+  "coverage": {
+    "first_run": "2026-04-02T00:00",
+    "last_run": "2026-09-27T18:00",
+    "runs_expected": 716,
+    "runs_present": 712,
+    "runs_missing": [
+      "2026-06-10T18:00",
+      "2026-06-11T00:00",
+      "2026-06-11T06:00",
+      "2026-09-14T12:00"
+    ],
+    "archive_start_note": "Earliest run the archive returned when probed on 2026-10-04; runs of 2025 and earlier answer 'The requested model run is not available'."
+  },
+  "lead_days_kept": [
+    1,
+    10
+  ],
+  "hours_kept": "the evaluation window of each valid date, \"The frozen Seam 1 signature takes a date and no time, so the window interval I(d) of spec II.20 is these hours. Hourly values labelled 07:00 to 12:00 local, both included, are evaluated.\"",
+  "fields": [
+    "wind_speed_10m",
+    "wind_gusts_10m",
+    "wind_direction_10m",
+    "visibility",
+    "snowfall",
+    "precipitation",
+    "cloud_cover_low",
+    "temperature_2m",
+    "cape",
+    "cloud_cover_mid"
+  ],
+  "source_units": {
+    "wind_speed_10m": "km/h",
+    "wind_gusts_10m": "km/h",
+    "wind_direction_10m": "°",
+    "visibility": "m",
+    "snowfall": "cm",
+    "precipitation": "mm",
+    "cloud_cover_low": "%",
+    "temperature_2m": "°C",
+    "cape": "J/kg",
+    "cloud_cover_mid": "%"
+  },
+  "missing_values": {
+    "wind_speed_10m": 60,
+    "wind_gusts_10m": 300,
+    "wind_direction_10m": 59,
+    "visibility": 300,
+    "snowfall": 60,
+    "precipitation": 60,
+    "cloud_cover_low": 60,
+    "temperature_2m": 60,
+    "cape": 300,
+    "cloud_cover_mid": 0
+  },
+  "rows": 42720,
+  "csv_sha256": "29de151f172a5a4a562b810487fdc73818d8b35be1f8c9f09c3efe5176dc0283",
+  "file": "runs_canso.csv.gz"
+}

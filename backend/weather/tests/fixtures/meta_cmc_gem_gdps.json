@@ -1,0 +1,9 @@
+{
+ "chunk_time_length": 110,
+ "data_end_time": 1780628400,
+ "last_run_availability_time": 1779772299,
+ "last_run_initialisation_time": 1779753600,
+ "last_run_modification_time": 1779771836,
+ "temporal_resolution_seconds": 10800,
+ "update_interval_seconds": 43200
+}

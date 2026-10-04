@@ -1,0 +1,51 @@
+{
+  "max_forecast_lead_days": 5,
+  "flag": "SKETCHED",
+  "source": "Measured by the hindcast of issue #7 (HINDCAST.md, data/hindcast/result_canso.json): the Brier skill score against the climatological base rate is above zero at every lead from 1 to 5 days and at or below zero at lead 6. Issue #7 V6 prescribes that the boundary is set to the measured crossover. Set on 2026-10-04.",
+  "status_note": "The flag stays SKETCHED, not PROVED. The measurement covers one period of about six months, without a winter, and it verifies a four-run time-lagged ensemble of the GFS deterministic model, not the operational 82-member product, for which no open archive of past runs exists. The statement the result supports is the one in 'measured', for that period, that forecast source and those sample sizes. A test compares 'measured' and the boundary with the committed hindcast result, so the two cannot drift apart.",
+  "measured": {
+    "period": {
+      "start": "2026-04-02",
+      "end": "2026-09-27"
+    },
+    "forecast_source": "open_meteo_gfs_single_runs",
+    "members_per_issue_date": 4,
+    "verification_source": "era5",
+    "reference_forecast": "climatology_base_rate",
+    "criteria_version": "criteria_v1",
+    "last_lead_with_skill": {
+      "lead_time_days": 5,
+      "bss": 0.152,
+      "n_cases": 169
+    },
+    "first_lead_without_skill": {
+      "lead_time_days": 6,
+      "bss": -0.118,
+      "n_cases": 168
+    },
+    "result_file": "data/hindcast/result_canso.json"
+  },
+  "prior": {
+    "max_forecast_lead_days": 10,
+    "source": "spec II.7: horizon_label FORECAST for lead <= 10 days, CLIMATOLOGY beyond. A prior position taken from the predictability literature cited below, not a measurement at Canso. Spec II.9 lists the site-specific horizon as conjecture C2: it 'may land anywhere in the 5-14 day band'.",
+    "replaced_on": "2026-10-04"
+  },
+  "lead_definition": "lead_days = calendar days from the UTC date of forecast_issue_time to the requested date.",
+  "citations": [
+    {
+      "reference": "Lorenz, E. N. (1982). Atmospheric predictability experiments with a large numerical model. Tellus, 34, 505-513.",
+      "doi": "10.1111/j.2153-3490.1982.tb01839.x",
+      "resolved": "Crossref, by title, 2026-10-03"
+    },
+    {
+      "reference": "Froude, L. S. R., Bengtsson, L., Hodges, K. I. (2013). Atmospheric predictability revisited. Tellus A: Dynamic Meteorology and Oceanography, 65, 19022.",
+      "doi": "10.3402/tellusa.v65i0.19022",
+      "resolved": "Crossref, by DOI given in the spec, 2026-10-03"
+    },
+    {
+      "reference": "Buizza, R., Leutbecher, M. (2015). The forecast skill horizon. Quarterly Journal of the Royal Meteorological Society, 141, 3366-3382.",
+      "doi": "10.1002/qj.2619",
+      "resolved": "Crossref, by title, 2026-10-03"
+    }
+  ]
+}

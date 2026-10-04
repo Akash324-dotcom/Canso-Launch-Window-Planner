@@ -1,0 +1,43 @@
+{
+  "_comment": "Site configuration used by the weather layer only. The orbit engine keeps its own site file (backend/engine/data/site_canso.json). Nothing here is hard-coded in source (spec II.10).",
+  "canso": {
+    "name": "Spaceport Nova Scotia, Canso",
+    "latitude_deg": 45.310389,
+    "longitude_deg": -60.993292,
+    "coordinates_source": "Canso Spaceport Facility Environmental Assessment Registration Document (Strum Consulting for Maritime Launch Services, June 2018), section 5.1: 'The Project site (centered at 45 deg 18' 37.40\" N, 060 deg 59' 35.85\" W)'. Read 2026-10-03. The spec default of 45.3 N, 61.0 W selects the same 0.25 degree weather grid cell.",
+    "timezone": "America/Halifax",
+    "evaluation_window_local": {
+      "start_hour": 7,
+      "end_hour": 12,
+      "source": "Canso Spaceport Facility Environmental Assessment Registration Document (Strum Consulting for Maritime Launch Services, June 2018), section 2.3. The spec repeats it as the nominal operating hours (spec IV.5).",
+      "source_quote": "The majority of launches will be conducted between the hours of 7:00 a.m. and 12:00 p.m.",
+      "source_url": "https://www.novascotia.ca/nse/EA/canso-spaceport-facility/Registration_document.pdf",
+      "source_accessed": "2026-10-03",
+      "use": "The frozen Seam 1 signature takes a date and no time, so the window interval I(d) of spec II.20 is these hours. Hourly values labelled 07:00 to 12:00 local, both included, are evaluated."
+    },
+    "coordinates_url": "https://www.novascotia.ca/nse/EA/canso-spaceport-facility/Registration_document.pdf",
+    "populated_places": {
+      "source": "Natural Resources Canada, Canadian Geographical Names Database, geogratis.gc.ca/services/geoname, read 2026-10-03. The three places are the communities the environmental assessment names: 'near the communities of Little Dover, Hazel Hill, and Canso'.",
+      "places": [
+        {
+          "name": "Canso",
+          "cgndb_id": "CAGBW",
+          "latitude_deg": 45.337408,
+          "longitude_deg": -60.99621
+        },
+        {
+          "name": "Hazel Hill",
+          "cgndb_id": "CBRNM",
+          "latitude_deg": 45.32456,
+          "longitude_deg": -61.030876
+        },
+        {
+          "name": "Little Dover",
+          "cgndb_id": "CAUDF",
+          "latitude_deg": 45.286451,
+          "longitude_deg": -61.046551
+        }
+      ]
+    }
+  }
+}
