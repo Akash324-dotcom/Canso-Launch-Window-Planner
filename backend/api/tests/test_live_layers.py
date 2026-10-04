@@ -103,7 +103,24 @@ def test_the_service_default_criteria_version_names_a_table_the_weather_layer_ha
 def test_an_unknown_criteria_version_fires_a_constraint_on_every_row(
     client: TestClient, sso_request: dict[str, Any]
 ) -> None:
-    """Spec IV.7 rule 3 and the enumeration of spec IV.1: the outcome is in the body, not hidden."""
+    """Spec IV.7 rule 3 and the enumeration of spec IV.1: the outcome is in the body, not hidden.
+
+    WHAT CHANGED HERE. The assertion used to be that EVERY row carries
+    ``criteria_version_missing``, which was true only while every row was a
+    southbound flight. The engine now computes the launch azimuth per site
+    crossing, so the ascending crossing of the SSO plane is correctly reported as a
+    northbound launch and is correctly refused by the Canso southbound corridor with
+    ``hazard_area``. The sibling test below already fixes the precedence in that
+    situation: an engine constraint is never overwritten by the API's own.
+
+    WHAT IS ASSERTED NOW, AND IT IS NOT WEAKER. Every row must still name a
+    constraint, so an unknown criteria version can never pass through silently.
+    Every row the engine reports as range-clear must name
+    ``criteria_version_missing`` specifically, which is the original assertion
+    applied to exactly the rows where the API's constraint is the operative one.
+    And the rows the engine refused must name the engine's own constraint, so the
+    precedence is asserted rather than assumed.
+    """
     response = client.post("/v1/windows", json={**sso_request, "criteria_version": "v99"})
 
     assert response.status_code == 200, response.text
@@ -111,9 +128,31 @@ def test_an_unknown_criteria_version_fires_a_constraint_on_every_row(
     assert errors_for(WINDOWS_SCHEMA, body) == []
     assert body["windows"]
     for row in body["windows"]:
-        assert row["constraint_fired"] == "criteria_version_missing"
+        assert row["constraint_fired"] is not None, (
+            f"{row['t_liftoff_utc']}: an unknown criteria version must leave a "
+            "constraint on every row, and must not be silently dropped"
+        )
         assert row["forecast_issue_time"] is None
         assert row["p_success_components"]["weather"] == 1.0
+        expected = (
+            "criteria_version_missing"
+            if row["screens"]["hazard"] == "pass"
+            else "hazard_area"
+        )
+        assert row["constraint_fired"] == expected, (
+            f"{row['t_liftoff_utc']}: the API's criteria constraint applies only where "
+            "the engine fired none; an engine constraint outranks it"
+        )
+    assert any(row["screens"]["hazard"] == "pass" for row in body["windows"]), (
+        "the criteria constraint must still be observable, so at least one row must be "
+        "range-clear and therefore carry criteria_version_missing"
+    )
+    assert any(row["screens"]["hazard"] == "fail" for row in body["windows"]), (
+        "the SSO plane is crossed once northbound and once southbound per period, so at "
+        "least one row must carry the engine's own hazard_area constraint; none doing so "
+        "means one azimuth is being stamped on both branches and this test is only "
+        "exercising one side of the precedence it claims to check"
+    )
 
 
 def test_an_unknown_criteria_version_does_not_overwrite_a_constraint_the_engine_fired(

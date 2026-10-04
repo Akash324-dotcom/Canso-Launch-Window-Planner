@@ -176,6 +176,29 @@ def _search_target(
     }
 
 
+def _branch_azimuth_deg(azimuth: float | None, branch: str) -> float | None:
+    """The azimuth actually flown on this site's crossing, not just the request's.
+
+    (II.2) solves for the SOUTHBOUND branch, ``beta = 180 - asin(cos(i)/cos(phi_s))``,
+    and that is the branch the Canso environmental assessment admits. The ascending
+    site crossing of the same plane is reached flying the prograde partner azimuth
+    ``180 - beta``, which is a different trajectory over different ground: it is
+    180 deg of heading away from the other branch and its ground footprint does not
+    coincide. Reporting the southbound number on a northbound row states a launch
+    direction the vehicle never flies, and it also hands the hazard screen a
+    southbound azimuth for a northbound launch, so the row reads as clear.
+
+    The partner is a function of the inclination, not a constant offset from it.
+    From Canso at i = 97.4 deg the southbound azimuth is 190.55 deg and the partner
+    is 349.45 deg; at i = 98.1 deg they are 191.56 deg and 348.44 deg. Both are
+    derived from the same inclination that produced the southbound value, so the
+    two branches can never drift out of the ``beta + partner = 540 deg`` relation.
+    """
+    if azimuth is None or branch != "ascending":
+        return azimuth
+    return reachability.northbound_partner_deg(azimuth)
+
+
 def _row(
     resolved: target_module.Target,
     profile: dict[str, Any],
@@ -202,9 +225,20 @@ def _row(
         solve_target, entry.open_jd, entry.close_jd
     )
 
-    compass = frames.azimuth_correction_deg(azimuth, resolved.lat_deg) if azimuth else 0.0
+    # The plane is NOT branch-dependent and must not be made so: (II.9)'s ascending
+    # and descending site crossings are two passes through ONE plane, so screen_target
+    # keeps the request's plane and the conjunction screen compares every row against
+    # the same plane. Folding the branch into the screen target would be the branch
+    # trap _search_target already documents, applied one layer up.
+    row_azimuth = _branch_azimuth_deg(azimuth, branch)
+
+    compass = (
+        frames.azimuth_correction_deg(row_azimuth, resolved.lat_deg)
+        if row_azimuth
+        else 0.0
+    )
     verdict = screens.evaluate(
-        azimuth if azimuth is not None else 0.0,
+        row_azimuth if row_azimuth is not None else 0.0,
         resolved.corridor,
         profile,
         screen_target,
@@ -215,8 +249,10 @@ def _row(
         "t_liftoff_utc": frames.iso_from_julian_date(solution.liftoff_jd),
         "t_injection_utc": frames.iso_from_julian_date(solution.injection_jd),
         "raan_deg": round(entry.raan_deg, 9),
-        "azimuth_deg": round(azimuth, 9) if azimuth is not None else 0.0,
-        "azimuth_compass_deg": round(azimuth + compass, 9) if azimuth is not None else 0.0,
+        "azimuth_deg": round(row_azimuth, 9) if row_azimuth is not None else 0.0,
+        "azimuth_compass_deg": (
+            round(row_azimuth + compass, 9) if row_azimuth is not None else 0.0
+        ),
         "reached_inclination_deg": resolved.i_t_deg,
         "window_width_s": entry.width_s,
         "window_center_shift_s": solution.window_center_shift_s,

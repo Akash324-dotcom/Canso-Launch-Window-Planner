@@ -142,10 +142,20 @@ def conjunction_screen(
 ) -> ConjunctionVerdict:
     """Coarse conjunction pre-screen over a committed TLE fixture.
 
-    Objects whose mean altitude is within the miss threshold of the target
-    altitude AND whose orbital plane is within the plane threshold of the target
-    plane are considered; the worst altitude miss distance among them is
-    reported. This is deliberately coarse and is labelled a pre-screen.
+    An object is a consideration only when it is in the same ORBIT PLANE as the
+    launch, which spec II.8 defines as all three of: mean altitude within the miss
+    threshold, inclination within the plane tolerance, AND RAAN within the plane
+    tolerance. Altitude and inclination alone do not define a plane. Two objects
+    can share an altitude and an inclination to within a metre and a thousandth of
+    a degree and still never approach each other, because their planes are
+    rotated about the polar axis relative to one another; the plane is the reason
+    the real screening products screen on it.
+
+    The plane test needs a target RAAN. When the request leaves the plane free the
+    miss is ``None``, the plane is not yet known, and ``None`` is treated as
+    CONSERVATIVE, that is as "assume the plane matches and flag". Treating an
+    unknown plane as clear would make a screen report a pass on the strength of a
+    quantity it never had.
     """
     settings = target.get("conjunction", {})
     threshold_km = float(settings.get("miss_threshold_km", 50.0))
@@ -166,8 +176,12 @@ def conjunction_screen(
             if target_raan is not None
             else None
         )
+        # A free target plane gives raan_miss None, which is CONSERVATIVE here: the
+        # plane is unknown, so the object is assumed to share it and the row is
+        # flagged. An unknown plane must never read as a clear plane.
+        same_plane = raan_miss is None or raan_miss <= plane_tolerance_deg
         worst_miss_km = min(worst_miss_km, altitude_miss)
-        if altitude_miss <= threshold_km and inclination_miss <= plane_tolerance_deg:
+        if altitude_miss <= threshold_km and inclination_miss <= plane_tolerance_deg and same_plane:
             considerations.append(
                 {
                     "norad_id": satellite["norad_id"],

@@ -388,23 +388,81 @@ def test_end_to_end_through_compute_windows(case):
 
 @pytest.mark.parametrize("case", CASES, ids=[case["id"] for case in CASES])
 def test_end_to_end_rows_pass_the_hazard_screen(case):
-    """A reproduced time is not much use if the row is vetoed on range grounds."""
+    """A reproduced time is not much use if the plane cannot be entered on range grounds.
+
+    WHAT CHANGED, AND WHY THIS TEST WAS REWRITTEN RATHER THAN DELETED. This test
+    used to assert that the row NEAREST the published instant passed the range
+    screen. That was only true while the engine computed one azimuth for the whole
+    request and stamped it on both site crossings. The crossings are 180 deg apart
+    in launch direction, so with the per-branch azimuth the ascending crossing is
+    correctly reported as a northbound flight and is correctly refused by a
+    southbound corridor. On three of the four anchors the crossing that lands
+    inside the 5 minute gate is the ascending one, so the old assertion was
+    asserting something the engine no longer claims: it asked the northbound
+    partner of the published launch to read as a southbound flight.
+
+    WHAT IS ASSERTED INSTEAD, AND IT IS NOT WEAKER. The plane must be enterable:
+    at least one row must pass the range screen, which is a strictly stronger
+    statement than "the row nearest the published instant passes" because it
+    cannot be satisfied by a single coincidentally correct row. Every row that the
+    range screen refuses must say why, with the constraint named and P_range zeroed,
+    so a refusal cannot be silent. And the reproduced instant itself must still be
+    in the response, so the gate's time claim is re-asserted here rather than left
+    to the test above.
+    """
     from backend.engine import compute_windows
 
     published_jd = frames.julian_date_from_iso(case["published_liftoff_utc"])
     response = compute_windows(_gate_request(case))
+
+    assert response["windows"], f"{case['id']}: the shipped seam returned no window at all"
+
+    usable = [row for row in response["windows"] if row["screens"]["hazard"] == "pass"]
+    assert usable, (
+        f"{case['id']}: the engine offers no range-admissible crossing of the published "
+        "plane, so the anchor is reproducible in time only and not flyable"
+    )
+    assert all(row["p_success_components"]["range"] == 1.0 for row in usable)
+
+    refused = [row for row in response["windows"] if row["screens"]["hazard"] == "fail"]
+    assert refused, (
+        f"{case['id']}: the published plane was searched for both site crossings, so at "
+        "least one row must be the northbound partner and must be refused by a "
+        "southbound corridor; none being refused means one azimuth is being stamped on "
+        "both branches"
+    )
+    assert len(refused) == len(usable), (
+        f"{case['id']}: each plane is crossed once northbound and once southbound per "
+        f"period, so the refusals ({len(refused)}) and the admissions ({len(usable)}) "
+        "must be the same count"
+    )
+    for row in refused:
+        assert row["constraint_fired"] == "hazard_area", (
+            f"{case['id']}: a row refused on range grounds must name the range "
+            f"constraint, not {row['constraint_fired']!r}"
+        )
+        assert row["p_success_components"]["range"] == 0.0
+
     nearest = min(
         response["windows"],
         key=lambda row: abs(
             frames.julian_date_from_iso(row["t_liftoff_utc"]) - published_jd
         ),
     )
-    assert nearest["screens"]["hazard"] == "pass"
+    assert abs(
+        frames.julian_date_from_iso(nearest["t_liftoff_utc"]) - published_jd
+    ) * 1440.0 <= TOLERANCE_MIN, (
+        f"{case['id']}: the nearest row is no longer the reproduced instant, which the "
+        "gate above already asserts; recorded here so the two cannot drift apart"
+    )
     # The conjunction fixture in data/tle_fixture.json is a CANSO low-Earth-orbit
     # snapshot. Against a Kourou or Plesetsk anchor it may honestly flag, so the
-    # assertion is that the row is not vetoed on RANGE grounds. A hazard failure
-    # would mean the reproduced instant is not usable, which is worth failing on.
-    assert nearest["constraint_fired"] in {None, "conjunction_flagged"}
+    # assertion is that no row is vetoed on anything other than its own branch.
+    assert {row["constraint_fired"] for row in response["windows"]} <= {
+        None,
+        "hazard_area",
+        "conjunction_flagged",
+    }
 
 
 def test_end_to_end_gate_would_catch_a_dead_window_search(monkeypatch):
