@@ -46,15 +46,17 @@ fixtures and fixed the integration failures (see findings 8 and 9); that work is
 - Hindcast result: Brier skill score against the climatological base rate 0.456, 0.373, 0.223, 0.223, 0.152 at
   leads 1 to 5 (169 to 173 cases each), negative at leads 6 to 10; 0.151 pooled over leads 1 to 7 (1,190 cases).
   Verified forecasts are four GFS deterministic runs per issue date, not the operational ensembles.
-- `pytest backend/weather -q`: 240 passed, 1 skipped. `pytest tests/contract -q`: 77 passed. Whole repository on
-  the merged tree after the integration fixes: 949 passed, 4 skipped, none failed. Frontend: 57 passed.
+- `pytest backend/weather -q`: 250 passed, 1 skipped. `pytest tests/contract -q`: 77 passed. Whole repository on
+  the merged tree after the integration fixes: 959 passed, 4 skipped, none failed. Frontend: 57 passed.
 - `criteria_version` is accepted as `criteria_v1` or as `v1`; the response carries `criteria_v1`.
 
 ### What is not done
 
 - Gate G2: the contract's wording (Brier skill above zero against climatology, reliability diagram produced) is
   met. Of the three pass criteria of spec III.4, criterion 2 is not: the mean calibration gap is 0.157 against a
-  bound of 0.15. It is reported as a miss in `HINDCAST.md`. Whether the gate is passed is INTEGRATION's call.
+  bound of 0.15. It is reported as a miss in `HINDCAST.md`. After the review of the gate on issue #7 the miss is
+  declared the finding (section 7 of that file): the sample cannot be widened, and the miss of 0.007 is smaller
+  than the sampling uncertainty of the gap (0.115 to 0.204). No threshold was touched.
 - The operational 82-member probability is not verified: no open archive keeps past ensemble runs.
 - The hindcast covers six months, not the twelve the spec asks for: the forecast archive starts on 2 April 2026.
 - Upper-level wind rows: no numeric limit is published anywhere, and an assumed one was ruled out.
