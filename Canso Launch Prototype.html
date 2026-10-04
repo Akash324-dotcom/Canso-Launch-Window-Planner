@@ -852,8 +852,7 @@ function renderRec(){
    <div class="mono hint" style="font-size:12px">${utcDay(w.t)} ${utcHMS(w.t)} · window ${utcHMS(w.open)}–${utcHMS(w.close)}</div>
    <div class="wxline">${wxChip(w.wx.s)}<span class="why">${conf(w.t,now)} confidence${R.backup?' · backup next day':''}</span></div>
    ${R.alts.map((a,k)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;border-top:1px solid var(--line);padding-top:8px"><span>Alt ${k+1} · ${fDay.format(a.t)} ${fHM.format(a.t)} ${zone(a.t)}</span>${wxChip(a.wx.s)}</div>`).join('')}
-   ${why?`<details open><summary style="cursor:pointer;font:500 13px var(--f-body);color:var(--accent)">Why not the others</summary><ul style="margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:3px">${why}</ul></details>`:''}
-   <div class="hint">Not assessed: upper-wind loads, vehicle-specific limits, cloud ceiling &amp; visibility, range &amp; vessel status, space weather.</div>`;
+  `;
 }
 function renderEvidence(){
   const actual=Date.UTC(2019,5,12,14,17,10), wo=Date.UTC(2019,5,12,14,17), wc=Date.UTC(2019,5,12,14,30);
