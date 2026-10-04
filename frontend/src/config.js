@@ -122,6 +122,13 @@ export const CORRIDOR_FALLBACK_ARC_KM = 1200;
 
 export const CORRIDOR_BEARING_TOLERANCE_DEG = 0;
 
+// How far from the site the ephemeris sample at the liftoff instant may be and still count as
+// "on the pad". The site coordinate variants of GET /v1/site differ by about 1.5 km, so the
+// bound has to be wider than that. The value is a choice of this page, not vehicle or range data.
+export const TRACK_START_TOLERANCE_KM = 5;
+
+export const TRACK_START_TOLERANCE_FLAG = 'ASSUMPTION';
+
 export const DATA_BASE = './src/data/';
 
 export const CENTRES_FILE = 'centres.json';

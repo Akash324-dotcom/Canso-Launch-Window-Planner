@@ -191,6 +191,9 @@ export function createApp(options = {}) {
     }
     const keepLive = previous.engineResponseOrigin === 'api' && previous.engineResponse !== null;
     const engineResponse = keepLive ? previous.engineResponse : (loaded.windows ?? null);
+    const citation = keepLive
+      ? {}
+      : { citationResponse: null, citationOrigin: null, citationError: null };
     store.setState({
       mode: MODE_OFFLINE,
       status: engineResponse === null ? 'error' : 'degraded',
@@ -198,7 +201,45 @@ export function createApp(options = {}) {
       engineResponseOrigin: keepLive ? 'api_stale' : engineResponse === null ? null : 'fixture',
       error: describeError(error),
       fixtureFailures: failures,
+      ...citation,
     });
+  }
+
+  /**
+   * GET /v1/citation for the run a live POST /v1/windows just named. The record holds the
+   * constants with their sources and the config hash of the run, which the window response
+   * does not carry. There is no offline fixture for it: a failure is stated on the analysis
+   * screen and nothing is substituted, and it does not switch the page to offline mode,
+   * because every number already on the page still came from the live response.
+   */
+  async function readCitation(response, sequence) {
+    const id = runIdOf(response);
+    if (id === null) {
+      return;
+    }
+    try {
+      const citation = await client.getCitation(id);
+      if (stopped || sequence !== requestSequence) {
+        return;
+      }
+      const usable =
+        citation !== null &&
+        typeof citation === 'object' &&
+        citation.citation_id === id &&
+        typeof citation.config_hash === 'string' &&
+        citation.constants !== null &&
+        typeof citation.constants === 'object';
+      if (!usable) {
+        // An answer that is not the record of this run is not shown as if it were.
+        throw new Error('the answer is not the stored record of this run');
+      }
+      store.setState({ citationResponse: citation, citationOrigin: 'api', citationError: null });
+    } catch (error) {
+      if (stopped || sequence !== requestSequence) {
+        return;
+      }
+      store.setState({ citationResponse: null, citationOrigin: null, citationError: describeError(error) });
+    }
   }
 
   async function dispatch() {
@@ -231,7 +272,11 @@ export function createApp(options = {}) {
         error: null,
         fixtureFailures: [],
         fetchedAt: now(),
+        citationResponse: null,
+        citationOrigin: null,
+        citationError: null,
       });
+      await readCitation(response, sequence);
     } catch (error) {
       if (stopped || sequence !== requestSequence) {
         return;
@@ -289,6 +334,23 @@ export function createApp(options = {}) {
     }
   }
 
+  /**
+   * GET /v1/validation/skill needs a verification period: the service answers 422 without
+   * one. The period asked for is the one the recorded hindcast covers, read from the skill
+   * fixture, which WEATHER generates from the same data the live layer verifies against. So
+   * no date is typed into this page, and the live answer and the offline record describe the
+   * same period.
+   */
+  async function readSkill() {
+    const recorded = await loadFixture('skill');
+    const period = recorded === null || recorded === undefined ? null : recorded.period;
+    if (period === null || period === undefined || !period.start || !period.end) {
+      throw new Error(`the ${FIXTURES.skill} fixture declares no verification period to ask for`);
+    }
+    store.setState({ skillRequest: { period_start: period.start, period_end: period.end } });
+    return client.getValidationSkill({ periodStart: period.start, periodEnd: period.end });
+  }
+
   async function selectRow(index) {
     if (stopped) {
       return;
@@ -310,7 +372,7 @@ export function createApp(options = {}) {
         () => client.getWeatherProbability({ date: row.t_liftoff_utc.slice(0, 10), site: siteId }),
         sequence,
       ),
-      readResource('skill', () => client.getValidationSkill(), sequence),
+      readResource('skill', () => readSkill(), sequence),
       readResource(
         'centres',
         async () => {

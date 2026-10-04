@@ -60,8 +60,11 @@ export function buildWindowsRequest(inputs) {
     const ltan = inputs.ltan_hours === null || inputs.ltan_hours === undefined
       ? ''
       : String(inputs.ltan_hours).trim();
-    if (ltan !== '' && !/^\d{1,2}:\d{2}$/.test(ltan)) {
-      messages.push('ltan_hours must look like 10:30');
+    // A local time of day. The service accepted 25:99 during the browser walk, so the bounds are
+    // checked here: the page must not post a time that does not exist.
+    const clock = /^(\d{1,2}):(\d{2})$/.exec(ltan);
+    if (ltan !== '' && (clock === null || Number(clock[1]) > 23 || Number(clock[2]) > 59)) {
+      messages.push('ltan_hours must be a local time from 00:00 to 23:59, written like 10:30');
     }
     target.ltan_hours = ltan === '' ? null : ltan;
   } else {

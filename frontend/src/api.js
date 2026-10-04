@@ -91,6 +91,9 @@ export function createApiClient(options = {}) {
     getWeatherProbability({ date = null, site = null } = {}, perCall = {}) {
       return getWithQuery('/weather/probability', { date, site }, perCall);
     },
+    getCitation(id, perCall = {}) {
+      return getWithQuery('/citation', { id }, perCall);
+    },
     getValidationSkill({ periodStart = null, periodEnd = null, leadMax = null } = {}, perCall = {}) {
       return getWithQuery(
         '/validation/skill',

@@ -91,6 +91,17 @@ export function installContractApi(handler) {
   });
 }
 
+/**
+ * The calls of a fetch mock that are POST /v1/windows. Since the page also reads
+ * GET /v1/citation for each live run, a test about the window request counts and parses
+ * these calls, not every call.
+ */
+export function windowsPosts(fetchMock) {
+  return fetchMock.mock.calls.filter(
+    ([url, init]) => String(url) === `${API_BASE}/windows` && init !== undefined && init.method === 'POST',
+  );
+}
+
 export function mountIndexMarkup() {
   const html = readFileSync(INDEX_URL, 'utf8');
   const body = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);

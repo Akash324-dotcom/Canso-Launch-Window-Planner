@@ -1,4 +1,4 @@
-import { CORRIDOR_ARC_SAMPLES, EARTH_RADIUS_M } from './config.js';
+import { CORRIDOR_ARC_SAMPLES, EARTH_RADIUS_M, TRACK_START_TOLERANCE_KM } from './config.js';
 
 export const DEG = Math.PI / 180;
 
@@ -255,28 +255,61 @@ export function withinCorridor(bearingDeg, bounds, toleranceDeg = 0) {
 
 /**
  * The UI level guard for the northbound bug of the inherited prototype: every ground track
- * point must lie inside the azimuth wedge of the site corridor, so a track running north
- * over Quebec is refused and surfaced rather than drawn as a corridor track.
+ * sample of the ascent must lie inside the azimuth wedge of the site corridor, so a track
+ * running north over Quebec is refused and surfaced rather than drawn as a corridor track.
+ *
+ * Three rules, each from a defect met against a running API:
+ *
+ * - With `ascent` (the liftoff and injection instants of the selected row) only the samples
+ *   of that interval are checked. The corridor is a launch corridor; an orbit that goes on
+ *   round the Earth after injection cannot stay inside an azimuth wedge from the site.
+ * - A sample within `startToleranceKm` of the site is on the pad and is inside. The bearing
+ *   from a point to itself is undefined, and the pad is where every ascent begins.
+ * - The sample at the liftoff instant must be on the pad. A track that is somewhere else at
+ *   liftoff is not an ascent from the site, whatever its bearing from the site happens to be.
+ *   `starts_at_site` is null when the track has no sample at the liftoff instant.
  */
 export function corridorCheck(siteResponse, trackPoints, options = {}) {
-  const { toleranceDeg = 0 } = options;
+  const { toleranceDeg = 0, ascent = null, startToleranceKm = TRACK_START_TOLERANCE_KM } = options;
   const site = siteOf(siteResponse);
   const bounds = corridorBounds(siteResponse);
-  if (site === null || !Array.isArray(trackPoints) || trackPoints.length === 0) {
-    return { available: false, inside: null, bounds, samples: [], violations: [] };
+  const all = Array.isArray(trackPoints) ? trackPoints : [];
+  const startMs = ascent === null ? null : Date.parse(ascent.start);
+  const endMs = ascent === null ? null : Date.parse(ascent.end);
+  const checked =
+    ascent === null
+      ? all
+      : all.filter((point) => {
+          const at = Date.parse(point.t_utc);
+          return Number.isFinite(at) && at >= startMs && at <= endMs;
+        });
+  const outside = all.length - checked.length;
+  if (site === null || checked.length === 0) {
+    return {
+      available: false,
+      inside: null,
+      bounds,
+      samples: [],
+      violations: [],
+      samples_outside_ascent: outside,
+      starts_at_site: null,
+      start_distance_km: null,
+    };
   }
   const samples = [];
   const violations = [];
-  for (const point of trackPoints) {
+  for (const point of checked) {
     const distanceKm = greatCircleDistanceKm(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg);
     const bearingDeg = initialBearingDeg(site.lat_deg, site.lon_deg, point.lat_deg, point.lon_deg);
-    const inside = distanceKm > 0 && withinCorridor(bearingDeg, bounds, toleranceDeg);
+    const onPad = distanceKm <= startToleranceKm;
+    const inside = onPad || withinCorridor(bearingDeg, bounds, toleranceDeg);
     const sample = {
       t_utc: point.t_utc ?? null,
       lat_deg: point.lat_deg,
       lon_deg: point.lon_deg,
       bearing_deg: bearingDeg,
       distance_km: distanceKm,
+      on_pad: onPad,
       inside,
     };
     samples.push(sample);
@@ -284,15 +317,23 @@ export function corridorCheck(siteResponse, trackPoints, options = {}) {
       violations.push(sample);
     }
   }
-  const bearings = samples.map((sample) => sample.bearing_deg);
+  const atLiftoff =
+    ascent === null ? null : (samples.find((sample) => Date.parse(sample.t_utc) === startMs) ?? null);
+  const startsAtSite = atLiftoff === null ? null : atLiftoff.on_pad;
+  const bearings = samples.filter((sample) => !sample.on_pad).map((sample) => sample.bearing_deg);
   return {
     available: true,
-    inside: violations.length === 0,
+    inside: violations.length === 0 && startsAtSite !== false,
     bounds,
     samples,
     violations,
-    bearing_min_deg: Math.min(...bearings),
-    bearing_max_deg: Math.max(...bearings),
+    samples_outside_ascent: outside,
+    starts_at_site: startsAtSite,
+    start_distance_km: atLiftoff === null ? null : atLiftoff.distance_km,
+    start_t_utc: atLiftoff === null ? null : atLiftoff.t_utc,
+    start_tolerance_km: startToleranceKm,
+    bearing_min_deg: bearings.length === 0 ? null : Math.min(...bearings),
+    bearing_max_deg: bearings.length === 0 ? null : Math.max(...bearings),
     distance_max_km: Math.max(...samples.map((sample) => sample.distance_km)),
   };
 }

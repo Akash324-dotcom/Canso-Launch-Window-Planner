@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ORBIT_PRESETS } from '../src/config.js';
-import { boot, flush, installWindowsApi, jsonResponse, loadExample, textOf, withRowFlags } from './helpers.js';
+import {
+  boot,
+  flush,
+  installWindowsApi,
+  jsonResponse,
+  loadExample,
+  textOf,
+  windowsPosts,
+  withRowFlags,
+} from './helpers.js';
 
 const STUB = 'windows_response_good_stub.json';
 
@@ -17,7 +26,7 @@ async function startWith(payload = loadExample(STUB)) {
 }
 
 function lastRequestBody(fetchMock) {
-  return JSON.parse(fetchMock.mock.calls.at(-1)[1].body);
+  return JSON.parse(windowsPosts(fetchMock).at(-1)[1].body);
 }
 
 function change(id) {
@@ -90,13 +99,13 @@ describe('F2 screen 1 inputs', () => {
 
   it('refuses to post an incomplete CUSTOM target and shows the reason', async () => {
     const { app, fetchMock } = await startWith();
-    const callsBefore = fetchMock.mock.calls.length;
+    const callsBefore = windowsPosts(fetchMock).length;
 
     document.getElementById('target-type').value = 'CUSTOM';
     change('target-type');
     await flush();
 
-    expect(fetchMock.mock.calls).toHaveLength(callsBefore);
+    expect(windowsPosts(fetchMock)).toHaveLength(callsBefore);
     expect(textOf('#input-error')).toContain('h_t');
     expect(document.getElementById('input-error').hidden).toBe(false);
 

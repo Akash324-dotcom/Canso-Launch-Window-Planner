@@ -8,6 +8,7 @@ export const PASSED_MESSAGE = 'Liftoff time passed';
 
 export function createCountdown({ host, store, intervalMs = COUNTDOWN_INTERVAL_MS, now = () => Date.now() }) {
   let timer = null;
+  let started = false;
   let targetRow = null;
   let reason = null;
   let passed = false;
@@ -108,6 +109,7 @@ export function createCountdown({ host, store, intervalMs = COUNTDOWN_INTERVAL_M
   }
 
   function start() {
+    started = true;
     if (timer !== null) {
       return;
     }
@@ -127,6 +129,10 @@ export function createCountdown({ host, store, intervalMs = COUNTDOWN_INTERVAL_M
     render(state);
     if (passed) {
       stop();
+    } else if (started && timer === null && targetRow !== null) {
+      // The interval was stopped when an earlier liftoff passed. A new target has arrived
+      // since, so the clock has to run again or the readout stays frozen on its first value.
+      timer = setInterval(tick, intervalMs);
     }
   });
 
@@ -149,6 +155,7 @@ export function createCountdown({ host, store, intervalMs = COUNTDOWN_INTERVAL_M
     tick,
     render,
     destroy() {
+      started = false;
       stop();
       unsubscribe();
     },

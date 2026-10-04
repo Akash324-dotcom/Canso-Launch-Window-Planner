@@ -1,4 +1,4 @@
-import { FIXTURES } from '../config.js';
+import { FIXTURES, T_TO_INJ_FLAG_PATTERN } from '../config.js';
 import { el, replaceChildren } from '../dom.js';
 import { downloadText, jsonDescriptor, reliabilityCsv, renderedTableCsv, skillSeriesCsv } from '../export.js';
 import { constantsOf, rowFlags, siteNameOf } from '../selectors.js';
@@ -187,11 +187,18 @@ export function createAnalysisScreen({ root, store, table = () => document.query
     }
     const provenance = response.provenance_block ?? {};
     const skill = state.skillResponse;
+    // The constants of a live run are read from GET /v1/citation, the record the service
+    // stored for the run, which also holds the config hash. When that record is not available
+    // the constants_block echoed by POST /v1/windows is shown and the line below says so.
+    const citation = state.citationOrigin === 'api' ? state.citationResponse : null;
+    const values = citation === null ? constants : { ...(citation.constants ?? {}), citation_id: citation.citation_id };
+    const sources = citation === null ? (constants.source ?? {}) : (citation.constants_sources ?? {});
+    provenanceHost.setAttribute('data-constants-origin', citation === null ? 'windows_response' : 'citation');
     const entries = CONSTANT_ROWS.map(([key, description]) => [
       `${key}, ${description}`,
-      constants[key] === undefined ? 'absent from this response' : String(constants[key]),
+      values[key] === undefined ? 'absent from this response' : String(values[key]),
     ]).concat(
-      Object.entries(constants.source ?? {}).map(([key, value]) => [`source of ${key}`, String(value)]),
+      Object.entries(sources).map(([key, value]) => [`source of ${key}`, String(value)]),
       [
         ['site', JSON.stringify(provenance.site ?? {})],
         ['corridor', JSON.stringify(provenance.corridor ?? {})],
@@ -220,15 +227,54 @@ export function createAnalysisScreen({ root, store, table = () => document.query
       `Criteria version ${provenance.criteria_version}, vehicle profile ${provenance.vehicle_profile_id}. ` +
       'The criteria version is WEATHER data at backend/weather/data/criteria_v1.json and is echoed here so that a ' +
       'probability is always read together with the criteria that produced it.';
-    configHashLine.textContent =
-      `Config hash, that is constants_block.citation_id ${constants.citation_id}, gmst model ${constants.gmst_model}. ` +
-      'GET /v1/citation is the endpoint that resolves this identifier to the constants of the run.';
+    const runLine = `Run identifier constants_block.citation_id ${constants.citation_id}, gmst model ${constants.gmst_model}.`;
+    if (citation !== null) {
+      configHashLine.textContent =
+        `${runLine} Config hash ${citation.config_hash}, read from GET /v1/citation?id=${citation.citation_id}; ` +
+        'the constants and their sources below are those of that record.';
+    } else if (state.engineResponseOrigin === 'fixture') {
+      configHashLine.textContent =
+        `${runLine} This run is the offline fixture ${FIXTURES.windows}. GET /v1/citation is not asked in offline ` +
+        'mode: no running service stored this run, so no config hash is shown and the constants below are the ' +
+        'constants_block of the fixture.';
+    } else if (state.citationError !== null && state.citationError !== undefined) {
+      configHashLine.textContent =
+        `${runLine} GET /v1/citation did not answer for this run (${state.citationError}), so no config hash is shown ` +
+        'and the constants below are the constants_block echoed by POST /v1/windows.';
+    } else {
+      configHashLine.textContent =
+        `${runLine} GET /v1/citation has not answered for this run yet; the constants below are the constants_block ` +
+        'echoed by POST /v1/windows.';
+    }
     const sourceFiles = Array.isArray(provenance.source_files) ? provenance.source_files : [];
     replaceChildren(
       sourceFileList,
       sourceFiles.length === 0
         ? [el('li', { class: 'vertex-empty', text: 'This response declares no source_files array.' })]
         : sourceFiles.map((file) => el('li', { 'data-source-file': file }, [el('span', { text: file })])),
+    );
+  }
+
+  /**
+   * T_to_inj and its flag are ENGINE data. The window response does not carry them; the
+   * citation record of the run lists every vehicle row with its flag and source.
+   */
+  function tToInjText(state) {
+    const citation = state.citationOrigin === 'api' ? state.citationResponse : null;
+    const rows = citation !== null && Array.isArray(citation.vehicle_rows) ? citation.vehicle_rows : [];
+    const row = rows.find((entry) => T_TO_INJ_FLAG_PATTERN.test(String(entry.key))) ?? null;
+    if (row !== null) {
+      return (
+        `${row.key} is flagged ${row.flag}, source: ${row.source} ` +
+        `(vehicle_rows of GET /v1/citation for vehicle profile ${citation.vehicle_profile_id}).`
+      );
+    }
+    if (citation !== null) {
+      return 'The citation record of this run lists no T_to_inj vehicle row, so no flag is shown here.';
+    }
+    return (
+      'T_to_inj and its VERIFIED or ASSUMPTION flag are ENGINE data, listed under vehicle_rows of GET /v1/citation; ' +
+      'no citation record is available for this run, so no flag is shown here.'
     );
   }
 
@@ -245,8 +291,22 @@ export function createAnalysisScreen({ root, store, table = () => document.query
         : `The window accounts for the time the vehicle needs to reach the injection point, not only the liftoff ` +
           `moment: ${rows.length} rows, ascent ${Math.min(...ascents).toFixed(1)} to ${Math.max(...ascents).toFixed(1)} s, ` +
           `window centre shift ${rows[0].window_center_shift_s} s, liftoff instant error ` +
-          `${rows[0].liftoff_instant_error_min} min on the first row. T_to_inj and its VERIFIED or ASSUMPTION flag are ` +
-          'ENGINE data at backend/engine/data/vehicles/cyclone4m.json, which does not exist on this branch, so no flag is shown here.';
+          `${rows[0].liftoff_instant_error_min} min on the first row. ${tToInjText(state)}`;
+  }
+
+  function skillSourceText(state) {
+    const asked = state.skillRequest;
+    const query =
+      asked === null || asked === undefined
+        ? 'GET /v1/validation/skill'
+        : `GET /v1/validation/skill?period_start=${asked.period_start}&period_end=${asked.period_end}`;
+    if (state.skillOrigin === 'api') {
+      return `Source: ${query}, a live response.`;
+    }
+    if (state.skillOrigin === 'fixture') {
+      return `Source: the offline fixture ${FIXTURES.skill}, because ${query} failed (${state.skillError}).`;
+    }
+    return '';
   }
 
   function renderSkill(state) {
@@ -272,7 +332,7 @@ export function createAnalysisScreen({ root, store, table = () => document.query
       `Hindcast ${period.start} to ${period.end}, verification ${response.verification_source}, reference ` +
       `${response.reference_forecast}, base rate ${percent(Number(response.base_rate))}, measured skill horizon ` +
       `${response.skill_horizon_measured_days === null ? 'null in this response' : `${response.skill_horizon_measured_days} days`}, ` +
-      `${geometry.points.length} lead times.`;
+      `${geometry.points.length} lead times. ${skillSourceText(state)}`;
   }
 
   function renderReliability(state) {
