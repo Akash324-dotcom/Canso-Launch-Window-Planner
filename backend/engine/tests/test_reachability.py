@@ -68,7 +68,7 @@ def test_site_corridor_bounds_are_flagged_with_their_source():
     assert corridor["A_min_deg"] < corridor["A_max_deg"]
     assert isinstance(corridor["source"], str) and len(corridor["source"]) > 5
     for bound in ("A_min_deg", "A_max_deg"):
-        assert corridor["flags"][bound] in {"VERIFIED", "ASSUMPTION"}
+        assert corridor["flags"][bound] in {"VERIFIED", "ASSUMPTION", "DERIVED"}
 
 
 def test_site_config_records_cars_references_and_operating_hours():
@@ -144,9 +144,9 @@ def test_corridor_bounds_bracket_the_advertised_inclinations():
 
 
 def test_corridor_caps_the_maximum_reachable_inclination():
-    """Spec II.2: A_max = 200 deg caps the reachable inclination at about 104 deg."""
+    """Range closeout DERIVED bounds [115, 195]: A_max = 195 deg caps the reachable inclination at about 100.5 deg."""
     _, capped = reachability.corridor_inclination_bounds(PHI_S, SITE["corridor"])
-    assert capped == pytest.approx(103.92, abs=0.1)
+    assert capped == pytest.approx(100.49, abs=0.1)
     assert reachability.reachable_in_corridor(105.0, PHI_S, SITE["corridor"]) is False
     assert reachability.reachable_in_corridor(98.1, PHI_S, SITE["corridor"]) is True
 

@@ -93,7 +93,7 @@ def test_cyclone_profile_declares_a_time_to_injection_with_a_source():
 
 def test_every_row_of_the_cyclone_profile_is_flagged():
     for row in PROFILE["rows"]:
-        assert row["flag"] in {"VERIFIED", "ASSUMPTION"}, row
+        assert row["flag"] in {"VERIFIED", "ASSUMPTION", "DERIVED"}, row
         assert isinstance(row["source"], str) and row["source"]
 
 
