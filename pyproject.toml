@@ -5,20 +5,28 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "launchwin"
 version = "0.1.0"
-description = "Launch window decision engine for Spaceport Nova Scotia (Canso): frozen /v1 JSON Schemas of the API contract"
+description = "Launch window decision engine for Spaceport Nova Scotia (Canso): the frozen /v1 JSON Schemas of the API contract, and the public Python client of spec IV.9"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi",
     "uvicorn",
     "pydantic",
     "httpx",
+    "pandas",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "jsonschema"]
+
+[tool.setuptools]
+py-modules = ["launchwin"]
+
+[tool.setuptools.package-dir]
+launchwin = "backend/client"
 
 [tool.setuptools.packages.find]
 include = ["backend*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "backend"]
+pythonpath = ["backend/client"]

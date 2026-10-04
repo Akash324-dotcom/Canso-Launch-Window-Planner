@@ -1,0 +1,10 @@
+# Verbatim slide text, Challenge 2 "Mission Control"
+
+This file holds the slide text exactly as it was given, with no edits, no reformatting
+of the wording and no paraphrase, so that `REQUIREMENTS_MAP.md` can be checked line by
+line against it. The text is one block; the line breaks below are added only where the
+slide itself separated its clauses.
+
+---
+
+Challenge 2. Mission Control aka Ben's special challenge. Space agencies and private launch providers face a complex puzzle: matching a satellite's required orbital parameters with the Earth's rotation, weather patterns, and launch vehicle capabilities. A missed window can cost millions. Your goal: Build a tool that calculates optimal launch windows based on orbital requirements and provides a user-friendly interface for both mission planners and the general public. Participants must choose one of the following tracks: Track 1: The Orbital Architect (Data and Math Focused). Focus: Solving the Hard logic of orbital mechanics. Core Requirement: Create an engine that takes a Target Orbit Type (LEO, Polar, or SSO) and outputs a list of compatible launch dates/times. The Logic: LEO: Calculate windows for inclinations ~45.1 deg. Polar: Calculate windows for inclinations 87.9 deg to 90 deg. SSO: Calculate windows for inclinations ~98.1 deg. Advanced Bonus: Incorporate Vehicle Duration. Does the window account for the time it takes the rocket to reach the injection point, or does it only look at the liftoff moment? Track 2: The Launch Watcher (UX and Visualization Focused). Focus: Solving the Public Interface and Engagement aspect. Core Requirement: Build a web-based Launch Dashboard for the public. The Features: A countdown timer to the next available window. A visual representation (2D or 3D) of the launch trajectory or the satellite's path around Earth. A Weather Impact indicator (Green/Yellow/Red) based on mock or real-time weather API data. Advanced Bonus: A Viewing Map that shows which geographic regions will have the best view of the ascent.

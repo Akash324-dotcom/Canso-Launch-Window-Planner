@@ -1,0 +1,179 @@
+{
+  "description": "The spec II.10 constants and data provenance table, serialised by GET /v1/citation for any run (spec IV.6). Spec II.10 states the rule of construction: any number that appears in a result and is not computed from this table is a bug. The table therefore lives in configuration rather than in source. A row whose runtime_key names a field of the run has that field substituted in, because the table records which quantity is dynamic and the run records what it was.",
+  "source": "spec II.10 requirement 1 compliance record, transcribed row by row",
+  "items": [
+    {
+      "item": "J2",
+      "value_or_source": "second zonal harmonic, printed with its source on every result",
+      "runtime_key": "constants_block.J2",
+      "hard_coded_or_dynamic": "hard-coded universal constant, printed with source",
+      "file_or_endpoint": "backend/api/data/constants.json",
+      "citation": "EGM2008 value as recorded in SCIENCE Sec A.2; spec II.10 constants table"
+    },
+    {
+      "item": "GM (mu)",
+      "value_or_source": "Earth gravitational parameter in m^3/s^2",
+      "runtime_key": "constants_block.GM",
+      "hard_coded_or_dynamic": "hard-coded universal constant, printed with source",
+      "file_or_endpoint": "backend/api/data/constants.json",
+      "citation": "NASA GSFC GDC Orbit Primer, October 2018 (formula set VERIFIED, SCIENCE Sec F.7); value SCIENCE Sec A.2"
+    },
+    {
+      "item": "R_e",
+      "value_or_source": "Earth equatorial radius in metres",
+      "runtime_key": "constants_block.R_e",
+      "hard_coded_or_dynamic": "hard-coded universal constant, printed with source",
+      "file_or_endpoint": "backend/api/data/constants.json",
+      "citation": "EGM2008/WGS84 equatorial radius, SCIENCE Sec A.2"
+    },
+    {
+      "item": "omega_sid",
+      "value_or_source": "sidereal rotation rate in rad/s",
+      "runtime_key": "constants_block.omega_sid_rad_s",
+      "hard_coded_or_dynamic": "hard-coded universal constant, printed with source",
+      "file_or_endpoint": "backend/api/data/constants.json",
+      "citation": "SCIENCE Sec A.4"
+    },
+    {
+      "item": "GMST model",
+      "value_or_source": "IAU 1982 sidereal time, nutation omitted",
+      "runtime_key": "constants_block.gmst_model",
+      "hard_coded_or_dynamic": "hard-coded algorithm, model choice recorded",
+      "file_or_endpoint": "backend/api/data/constants.json",
+      "citation": "SCIENCE Sec G.11 model choice and precision note"
+    },
+    {
+      "item": "SSO target rate",
+      "value_or_source": "0.9856 deg/day mean Sun rate; spec II.6 gives the computed 0.9856473",
+      "hard_coded_or_dynamic": "computed from the mean-motion relation, not a literal in window code",
+      "file_or_endpoint": "backend/api/data/service.json",
+      "citation": "SCIENCE eq. A4 and eq. A5"
+    },
+    {
+      "item": "Site geometry (phi_s, lambda_s, h_s)",
+      "runtime_key": "provenance_block.site",
+      "hard_coded_or_dynamic": "dynamic configuration, never in code",
+      "file_or_endpoint": "backend/api/data/sites/canso.json, or backend/engine/data/site_canso.json once ENGINE ships it",
+      "citation": "Cyclone-4M Abbreviated User's Guide sec 2.2 (VERIFIED SCIENCE Sec F.2); coordinate variants SCIENCE Sec G.3"
+    },
+    {
+      "item": "Corridor bounds A_min, A_max",
+      "runtime_key": "provenance_block.corridor",
+      "hard_coded_or_dynamic": "dynamic configuration, bounds ASSUMPTION pending the environmental assessment Figure 2.9 check",
+      "file_or_endpoint": "backend/api/data/sites/canso.json",
+      "citation": "environmental assessment 2016 project description, south over the Atlantic; novascotia.ca environmental assessment page (VERIFIED PRIOR Sec A.4); open item SCIENCE Sec G.2"
+    },
+    {
+      "item": "CARs references",
+      "value_or_source": "602.43 and 602.44 authorisation path",
+      "hard_coded_or_dynamic": "dynamic configuration text",
+      "file_or_endpoint": "backend/api/data/sites/canso.json",
+      "citation": "environmental assessment project description (VERIFIED PRIOR Sec A.4)"
+    },
+    {
+      "item": "Launch commit criteria W",
+      "runtime_key": "criteria_version",
+      "hard_coded_or_dynamic": "dynamic, versioned JSON with an editable documented edit path, every row cited and flagged",
+      "file_or_endpoint": "backend/weather/data/criteria_v1.json once WEATHER ships it; the configured default version until then",
+      "citation": "NASA KSC Shuttle weather LCC 167476main; NASA Falcon 9 crew criteria fact sheet; 45 WS AMS 103803 (VERIFIED SCIENCE Sec F.12 to F.14); proxy caveat SCIENCE Sec D.3"
+    },
+    {
+      "item": "Vehicle profiles",
+      "runtime_key": "vehicle_rows",
+      "hard_coded_or_dynamic": "dynamic, per-vehicle files, every row VERIFIED or ASSUMPTION",
+      "file_or_endpoint": "backend/engine/data/vehicles/*.json",
+      "citation": "Cyclone-4M User's Guide (VERIFIED SCIENCE Sec F.2); class-level ascent durations SCIENCE Sec A.6"
+    },
+    {
+      "item": "Target orbit h_t, i_t, RAAN_t or LTAN_t",
+      "runtime_key": "request.target",
+      "hard_coded_or_dynamic": "dynamic at request time",
+      "file_or_endpoint": "POST /v1/windows",
+      "citation": "Slide inclinations 45.1, 87.9 and 98.1 from maritimelaunch.com (VERIFIED SCIENCE Sec F.1)"
+    },
+    {
+      "item": "Weather forecast fields",
+      "value_or_source": "live ensemble or forecast fetch, or the recorded offline snapshot when no layer answers",
+      "hard_coded_or_dynamic": "dynamic at request time",
+      "file_or_endpoint": "Open-Meteo https://api.open-meteo.com/v1/forecast (no key); ECCC GDPS https://dd.weather.gc.ca/; offline record backend/fixtures/weather.json",
+      "citation": "Endpoints probed 200 (SCIENCE Sec D.1, GDPS readme SCIENCE Sec F.21); Open-Meteo CC BY 4.0"
+    },
+    {
+      "item": "forecast_issue_time",
+      "value_or_source": "issued time of the forecast run the probability came from, echoed from the cache entry so a cached answer is never presented as fresh",
+      "hard_coded_or_dynamic": "dynamic; recorded on every response",
+      "file_or_endpoint": "response field (spec IV.1 and IV.3)",
+      "citation": "our design (requirement 1)"
+    },
+    {
+      "item": "Hindcast and climatology",
+      "value_or_source": "ERA5 hourly fields for the Canso point, with a pre-staged copy for the offline demo",
+      "hard_coded_or_dynamic": "dynamic pull; recorded artefact while WEATHER has not landed",
+      "file_or_endpoint": "Copernicus CDS https://cds.climate.copernicus.eu (account required); record backend/fixtures/skill.json",
+      "citation": "ERA5 CDS endpoint verified (SCIENCE Sec D.1, F.23); no DOI invented here"
+    },
+    {
+      "item": "Verification skill series",
+      "value_or_source": "Brier and Brier skill score against lead time from the hindcast, truncated to the requested lead_max",
+      "hard_coded_or_dynamic": "dynamic computation; cached artefact",
+      "file_or_endpoint": "GET /v1/validation/skill",
+      "citation": "formulas (II.24) and (II.25); verification data ERA5 and the Open-Meteo historical forecast archive (SCIENCE Sec D.1)"
+    },
+    {
+      "item": "Space objects and TLEs",
+      "value_or_source": "no TLE is fetched while ENGINE has not landed; ground tracks come from recorded segments, and ground_track_valid is false beyond the three-day horizon",
+      "hard_coded_or_dynamic": "dynamic at request time",
+      "file_or_endpoint": "CelesTrak GP data https://celestrak.org/NORAD/elements/gp.php",
+      "citation": "endpoint probed 200 (PRIOR Sec D)"
+    },
+    {
+      "item": "NOTAMs",
+      "value_or_source": "display only; no screen reads a live NOTAM feed",
+      "hard_coded_or_dynamic": "dynamic, display-only",
+      "file_or_endpoint": "https://plan.navcanada.ca/",
+      "citation": "endpoint probed 200; not machine-blessed for bulk use (PRIOR Sec F)"
+    },
+    {
+      "item": "Delay-cost model parameter C_day",
+      "value_or_source": "not used by any endpoint; the decision layer is SKETCHED in spec II.9 and no request takes the parameter",
+      "hard_coded_or_dynamic": "dynamic configuration; genre citation only",
+      "file_or_endpoint": "config/decision.json, absent because no endpoint reads it",
+      "citation": "O'Neill and Davidheiser, J. Spacecraft and Rockets, doi 10.2514/1.a36618 (Crossref-verified PRIOR Sec F)"
+    },
+    {
+      "item": "Skill-horizon prior",
+      "value_or_source": "10 days, the configured boundary; a measured value may override it once WEATHER reports one",
+      "hard_coded_or_dynamic": "dynamic configuration",
+      "file_or_endpoint": "backend/api/data/service.json under skill.default_lead_max",
+      "citation": "Lorenz 1982 Tellus; Tellua A 2013 doi 10.3402/tellusa.v65i0.19022; Buizza and Leutbecher 2015 QJRMS (SCIENCE Sec F.20)"
+    },
+    {
+      "item": "Azimuth-inclination relation and the rotating-frame correction",
+      "value_or_source": "computed in code from the constants block, never as a literal",
+      "hard_coded_or_dynamic": "computed in code",
+      "file_or_endpoint": "backend/api/stubs.py",
+      "citation": "OrbiterWiki worked example and the Robertson monograph lineage (VERIFIED SCIENCE Sec F.6)"
+    },
+    {
+      "item": "Orbit ids",
+      "value_or_source": "leo45, polar879 and sso981 are served from recorded offline ground-track segments; a custom id recorded by POST /v1/windows is served from the closed-form circular ground track of its own target until ENGINE ships propagation",
+      "hard_coded_or_dynamic": "dynamic at request time; the offline records are configuration",
+      "file_or_endpoint": "GET /v1/orbits/{id}/ephemeris; records listed in backend/api/data/service.json under ephemeris.base_tracks",
+      "citation": "spec IV.2; the closed form is stated in backend/api/README.md and carries no claim of propagation fidelity"
+    },
+    {
+      "item": "Engine version of this run",
+      "runtime_key": "engine_version",
+      "hard_coded_or_dynamic": "dynamic; the stub reports stub so that no output is presented as engine output",
+      "file_or_endpoint": "POST /v1/windows response field engine_version",
+      "citation": "issue 4 A3, stub-versus-real rule"
+    },
+    {
+      "item": "Source files read for this run",
+      "runtime_key": "source_files",
+      "hard_coded_or_dynamic": "dynamic; a document the run did not read is not listed",
+      "file_or_endpoint": "GET /v1/provenance source_files, and this citation",
+      "citation": "requirement 1 provenance table subset, spec IV"
+    }
+  ]
+}

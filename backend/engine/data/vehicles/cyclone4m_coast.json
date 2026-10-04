@@ -1,0 +1,52 @@
+{
+  "id": "cyclone4m_coast",
+  "name": "Cyclone-4M with coast to node",
+  "description": "A deliberately longer ascent profile, used to prove that T_to_inj flows through the injection-consistent solver rather than being fixed inside it. Not a separate vehicle: it is the same Cyclone-4M flown with the coast phase of spec II.5 enabled.",
+  "t_to_inj_s": 1800.0,
+  "t_to_inj_source": "ASSUMPTION. A 30 minute ascent to injection, taken from the class-level coast-to-node range of 30 to 120 min recorded in spec II.5 (SCIENCE Sec A.6). The Cyclone-4M guide does not publish a coast profile, so this row exists as a sensitivity case, not as a published configuration.",
+
+  "ascent_profile": {
+    "first_motion_s": 9.0,
+    "launch_azimuth_acquisition_s": 12.0,
+    "cross_range_manoeuvre_s": 75.0,
+    "stage1_separation_s": 261.0,
+    "coast_to_node_s": 1800.0,
+    "source": "Cyclone-4M Abbreviated User's Guide section 2.5.2 Table 2.2 for the ascent phases; the coast phase is assumed."
+  },
+
+  "hazard_footprint": {
+    "model_class": "ellipse",
+    "downrange_km": 2000.0,
+    "cross_range_km": 200.0,
+    "pad_hazard_area_radius_m": 500.0,
+    "flags": {
+      "downrange_km": "ASSUMPTION",
+      "cross_range_km": "ASSUMPTION",
+      "pad_hazard_area_radius_m": "VERIFIED"
+    },
+    "source": "Inherited unchanged from cyclone4m.json; a longer coast extends downrange but no published figure covers it."
+  },
+
+  "rows": [
+    {
+      "key": "t_to_inj_s",
+      "flag": "ASSUMPTION",
+      "source": "Not published. Class-level coast-to-node range from spec II.5; see t_to_inj_source."
+    },
+    {
+      "key": "ascent_profile.coast_to_node_s",
+      "flag": "ASSUMPTION",
+      "source": "No coast profile is published for this vehicle."
+    },
+    {
+      "key": "ascent_profile.stage1_separation_s",
+      "flag": "VERIFIED",
+      "source": "Cyclone-4M Abbreviated User's Guide section 2.5.2 Table 2.2"
+    },
+    {
+      "key": "hazard_footprint.pad_hazard_area_radius_m",
+      "flag": "VERIFIED",
+      "source": "Nova Scotia Registration Document June 2018, Project 16-5903"
+    }
+  ]
+}

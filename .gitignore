@@ -2,3 +2,8 @@
 __pycache__/
 *.egg-info/
 .pytest_cache/
+
+# Stored run records of GET /v1/citation. Generated on every POST /v1/windows, so
+# only the directory marker is tracked.
+backend/api/data/runs/*
+!backend/api/data/runs/.gitkeep

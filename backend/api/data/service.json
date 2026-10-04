@@ -1,0 +1,117 @@
+{
+  "description": "Service configuration for the /v1 surface. Spec II.10: nothing site-, vehicle- or criteria-dependent is hard-coded in source, and rate limits and timeouts are configuration values rather than literals (spec IV.8).",
+  "service": {
+    "api_prefix": "/v1",
+    "default_site": "canso",
+    "default_include_weather": true,
+    "default_criteria_version": "v1",
+    "default_criteria_version_source": "spec II.10 launch commit criteria row names data/criteria_v1.json. WEATHER owns that file; while it is absent the API falls back to the version string configured here and records in the log that no criteria rows were read.",
+    "criteria_file": "backend/weather/data/criteria_v1.json",
+    "default_raan_tolerance_deg": null,
+    "default_raan_tolerance_source": "spec IV.1 says the RAAN tolerance default is per target class but does not tabulate the values. ENGINE owns them, so the API passes null through and never invents one."
+  },
+  "target_classes": {
+    "LEO": {
+      "i_t_deg": 45.1,
+      "h_t_km": 600.0,
+      "source": "spec IV.1 type mapping: LEO resolves to the configured default, the 45.1 deg advertised class; altitude is the row of the spec III drift table for that class"
+    },
+    "POLAR": {
+      "i_t_deg": 87.9,
+      "h_t_km": 600.0,
+      "source": "spec IV.1 type mapping: POLAR resolves to an inclination in the band 87.9 to 90.0 deg, nominal 87.9 deg; altitude is the row of the spec III drift table for that class"
+    },
+    "SSO": {
+      "i_t_deg": 98.1,
+      "h_t_km": 674.0,
+      "source": "spec IV.1 type mapping: SSO resolves to about 98.1 deg, derived from the target altitude by the spec II.6 inclination table unless i_t is given; the class altitude is the SSO-consistent row of the spec III drift table"
+    }
+  },
+  "sso": {
+    "inclination_by_altitude_km": {
+      "500": 97.4,
+      "600": 97.8,
+      "674": 98.08,
+      "700": 98.19,
+      "800": 98.6,
+      "900": 99.0
+    },
+    "inclination_table_source": "spec II.6 altitude-inclination coupling table, computed from the mean motion relation with the spec II.10 constants",
+    "required_nodal_rate_deg_per_day": 0.9856,
+    "required_nodal_rate_source": "spec II.6: the SSO inclination is the solution of the nodal drift relation at a mean Sun rate of 0.9856 deg/day (SCIENCE eq. A5)",
+    "consistency_tolerance_deg": 0.05,
+    "consistency_tolerance_source": "half of the coarsest precision the spec II.6 table is quoted at, 97.8 deg to one decimal. Beyond it the requested inclination cannot be told apart from the required one at the precision the specification publishes.",
+    "reachable_min_inclination_deg": null,
+    "reachable_min_inclination_source": "not applicable: direct ascent reaches every inclination at or above the site latitude, spec II.4 and spec II.9"
+  },
+  "fixture_inclination_tolerance_deg": 0.8,
+  "fixture_inclination_tolerance_source": "The published inclination table spans 1.6 deg across its 500 to 900 km range, so a frozen row counts as describing a resolved target whose inclination lies within half of that span of the row value. Rows outside the band are not echoed for another orbit class; that class gets the empty result spec IV.1 defines, which is informative rather than wrong.",
+  "runs_dir": "backend/api/data/runs",
+  "runs_dir_source": "Task A6 of issue 4: GET /v1/citation reads one stored run record per citation id. The directory is ignored by git except for its .gitkeep, because the records are generated on every POST rather than authored.",
+  "cache": {
+    "windows_ttl_s": 86400,
+    "weather_ttl_s": 1800,
+    "reads_ttl_s": 1800,
+    "windows_ttl_source": "spec IV.8: window computations are cached 24 h, keyed by a hash of target, site, date_range, vehicle, corridor, criteria_version and raan_tolerance, because the deterministic core is time independent given its inputs.",
+    "weather_ttl_source": "spec IV.8: weather responses are cached 30 min keyed by date, site and source, with forecast_issue_time stored with the entry and echoed so that a cached answer is never presented as a fresh fetch.",
+    "reads_ttl_source": "spec IV.8 names the two lifetimes above and no lifetime for the read endpoints. The same 30 min is configured for them because the documents they answer are the cached weather and recorded documents, which do not go stale faster than the weather snapshot they are made of.",
+    "zero_disables_source": "A lifetime of zero switches that cache off. The value exists so a test can reach a code path a warm cache would hide, and so a deployment can switch one cache off without changing code."
+  },
+  "rate_limit": {
+    "enabled": true,
+    "window_s": 60,
+    "post_windows_per_window": 60,
+    "reads_per_window": 120,
+    "retry_after_s": 60,
+    "source": "spec IV.8: 60 requests/min per client address on POST /v1/windows, 120/min on the reads, 429 with Retry-After on breach, limits in config and not in code. The window is sliding so that a budget cannot be spent twice across a minute boundary. enabled exists so that one process' budget cannot affect another, and so a deployment behind its own proxy can switch it off."
+  },
+  "skill": {
+    "default_lead_max": 10,
+    "default_lead_max_source": "spec IV.4 writes the query as lead_max=10, so ten days is the default the specification publishes."
+  },
+  "orbits": {
+    "preset_match_tolerance_deg": 0.8,
+    "preset_match_tolerance_source": "Half of the 1.6 deg span the spec II.6 inclination table covers from 500 to 900 km. A resolved inclination within that distance of a published class is that class, so the published ground track and the published drift describe it; beyond it the target is custom and gets its own identifier rather than someone else's track."
+  },
+  "ephemeris": {
+    "default_step_s": 300,
+    "default_step_s_source": "spec IV.2 writes the query as step_s=number (default 300).",
+    "ground_track_horizon_days": 3,
+    "ground_track_horizon_source": "spec IV.2: ground_track_valid is false beyond the 3-day TLE or propagation horizon for conjunction-derived tracks.",
+    "max_points": 4000,
+    "max_points_source": "A guard, not a specification value. A 4000 point ceiling at the default step covers about 13.9 days, which is longer than the horizon above, so the ceiling binds only on a request the horizon already makes unusable as a conjunction track. A request beyond it is a 422 that names the limit rather than a truncated answer.",
+    "preset_ids": {
+      "LEO": "leo45",
+      "POLAR": "polar879",
+      "SSO": "sso981"
+    },
+    "preset_ids_source": "spec IV.2 names the three path ids leo45, polar879 and sso981. The mapping from the request target class to each id is configuration, so the names are not literals in source.",
+    "base_tracks": {
+      "leo45": "backend/api/data/ephemeris/leo45.json",
+      "polar879": "backend/api/data/ephemeris/polar879.json",
+      "sso981": "backend/api/data/ephemeris/sso981.json"
+    },
+    "base_tracks_source": "Each named class is served from a recorded offline ground-track segment, resampled onto the requested step, and every record is a document this workflow owns under backend/api/data. backend/fixtures is FRONTEND content under contract section 0 and Seam 3, so the demo-floor document there is read as an offline fallback and is never resampled as a base track. A recorded segment for one class cannot describe another, so each class has a segment of its own. All three were produced by the closed-form circular ground track recorded in backend/api/README.md, not by propagation: lat = asin(sin i sin u) over the argument of latitude u, and a longitude rate of (n - omega_sid) with n from the spec II.10 constants at the class altitude. No J2 precession, which is ENGINE's term and arrives with backend.engine.ephemeris at gate G1.",
+    "resampling_source": "A recorded segment is resampled onto the requested grid by linear interpolation in latitude and in unwrapped longitude, and is repeated beyond its recorded span, because a ground track repeats. The repeat is a property of the offline floor, not a claim about the orbit; ground_track_valid is what tells a client how far to trust it.",
+    "custom_source": "A custom id has no recorded segment, so the same closed form produces one at request time from the target the POST recorded. It is documented in backend/api/README.md and is replaced by backend.engine.ephemeris at gate G1."
+  },
+  "site": {
+    "coordinate_variants_source": "spec II.10 records alternate published coordinates as provenance variants in the site configuration; the engine uses the one configured value and echoes it on every response.",
+    "launch_rate_cap_per_year": 8,
+    "launch_rate_cap_source": "spec IV.5 names a launch rate cap of 8 per year. The cap is stated by the specification; the document it is cited from is not named there, so the source string says so rather than naming one.",
+    "missing_source": "Spec IV.5 also asks for environmental assessment reference URLs and the corridor polygon vertices used by the hazard test. Neither the URLs nor the vertices are in the specification, in the integration contract, or in any file this workflow owns, so they are absent rather than invented. The names to be settled with ENGINE are listed in docs/log/api.md."
+  },
+  "retry_after_s": {
+    "rate_limit": 60,
+    "upstream_unavailable": 30
+  },
+  "retry_after_source": "spec IV.7 rule 2 requires Retry-After on 429 and on 503. The values are configuration; no test asserts a particular duration, only the header is present and positive.",
+  "fixtures": {
+    "windows": "backend/fixtures/windows.json",
+    "weather": "backend/fixtures/weather.json",
+    "skill": "backend/fixtures/skill.json",
+    "site": "backend/fixtures/site.json",
+    "ephemeris": "backend/fixtures/ephemeris.json"
+  },
+  "fixtures_note": "Spec V.5 offline fallback: precomputed documents shipped in the repository, served when a live layer is unavailable. Spec V.5 also asks for them to be generated by a script from a real engine run; until ENGINE lands they are hand-frozen copies of the frozen contract examples, and every response built from them carries engine_version stub."
+}

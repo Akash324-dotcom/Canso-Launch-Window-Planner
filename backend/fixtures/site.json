@@ -1,0 +1,21 @@
+{
+  "name": "canso",
+  "phi_s_deg": 45.3,
+  "lambda_s_deg": -61.0,
+  "h_s_m": 20.0,
+  "corridor": {
+    "A_min_deg": 90.0,
+    "A_max_deg": 200.0,
+    "source": "spec II.3 default corridor file: east through south fan over open ocean; bounds ASSUMPTION pending the environmental assessment Figure 2.9 three-sigma corridor check (open item SCIENCE Sec G.2)",
+    "flag": "ASSUMPTION"
+  },
+  "operating_hours": {
+    "start": "07:00",
+    "end": "12:00",
+    "local": "ADT"
+  },
+  "car_references": [
+    "602.43",
+    "602.44"
+  ]
+}
