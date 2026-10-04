@@ -13,14 +13,14 @@
       "window_width_s": 612.0,
       "window_center_shift_s": 41.5,
       "liftoff_instant_error_min": 2.5,
-      "p_success": 0.36,
+      "p_success": 0.7058823529411765,
       "p_success_components": {
-        "weather": 0.36,
+        "weather": 0.7058823529411765,
         "range": 1.0,
         "conjunction": 1.0
       },
       "horizon_label": "FORECAST",
-      "forecast_issue_time": "2026-10-03T09:00:00Z",
+      "forecast_issue_time": "2026-10-03T12:00:00Z",
       "constraint_fired": null,
       "screens": {
         "hazard": "pass",
@@ -38,14 +38,14 @@
       "window_width_s": 588.0,
       "window_center_shift_s": 39.8,
       "liftoff_instant_error_min": 2.5,
-      "p_success": 0.36,
+      "p_success": 0.7058823529411765,
       "p_success_components": {
-        "weather": 0.36,
+        "weather": 0.7058823529411765,
         "range": 1.0,
         "conjunction": 1.0
       },
       "horizon_label": "FORECAST",
-      "forecast_issue_time": "2026-10-03T09:00:00Z",
+      "forecast_issue_time": "2026-10-03T12:00:00Z",
       "constraint_fired": null,
       "screens": {
         "hazard": "pass",
@@ -63,14 +63,14 @@
       "window_width_s": 641.0,
       "window_center_shift_s": 43.6,
       "liftoff_instant_error_min": 2.6,
-      "p_success": 0.36,
+      "p_success": 0.7058823529411765,
       "p_success_components": {
-        "weather": 0.36,
+        "weather": 0.7058823529411765,
         "range": 1.0,
         "conjunction": 1.0
       },
       "horizon_label": "FORECAST",
-      "forecast_issue_time": "2026-10-03T09:00:00Z",
+      "forecast_issue_time": "2026-10-03T12:00:00Z",
       "constraint_fired": null,
       "screens": {
         "hazard": "pass",
@@ -80,7 +80,7 @@
     }
   ],
   "constants_block": {
-    "J2": 0.000108262668,
+    "J2": 0.00108262668,
     "GM": 398600441800000.0,
     "R_e": 6378137.0,
     "omega_sid_rad_s": 7.292115e-05,
