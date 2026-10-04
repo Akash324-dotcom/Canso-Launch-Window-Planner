@@ -223,5 +223,30 @@
   "lightning_proxy_cape": 0.0111731843575419,
   "cloud_cover_thick_layer_proxy": 0.2737430167597765,
   "ground_operations_wind": 0.0111731843575419
+ },
+ "calibration": {
+  "gaps": {
+   "mean_forecast": 0.15720343691446065,
+   "bin_centre": 0.14720343691446064,
+   "larger": 0.15720343691446065,
+   "populated_bins": 5
+  },
+  "bootstrap": {
+   "statistic": "larger of the two gap readings",
+   "blocks": 26,
+   "block_days": 7,
+   "replicates": 2000,
+   "seed": 20261004,
+   "interval_quantiles": [
+    0.05,
+    0.95
+   ],
+   "interval": [
+    0.11547905460493031,
+    0.20353158946046007
+   ],
+   "bound": 0.15,
+   "share_at_or_below_bound": 0.3765
+  }
  }
 }

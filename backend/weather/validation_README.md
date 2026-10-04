@@ -65,6 +65,17 @@ The period ends where the hourly archive ends. To move it forward: download newe
 the Copernicus key, see `README.md`, because the keyless ERA5 copy is published months late), then run the three
 commands above. The start cannot move back: the forecast archive keeps no run before 2 April 2026.
 
+## The calibration gap and its uncertainty
+
+`hindcast.calibration_gaps` gives the mean absolute difference between observed frequency and forecast over the
+populated bins, once against the mean forecast in each bin and once against the bin centre; the larger decides
+criterion 2 of spec III.4. `hindcast.bootstrap_calibration_gap` resamples the pairs in blocks of consecutive valid
+dates and reports a percentile interval of that gap and the share of resamples at or below the bound. The settings
+(replicates, block length, seed, percentiles) are in `data/sources.json` under `hindcast.calibration_bootstrap`.
+The generator is seeded, so two runs give identical numbers. The estimate describes the uncertainty of the gap. It
+changes no forecast, no outcome and no verdict. Section 7 of `HINDCAST.md` is written from it, together with the
+record under `hindcast.period_bounds_check` of why the period cannot be made longer.
+
 ## The cache
 
 `compute()` stores its result in `backend/weather/cache/hindcast/<key>.json` (ignored by git). The key is the
@@ -77,7 +88,7 @@ the criteria version, forces a recompute. Tests cover both.
 | File | Content |
 |---|---|
 | `data/hindcast/pairs_canso.csv` | one row per (issue date, lead): `issue_date, lead_time_days, valid_date, p, o` |
-| `data/hindcast/result_canso.json` | skill by lead, base rate, reliability, ROC, coverage, exclusions, the pooled lead 1 to 7 score, per-criterion observed violation frequency |
+| `data/hindcast/result_canso.json` | skill by lead, base rate, reliability, ROC, coverage, exclusions, the pooled lead 1 to 7 score, per-criterion observed violation frequency, and under `calibration` the calibration gap in both readings with its block-resampling interval |
 | `HINDCAST.md` | the report, rendered from the result by `hindcast_report.render` |
 | `backend/fixtures/skill.json` | the spec IV.4 response, written by `scripts/build_skill_fixture.py` |
 

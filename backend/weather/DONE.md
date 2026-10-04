@@ -3,9 +3,10 @@
 Issue #3, the operational probability layer, and issue #7, its hindcast validation. State on 4 October 2026
 (UTC), after revision 3 (no null parameter, no assumed limit, no stand-in data) and after the hindcast was run on
 real data. The work reached `main` through pull request #17. The branch `feature-weather-validation` then audited
-issue #7 on the merged tree and repaired the two weather fixtures, which the merge had corrupted; those changes are
-committed on that branch and pushed, and wait for a pull request into `main`. The same branch then fixed the integration failures
-between the API, the engine and this layer; they are listed under "Notes for other workflows".
+issue #7 on the merged tree, repaired the two weather fixtures, which the merge had corrupted, and fixed the
+integration failures between the API, the engine and this layer (listed under "Notes for other workflows"). That
+work reached `main` through pull request #18. The disposition of the calibration criterion after the gate review
+(item 3 below) was written on the same branch afterwards.
 
 **Hindcast result in one line:** over 2026-04-02 to 2026-09-27 (164 to 173 cases per lead, base rate 0.296) the
 Brier skill score against climatology is 0.456, 0.373, 0.223, 0.223, 0.152 at leads 1 to 5 and negative at leads
@@ -36,9 +37,9 @@ missed (gap 0.157 against 0.15); the forecasts verified are four GFS runs per da
 | Key slot | `credentials.py`, `.env.example` (committed, placeholder), `.env` (ignored) | `tests/test_credentials.py` |
 | Owner rules | no value flagged as an assumption in any configuration; no forecast used with a missing value; no null in the archive, the stored forecasts or a response | `tests/test_no_assumptions_no_nulls.py` |
 
-Test counts at the time of writing: `pytest backend/weather -q` 240 passed, 1 skipped; `pytest tests/contract -q`
+Test counts at the time of writing: `pytest backend/weather -q` 250 passed, 1 skipped; `pytest tests/contract -q`
 77 passed (70 from the G0 contract plus 7 in `test_weather_schema.py`). The whole repository, which now holds
-the API and engine suites as well: 949 passed, 4 skipped, none failed.
+the API and engine suites as well: 959 passed, 4 skipped, none failed.
 No test touches the network. The skipped test reads a NetCDF file and needs `xarray` and `netCDF4`, which are
 download-time packages outside `pyproject.toml`; it passes when they are installed.
 
@@ -66,12 +67,16 @@ download-time packages outside `pyproject.toml`; it passes when they are install
    the chain is aligned; it does not show the skill or calibration of the 82-member probability.
 2. **The hindcast period is under the 12 months the spec asks for.** The forecast archive starts on 2 April 2026.
    The sample has no winter. A longer period needs an archive that does not exist in the open today, or time.
-3. **Spec III.4 criterion 2 is not met.** The mean calibration gap is 0.157 against a bound of 0.15. It is
-   reported as a miss and no recalibration was applied; `HINDCAST.md` gives the reason. Criteria 1 and 3 are met.
-   Whether gate G2 counts as passed is the gate owner's call: the contract's wording of G2 (BSS above zero,
-   reliability diagram produced) is met, the spec's calibration number is not.
+3. **Spec III.4 criterion 2 is not met, and that is the recorded finding.** The mean calibration gap is 0.157
+   against a bound of 0.15. The review of gate G2 on issue #7 (4 October 2026) offered two routes: widen the
+   sample, or declare the miss the finding. The sample cannot be widened: the forecast archive has no run before
+   2026-04-02T00:00 and ERA5 is published only up to 2026-09-28T23:00. The miss is therefore declared the finding
+   in `HINDCAST.md`, section 7, with the sampling uncertainty of the gap (0.115 to 0.204 from the 5th to the 95th
+   percentile of a block resampling; 37.6 percent of resamples at or below the bound). No recalibration was
+   applied and no threshold was touched. Criteria 1 and 3 are met.
 4. **No confidence interval is given for the skill scores.** Each lead has 164 to 173 cases and consecutive days
    are not independent. The crossover between lead 5 (BSS 0.152) and lead 6 (BSS -0.118) rests on those samples.
+   Only the calibration gap has a resampling interval.
 5. **The FORECAST boundary is now 5 days, not the 10 of spec II.7.** Issue #7 V6 prescribes this for the result
    that was found. Dates 6 to 10 days ahead are answered from climatology and labelled so.
 6. **Upper-level wind is not a criterion, although the issue lists it.** This is the one place where two owner
@@ -97,8 +102,8 @@ download-time packages outside `pyproject.toml`; it passes when they are install
 13. **Hour-resolved forecast probability is not exposed.** The frozen signature takes a date only.
 14. **Two documents could not be read** on 3 October 2026: the ECMWF definition of the cloud layers (page not
     rendered) and the Cyclone-4M user's guide (HTTP 404, no archived copy). Both are marked in the criteria table.
-15. **The repair is not on `main` yet.** See the first paragraph. The contract asks for branch names of the
-    form `weather/...`; the branch names were the owner's choice and were kept.
+15. **Branch names.** The contract asks for branch names of the form `weather/...`; the branch names
+    `feature-weather` and `feature-weather-validation` were the owner's choice and were kept.
 16. **Gust source.** The archive gust is the ERA5 gust as served by Open-Meteo. Over April 2024 it is 0.4 m/s
     lower on average than the Copernicus hourly maximum gust (44 against 49 hours above the 33 kt limit).
 

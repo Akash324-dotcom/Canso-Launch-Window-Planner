@@ -86,6 +86,8 @@ import gzip
 import hashlib
 import io
 import json
+import math
+import random
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -212,6 +214,72 @@ def _mean_forecast_by_bin(pairs: list[Pair], n_bins: int) -> list[dict]:
         totals.setdefault(min(int(p * n_bins), n_bins - 1), []).append(p)
     return [{"p_center": (index + 0.5) / n_bins, "mean_forecast": sum(values) / len(values)}
             for index, values in sorted(totals.items())]
+
+
+def calibration_gaps(pairs: list[Pair], n_bins: int) -> dict:
+    """Mean absolute difference between observed frequency and forecast over the populated reliability bins.
+
+    Spec III.4 criterion 2 says 'mean |observed - predicted| across bins'. 'Predicted' can be read as the mean
+    forecast inside the bin or as the bin centre, so both are returned, with the larger of the two.
+    """
+    if not pairs:
+        raise ValueError("the calibration gap of an empty sample is undefined")
+    bins = reliability_bins(pairs, n_bins)
+    means = {entry["p_center"]: entry["mean_forecast"] for entry in _mean_forecast_by_bin(pairs, n_bins)}
+    by_mean = sum(abs(entry["observed_freq"] - means[entry["p_center"]]) for entry in bins) / len(bins)
+    by_centre = sum(abs(entry["observed_freq"] - entry["p_center"]) for entry in bins) / len(bins)
+    return {"mean_forecast": by_mean, "bin_centre": by_centre, "larger": max(by_mean, by_centre),
+            "populated_bins": len(bins)}
+
+
+def valid_date_blocks(rows: list[dict], block_days: int) -> list[list[Pair]]:
+    """The pairs grouped into runs of block_days consecutive valid dates, counted from the first valid date.
+
+    Every pair of one valid date is in the same block, whatever its lead, because those pairs share one
+    outcome. A run of dates without any pair gives no block.
+    """
+    if block_days < 1:
+        raise ValueError("block_days must be at least 1")
+    first = min(date.fromisoformat(row["valid_date"]) for row in rows)
+    grouped: dict[int, list[Pair]] = {}
+    for row in rows:
+        index = (date.fromisoformat(row["valid_date"]) - first).days // block_days
+        grouped.setdefault(index, []).append((row["p"], row["o"]))
+    return [grouped[index] for index in sorted(grouped)]
+
+
+def bootstrap_calibration_gap(rows: list[dict], n_bins: int, block_days: int, replicates: int, seed: int,
+                              bound: float, interval: tuple[float, float]) -> dict:
+    """Sampling uncertainty of the calibration gap, by resampling blocks of consecutive valid dates.
+
+    Each replicate draws as many blocks as the sample has, with replacement, and recomputes the larger of the
+    two gap readings. Blocks, not single pairs, are drawn because the pairs of one valid date share one outcome
+    and neighbouring days share one weather regime. The interval is the pair of nearest-rank percentiles of
+    the replicates; the share is the fraction of replicates whose gap is at or below the bound. The generator is
+    seeded, so the same inputs give the same numbers.
+    """
+    blocks = valid_date_blocks(rows, block_days)
+    generator = random.Random(seed)
+    values = []
+    for _ in range(replicates):
+        sample = [pair for _ in blocks for pair in blocks[generator.randrange(len(blocks))]]
+        values.append(calibration_gaps(sample, n_bins)["larger"])
+    values.sort()
+
+    def percentile(fraction: float) -> float:
+        return values[min(len(values) - 1, max(0, math.ceil(fraction * len(values)) - 1))]
+
+    return {
+        "statistic": "larger of the two gap readings",
+        "blocks": len(blocks),
+        "block_days": block_days,
+        "replicates": replicates,
+        "seed": seed,
+        "interval_quantiles": list(interval),
+        "interval": [percentile(interval[0]), percentile(interval[1])],
+        "bound": bound,
+        "share_at_or_below_bound": sum(1 for value in values if value <= bound) / len(values),
+    }
 
 
 def measured_horizon(skill_series: list[dict]) -> int | None:

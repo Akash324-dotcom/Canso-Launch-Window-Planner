@@ -124,3 +124,99 @@ def test_roc_points_match_the_hand_contingency_table():
 def test_roc_points_are_omitted_when_a_rate_is_undefined():
     """With no observed event there is no probability of detection; the point is left out, not set to zero."""
     assert hindcast.roc_points([(0.75, 0), (0.25, 0)], thresholds=[0.5]) == []
+
+
+# Calibration gap and its sampling uncertainty (spec III.4 criterion 2) ---------------------------------------
+
+def test_the_calibration_gap_is_given_under_both_readings_of_predicted():
+    """Two forecasts of 0 (one verified) and two of 1 (both verified), ten bins.
+
+    Bin 0.05: mean forecast 0.0, observed 0.5. Gap 0.5 against the mean forecast, 0.45 against the centre.
+    Bin 0.95: mean forecast 1.0, observed 1.0. Gap 0.0 against the mean forecast, 0.05 against the centre.
+    Mean over the two populated bins: 0.25 and 0.25.
+    """
+    gaps = hindcast.calibration_gaps([(0.0, 0), (0.0, 1), (1.0, 1), (1.0, 1)], n_bins=10)
+
+    assert gaps == {"mean_forecast": pytest.approx(0.25), "bin_centre": pytest.approx(0.25),
+                    "larger": pytest.approx(0.25), "populated_bins": 2}
+
+
+def test_the_two_readings_differ_when_forecasts_sit_off_the_bin_centres():
+    """Four forecasts of 0.5, of which one verified: bin centre 0.55, mean forecast 0.5, observed 0.25."""
+    gaps = hindcast.calibration_gaps([(0.5, 1), (0.5, 0), (0.5, 0), (0.5, 0)], n_bins=10)
+
+    assert gaps["mean_forecast"] == pytest.approx(0.25)
+    assert gaps["bin_centre"] == pytest.approx(0.30)
+    assert gaps["larger"] == pytest.approx(0.30)
+
+
+def test_the_gap_of_no_pairs_is_undefined():
+    with pytest.raises(ValueError):
+        hindcast.calibration_gaps([], n_bins=10)
+
+
+def rows_for(day: str, pairs):
+    return [{"valid_date": day, "p": p, "o": o} for p, o in pairs]
+
+
+def test_blocks_are_runs_of_consecutive_valid_dates_counted_from_the_first():
+    """Days 1, 3 and 7 fall in the first seven-day block, day 8 opens the second, day 22 the fourth."""
+    rows = (rows_for("2026-05-01", [(0.5, 1)]) + rows_for("2026-05-03", [(0.5, 0), (0.25, 0)])
+            + rows_for("2026-05-07", [(1.0, 1)]) + rows_for("2026-05-08", [(0.0, 0)])
+            + rows_for("2026-05-22", [(0.75, 1)]))
+
+    blocks = hindcast.valid_date_blocks(rows, block_days=7)
+
+    assert [len(block) for block in blocks] == [4, 1, 1], "an empty block is not a block"
+    assert blocks[1] == [(0.0, 0)] and blocks[2] == [(0.75, 1)]
+
+
+def test_resampling_identical_blocks_gives_the_point_estimate_every_time():
+    """Three blocks that hold the same pairs: every resample is the same sample, so the interval has no width."""
+    week = [(0.0, 0), (0.0, 1), (1.0, 1), (1.0, 1)]
+    rows = rows_for("2026-05-01", week) + rows_for("2026-05-08", week) + rows_for("2026-05-15", week)
+
+    summary = hindcast.bootstrap_calibration_gap(rows, n_bins=10, block_days=7, replicates=50, seed=1,
+                                                 bound=0.15, interval=(0.05, 0.95))
+
+    assert summary["blocks"] == 3 and summary["replicates"] == 50
+    assert summary["interval"] == [pytest.approx(0.25), pytest.approx(0.25)]
+    assert summary["share_at_or_below_bound"] == 0.0
+
+
+def test_the_share_counts_the_resamples_whose_larger_gap_meets_the_bound():
+    """Block A is perfectly calibrated, block B is exactly wrong.
+
+    A resample of two blocks is AA, AB, BA or BB. The larger of the two gap readings is 0.05 for AA (the
+    distance of 0 and 1 from the bin centres 0.05 and 0.95), 0.5 for AB and BA, and 1.0 for BB. Only AA meets a
+    bound of 0.15, so the share is the fraction of resamples that drew A twice, and the 5th and 95th
+    percentiles are the gaps of AA and BB.
+    """
+    block_a = [(0.0, 0), (0.0, 0), (1.0, 1), (1.0, 1)]
+    block_b = [(0.0, 1), (0.0, 1), (1.0, 0), (1.0, 0)]
+    rows = rows_for("2026-05-01", block_a) + rows_for("2026-05-08", block_b)
+
+    summary = hindcast.bootstrap_calibration_gap(rows, n_bins=10, block_days=7, replicates=400, seed=7,
+                                                 bound=0.15, interval=(0.05, 0.95))
+
+    assert 0.15 < summary["share_at_or_below_bound"] < 0.35, "about one resample in four draws block A twice"
+    assert summary["interval"][0] == pytest.approx(0.05) and summary["interval"][1] == pytest.approx(1.0)
+
+
+def test_the_same_seed_gives_the_same_summary_and_the_seed_decides_the_draw():
+    """With one replicate of two blocks the share is 1.0 when block A was drawn twice and 0.0 otherwise.
+
+    The same seed must repeat its answer, and over twenty seeds both answers must occur: the draw comes from
+    the seeded generator and from nothing else.
+    """
+    block_a = [(0.0, 0), (0.0, 0), (1.0, 1), (1.0, 1)]
+    block_b = [(0.0, 1), (0.0, 1), (1.0, 0), (1.0, 0)]
+    rows = rows_for("2026-05-01", block_a) + rows_for("2026-05-08", block_b)
+    settings = dict(n_bins=10, block_days=7, replicates=1, bound=0.15, interval=(0.05, 0.95))
+
+    shares = [hindcast.bootstrap_calibration_gap(rows, seed=seed, **settings)["share_at_or_below_bound"]
+              for seed in range(20)]
+
+    assert shares == [hindcast.bootstrap_calibration_gap(rows, seed=seed, **settings)["share_at_or_below_bound"]
+                      for seed in range(20)]
+    assert set(shares) == {0.0, 1.0}

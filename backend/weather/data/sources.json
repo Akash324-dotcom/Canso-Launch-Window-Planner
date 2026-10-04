@@ -218,7 +218,37 @@
       1,
       7
     ],
-    "aggregate_leads_source": "spec III.4 pass criterion 1: BSS aggregated over leads 1-7 days"
+    "aggregate_leads_source": "spec III.4 pass criterion 1: BSS aggregated over leads 1-7 days",
+    "calibration_bootstrap": {
+      "replicates": 2000,
+      "block_days": 7,
+      "seed": 20261004,
+      "interval": [
+        0.05,
+        0.95
+      ],
+      "method_reference": {
+        "reference": "Carlstein, E. (1986). The use of subseries values for estimating the variance of a general statistic from a stationary sequence. The Annals of Statistics, 14.",
+        "doi": "10.1214/aos/1176350057",
+        "resolved": "Crossref, by title, 2026-10-04",
+        "use": "Non-overlapping blocks of consecutive observations as the resampling unit for a dependent sequence."
+      },
+      "basis": "Sampling uncertainty of the calibration gap of spec III.4 criterion 2. Blocks of consecutive valid dates are resampled with replacement, not single pairs, because the pairs of one valid date share one outcome and neighbouring days share one weather regime. Seven days is longer than the measured skill horizon of five days. The seed is the date of the review. With seeds 1 and 2 and with blocks of 14 days the interval bounds moved by at most 0.008 and the share at or below the bound stayed between 0.37 and 0.42 (progress.md). These are settings of an uncertainty estimate. They do not enter the forecast, the outcome, the criteria or the verdict."
+    },
+    "period_bounds_check": {
+      "checked_at": "2026-10-04T03:33Z",
+      "forecast_archive": "https://single-runs-api.open-meteo.com/v1/forecast, models=gfs_seamless",
+      "run_refused": "2026-04-01T18:00",
+      "run_refused_answer": "The requested model run is not available. Model: ncep_gfs013, run: 2026-04-01T18:00Z",
+      "first_run_available": "2026-04-02T00:00",
+      "reanalysis_archive": "https://archive-api.open-meteo.com/v1/archive, models=era5, requested 2026-09-26 to 2026-10-03",
+      "reanalysis_last_hour_published": "2026-09-28T23:00"
+    },
+    "calibration_disposition": {
+      "route": "b",
+      "decided_on": "2026-10-04",
+      "review": "Comment on issue #7 after verification on main: criterion 2 is documented but failing (gap 0.157 against 0.15). Route (a): widen the verification sample and re-run, recording both results. Route (b): declare the miss the finding and close the issue with the anti-tuning check recorded. Criteria thresholds must not be touched."
+    }
   },
   "fixture": {
     "date": "2026-10-06",

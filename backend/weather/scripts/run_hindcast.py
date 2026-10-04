@@ -26,11 +26,19 @@ REPORT = Path(__file__).resolve().parents[1] / "HINDCAST.md"
 def build(site: str) -> dict[str, str]:
     """Return {path relative to backend/weather: file text} for the three outputs."""
     start, end = hindcast.longest_period(site)
-    lead_max = config.load_sources()["hindcast"]["lead_max_days"]
-    result = dict(hindcast.compute(start, end, lead_max, site))
+    settings = config.load_sources()["hindcast"]
+    result = dict(hindcast.compute(start, end, settings["lead_max_days"], site))
     valid_dates = sorted({row["valid_date"] for row in result["pairs"]})
     result["observed_violation_frequency"] = hindcast.observed_violation_frequency(
         site, result["criteria_version"], valid_dates)
+    bootstrap = settings["calibration_bootstrap"]
+    result["calibration"] = {
+        "gaps": hindcast.calibration_gaps([(row["p"], row["o"]) for row in result["pairs"]],
+                                          settings["reliability_bins"]),
+        "bootstrap": hindcast.bootstrap_calibration_gap(
+            result["pairs"], settings["reliability_bins"], bootstrap["block_days"], bootstrap["replicates"],
+            bootstrap["seed"], hindcast_report.MAX_CALIBRATION_GAP, tuple(bootstrap["interval"])),
+    }
 
     text = io.StringIO()
     writer = csv.writer(text, lineterminator="\n")
@@ -39,7 +47,8 @@ def build(site: str) -> dict[str, str]:
         writer.writerow([row["issue_date"], row["lead_time_days"], row["valid_date"], row["p"], row["o"]])
 
     report = hindcast_report.render(result, hindcast.source_metadata(site), climatology.archive_metadata(site),
-                                    criteria.load_criteria(result["criteria_version"]), config.load_skill_horizon())
+                                    criteria.load_criteria(result["criteria_version"]), config.load_skill_horizon(),
+                                    review=settings)
     summary = {key: value for key, value in result.items() if key != "pairs"}
     return {
         f"data/hindcast/pairs_{site}.csv": text.getvalue(),
