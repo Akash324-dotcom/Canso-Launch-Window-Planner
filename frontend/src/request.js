@@ -79,6 +79,13 @@ export function buildWindowsRequest(inputs) {
 
   const vehicleProfileId = requiredDate(inputs.vehicle_profile_id, 'vehicle_profile_id', messages);
 
+  // The RAAN tolerance governs the window width. The service accepted zero and negative values
+  // during the live check and answered with widths of zero and below, so the bound is kept here.
+  const raanTolerance = optionalNumber(inputs.raan_tolerance_deg, 'raan_tolerance_deg', messages);
+  if (raanTolerance !== null && raanTolerance <= 0) {
+    messages.push('raan_tolerance_deg must be greater than 0');
+  }
+
   const aMin = optionalNumber(inputs.corridor_a_min_deg, 'corridor A_min_deg', messages);
   const aMax = optionalNumber(inputs.corridor_a_max_deg, 'corridor A_max_deg', messages);
   const corridor = {};
@@ -107,6 +114,9 @@ export function buildWindowsRequest(inputs) {
   };
   if (Object.keys(corridor).length > 0) {
     request.corridor = corridor;
+  }
+  if (raanTolerance !== null) {
+    request.raan_tolerance_deg = raanTolerance;
   }
   return request;
 }

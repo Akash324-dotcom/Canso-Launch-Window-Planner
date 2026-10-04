@@ -1,6 +1,7 @@
 import {
   DEFAULT_RANGE_DAYS,
   DEFAULT_SITE,
+  FIXTURES,
   ORBIT_PRESETS,
   SITES,
   VEHICLE_PROFILE_IDS,
@@ -8,6 +9,7 @@ import {
   WINDOW_TABLE_COLUMNS,
 } from '../config.js';
 import { el, field, replaceChildren } from '../dom.js';
+import { windowUncertainty } from '../researcher.js';
 import {
   constantsOf,
   isHazardRejected,
@@ -71,6 +73,18 @@ function buildForm(onInputsChanged) {
   );
   const corridorMin = numberInput('corridor-a-min-deg', { step: '0.1', placeholder: 'EA default' });
   const corridorMax = numberInput('corridor-a-max-deg', { step: '0.1', placeholder: 'EA default' });
+  // A text input, so that a value that is not a number reaches the validation and is refused
+  // with a reason; a number input would hand over an empty string and the mistake would pass.
+  const raanTolerance = el('input', {
+    class: 'inp',
+    type: 'text',
+    inputmode: 'decimal',
+    id: 'raan-tolerance-deg',
+    placeholder: 'engine default',
+  });
+  const raanToleranceEffect = el('p', { class: 'hint', id: 'raan-tolerance-effect' });
+  const corridorFlags = el('p', { class: 'hint', id: 'corridor-flags' });
+  const vehicleEffect = el('p', { class: 'hint', id: 'vehicle-profile-effect' });
   const includeWeather = el('input', { type: 'checkbox', id: 'include-weather' });
   includeWeather.checked = true;
   const inputError = el('p', { class: 'input-error', id: 'input-error', role: 'alert', hidden: true });
@@ -109,10 +123,20 @@ function buildForm(onInputsChanged) {
         field('Include the weather layer', el('label', { class: 'check' }, [includeWeather, ' include_weather'])),
       ]),
       vehicleFlag,
+      vehicleEffect,
       el('div', { class: 'grid-2' }, [
         field('Corridor override A_min (deg)', corridorMin),
         field('Corridor override A_max (deg)', corridorMax),
       ]),
+      corridorFlags,
+      el('div', { class: 'grid-2' }, [
+        field(
+          'RAAN tolerance (deg), governs the window width',
+          raanTolerance,
+          'Sent as raan_tolerance_deg. Leave empty for the engine default.',
+        ),
+      ]),
+      raanToleranceEffect,
     ]),
     inputError,
   ]);
@@ -131,6 +155,10 @@ function buildForm(onInputsChanged) {
     includeWeather,
     corridorMin,
     corridorMax,
+    raanTolerance,
+    raanToleranceEffect,
+    corridorFlags,
+    vehicleEffect,
     inputError,
     presetNote,
     vehicleFlag,
@@ -442,7 +470,9 @@ export function createWindowEngineScreen({ root, store, onInputsChanged, onRowSe
       'Selecting a row fetches its ground track from GET /v1/orbits/{id}/ephemeris between its liftoff and its ' +
       'injection instant, and highlights it on the map of Screen 2 and the visibility table of Screen 4.',
     ]),
+    el('p', { class: 'hint', id: 'request-echo' }),
     buildTable(tbody),
+    el('p', { class: 'hint', id: 'window-uncertainty' }),
   ]);
   root.replaceChildren(
     el('header', { class: 'masthead' }, [
@@ -466,6 +496,7 @@ export function createWindowEngineScreen({ root, store, onInputsChanged, onRowSe
     renderHonesty(state, honestyPanel);
     renderTable(state, tbody, onRowSelected);
     renderProvenance(state, footer);
+    renderResearcher(state);
     const rows = windowRows(state.engineResponse);
     const usable = rows.filter((row) => !isHazardRejected(row));
     tablePanel.querySelector('#window-table-sub').textContent =
@@ -482,6 +513,88 @@ export function createWindowEngineScreen({ root, store, onInputsChanged, onRowSe
             : '');
   }
 
+  /**
+   * The researcher layer of the form and the table: what was asked, what the answer says about
+   * each parameter, and what stands behind the probabilities. Text only, from the request the
+   * page sent and the response it received.
+   */
+  function renderResearcher(state) {
+    const response = state.engineResponse;
+    const request = state.request;
+    const rows = windowRows(response);
+
+    const echo = tablePanel.querySelector('#request-echo');
+    echo.setAttribute('data-origin', state.engineResponseOrigin ?? '');
+    if (request === null) {
+      echo.textContent = 'No request sent yet.';
+    } else if (state.engineResponseOrigin === 'api') {
+      echo.textContent = `Request that produced the rows below (POST /v1/windows): ${JSON.stringify(request)}`;
+    } else if (state.engineResponseOrigin === 'api_stale') {
+      echo.textContent =
+        `The rows below are the last answer the service gave, not the answer to this request, which failed: ${JSON.stringify(request)}`;
+    } else {
+      echo.textContent =
+        `The rows below are the offline fixture ${FIXTURES.windows}, not the answer to a request. The request the page sent: ${JSON.stringify(request)}`;
+    }
+
+    const sent = request === null ? undefined : request.raan_tolerance_deg;
+    const asked =
+      sent === undefined || sent === null
+        ? 'no raan_tolerance_deg was sent, so the engine default applies'
+        : `raan_tolerance_deg ${sent} was sent`;
+    if (rows.length === 0) {
+      controls.raanToleranceEffect.textContent =
+        `This response has no window rows, so no window width is shown; ${asked}.`;
+    } else {
+      const widths = rows.map((row) => Number(row.window_width_s));
+      const low = Math.min(...widths);
+      const high = Math.max(...widths);
+      const width = low === high ? `${low.toFixed(1)} s` : `${low.toFixed(1)} to ${high.toFixed(1)} s`;
+      controls.raanToleranceEffect.textContent = `window_width_s of this response: ${width}; ${asked}.`;
+    }
+
+    const provenance = response === null || response === undefined ? null : (response.provenance_block ?? null);
+    const corridor = provenance === null ? null : (provenance.corridor ?? null);
+    if (corridor === null) {
+      controls.corridorFlags.textContent = 'No response loaded, so no corridor is shown.';
+    } else {
+      const flags = rowFlags(response);
+      const override = request === null || request.corridor === undefined ? null : request.corridor;
+      const overrideText =
+        override === null
+          ? 'no override was sent, so this is the corridor the service applied'
+          : `override sent: ${Object.entries(override).map(([key, value]) => `${key} ${value}`).join(', ')}`;
+      controls.corridorFlags.textContent =
+        `Corridor of this response (provenance_block.corridor): A_min_deg ${corridor.A_min_deg}, A_max_deg ${corridor.A_max_deg}` +
+        `${corridor.flag === undefined ? '' : `, flag ${corridor.flag}`}; row flags corridor_A_min_deg ` +
+        `${flags.corridor_A_min_deg ?? 'absent'}, corridor_A_max_deg ${flags.corridor_A_max_deg ?? 'absent'}; ${overrideText}.`;
+    }
+
+    controls.vehicleEffect.textContent =
+      VEHICLE_PROFILE_IDS.length === 1
+        ? `One vehicle profile is offered, ${VEHICLE_PROFILE_IDS[0]}, so this control cannot change the result: the API has ` +
+          'no endpoint that lists vehicle profiles, and the page offers only the profile it knows (src/config.js VEHICLE_PROFILE_IDS).'
+        : `${VEHICLE_PROFILE_IDS.length} vehicle profiles are offered; choosing another sends a new request.`;
+
+    const uncertaintyNode = tablePanel.querySelector('#window-uncertainty');
+    const uncertainty = windowUncertainty(rows);
+    uncertaintyNode.setAttribute('data-horizon-labels', uncertainty.labels.join(','));
+    if (uncertainty.rows === 0) {
+      uncertaintyNode.textContent = 'No window rows, so no probability is shown above.';
+    } else {
+      uncertaintyNode.textContent =
+        `Behind the p_success column: ${uncertainty.labels.map((label) => `${uncertainty.counts[label]} row(s) ${label}`).join(', ')} ` +
+        `(horizon_label ${uncertainty.labels.join(', ')}); ` +
+        `${uncertainty.issues.length === 0 ? 'no forecast_issue_time on any row' : `forecast_issue_time ${uncertainty.issues.join(', ')}`}` +
+        `${uncertainty.withoutIssue > 0 && uncertainty.issues.length > 0 ? `; no forecast issue time on ${uncertainty.withoutIssue} row(s)` : ''}. ` +
+        'The ensemble size N is not a field of the window response; the weather panel shows it for the selected row.' +
+        (request !== null && request.include_weather === false
+          ? ' The request excluded the weather layer (include_weather false), so p_success above holds no weather ' +
+            'probability: the label and the missing issue time are the neutral values the response carries.'
+          : '');
+    }
+  }
+
   function readInputs() {
     return {
       target_type: controls.targetSelect.value,
@@ -496,6 +609,7 @@ export function createWindowEngineScreen({ root, store, onInputsChanged, onRowSe
       vehicle_profile_id: controls.vehicle.value,
       corridor_a_min_deg: controls.corridorMin.value,
       corridor_a_max_deg: controls.corridorMax.value,
+      raan_tolerance_deg: controls.raanTolerance.value,
       include_weather: controls.includeWeather.checked,
     };
   }

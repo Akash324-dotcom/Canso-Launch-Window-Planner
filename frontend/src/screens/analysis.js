@@ -1,7 +1,15 @@
 import { FIXTURES, T_TO_INJ_FLAG_PATTERN } from '../config.js';
 import { el, replaceChildren } from '../dom.js';
-import { downloadText, jsonDescriptor, reliabilityCsv, renderedTableCsv, skillSeriesCsv } from '../export.js';
-import { constantsOf, rowFlags, siteNameOf } from '../selectors.js';
+import {
+  downloadText,
+  jsonDescriptor,
+  reliabilityCsv,
+  renderedTableCsv,
+  skillSeriesCsv,
+  windowRowsJson,
+} from '../export.js';
+import { calibrationState, skillClaim } from '../researcher.js';
+import { constantsOf, rowFlags, siteNameOf, windowRows } from '../selectors.js';
 import { renderReliabilityDiagram, renderSkillCurve } from '../svgChart.js';
 import { percent } from '../time.js';
 
@@ -10,7 +18,9 @@ import { percent } from '../time.js';
  * skill table and chart, the reliability diagram, the ROC points, the constants block
  * with its sources, the criteria version, the config hash and the provenance table,
  * plus the downloads. Every number is read from the same response objects the other
- * screens read, so nothing here is computed in the browser.
+ * screens read. The researcher layer of issue 26 adds a few values derived from those
+ * responses and from nothing else (the calibration gap, the sums of n_cases), each
+ * computed in src/researcher.js and named as derived on the page.
  */
 
 const CONSTANT_ROWS = [
@@ -86,7 +96,13 @@ function definitionList(entries) {
   );
 }
 
-export function createAnalysisScreen({ root, store, table = () => document.querySelector('#window-table') }) {
+export function createAnalysisScreen({
+  root,
+  store,
+  table = () => document.querySelector('#window-table'),
+  citationUrl = () => null,
+  onFetchCitation = () => {},
+}) {
   const sub = el('p', { class: 'hint', id: 'analysis-sub' });
   const claims = el('p', { class: 'hint', id: 'analysis-claims' });
   const downloadNote = el('p', { class: 'hint', id: 'analysis-download-note' });
@@ -101,6 +117,34 @@ export function createAnalysisScreen({ root, store, table = () => document.query
   const reliabilityHost = el('div', { class: 'chart-host', id: 'analysis-reliability-host' });
   const fixtureLinks = el('ul', { class: 'chip-list', id: 'analysis-fixture-links' });
 
+  // Researcher layer, issue 26. Each node below is filled from a response of the service.
+  const windowDownloadCount = el('p', { class: 'hint', id: 'analysis-window-download-count' });
+  const skillClaimLine = el('p', { class: 'hint', id: 'analysis-skill-claim' });
+  const baseRateLine = el('p', { class: 'hint', id: 'analysis-base-rate' });
+  const calibrationLine = el('p', { class: 'hint', id: 'analysis-calibration' });
+  const citationId = el('code', { id: 'citation-id' });
+  const citationLink = el('a', {
+    id: 'citation-link',
+    target: '_blank',
+    rel: 'noopener',
+    text: 'Open GET /v1/citation for this run',
+  });
+  const citationCopy = el('button', { class: 'btn', type: 'button', id: 'citation-copy', text: 'Copy the citation id' });
+  const citationFetch = el('button', {
+    class: 'btn',
+    type: 'button',
+    id: 'citation-fetch',
+    text: 'Fetch the citation record again',
+  });
+  const citationStatus = el('p', { class: 'hint', id: 'citation-status' });
+  const citationCopyStatus = el('p', { class: 'hint', id: 'citation-copy-status' });
+  const citationControls = el('div', { id: 'citation-controls' }, [
+    el('p', { class: 'hint' }, ['Citation id of this run: ', citationId]),
+    el('div', { class: 'button-row' }, [citationLink, citationCopy, citationFetch]),
+    citationStatus,
+    citationCopyStatus,
+  ]);
+
   const skillTable = tableBlock(SKILL_HEADERS);
   skillTable.body.id = 'analysis-skill-rows';
   const reliabilityTable = tableBlock(RELIABILITY_HEADERS);
@@ -112,6 +156,7 @@ export function createAnalysisScreen({ root, store, table = () => document.query
 
   const buttons = [
     { id: 'download-window-csv', label: 'Download the window table as CSV' },
+    { id: 'download-window-json', label: 'Download the window table as JSON' },
     { id: 'download-skill-csv', label: 'Download the Brier skill series as CSV' },
     { id: 'download-reliability-csv', label: 'Download the reliability bins as CSV' },
     { id: 'download-response-json', label: 'Download the full JSON response' },
@@ -121,6 +166,7 @@ export function createAnalysisScreen({ root, store, table = () => document.query
     el('p', { class: 'eyebrow', text: 'Constants, criteria version, config hash and provenance' }),
     criteriaLine,
     configHashLine,
+    citationControls,
     provenanceHost,
     el('h3', { text: 'Source files the run declared' }),
     sourceFileList,
@@ -128,12 +174,15 @@ export function createAnalysisScreen({ root, store, table = () => document.query
   const skillPanel = el('section', { class: 'panel', id: 'analysis-skill' }, [
     el('p', { class: 'eyebrow', text: 'Brier skill series against lead time' }),
     skillNote,
+    skillClaimLine,
+    baseRateLine,
     skillTable.element,
     skillHost,
   ]);
   const reliabilityPanel = el('section', { class: 'panel', id: 'analysis-reliability' }, [
     el('p', { class: 'eyebrow', text: 'Reliability diagram and ROC points' }),
     reliabilityNote,
+    calibrationLine,
     reliabilityHost,
     el('h3', { text: 'Reliability bins' }),
     reliabilityTable.element,
@@ -148,6 +197,7 @@ export function createAnalysisScreen({ root, store, table = () => document.query
   const downloadPanel = el('section', { class: 'panel', id: 'analysis-downloads' }, [
     el('p', { class: 'eyebrow', text: 'Downloadable results' }),
     el('div', { class: 'button-row' }, buttons),
+    windowDownloadCount,
     downloadNote,
     el('h3', { text: 'Offline fixture files of this run' }),
     fixtureLinks,
@@ -411,8 +461,21 @@ export function createAnalysisScreen({ root, store, table = () => document.query
     return reportDownload(downloadText(jsonDescriptor(filename, response)));
   }
 
+  function windowTableJsonResult() {
+    const state = store.getState();
+    if (state.engineResponse === null || state.engineResponse === undefined) {
+      downloadNote.textContent = 'No window response is loaded, so there is no window table to download.';
+      return null;
+    }
+    const filename = `canso-windows-${runIdOf(state) ?? 'no-run-id'}.json`;
+    return reportDownload(
+      downloadText({ filename, mimeType: 'application/json', text: windowRowsJson(state.engineResponse) }),
+    );
+  }
+
   const handlers = {
     'download-window-csv': windowTableCsvResult,
+    'download-window-json': windowTableJsonResult,
     'download-skill-csv': () => textDownload('skill'),
     'download-reliability-csv': () => textDownload('reliability'),
     'download-response-json': jsonResult,
@@ -422,6 +485,94 @@ export function createAnalysisScreen({ root, store, table = () => document.query
     button.addEventListener('click', () => {
       handlers[button.id]();
     });
+  }
+
+  citationCopy.addEventListener('click', async () => {
+    const id = runIdOf(store.getState());
+    if (id === null) {
+      citationCopyStatus.textContent = 'No run is loaded, so there is no citation id to copy.';
+      return;
+    }
+    try {
+      await globalThis.navigator.clipboard.writeText(id);
+      citationCopyStatus.textContent = `Copied ${id}.`;
+    } catch {
+      citationCopyStatus.textContent =
+        'The browser refused clipboard access; select the citation id above and copy it by hand.';
+    }
+  });
+  citationFetch.addEventListener('click', () => {
+    onFetchCitation();
+  });
+
+  /**
+   * The researcher layer of this screen (issue 26): the citation of the run, the claim the skill
+   * series supports, the calibration gap, and the row count of the window downloads.
+   */
+  function renderResearcher(state) {
+    const response = state.engineResponse;
+    const shown = windowRows(response).length;
+    windowDownloadCount.textContent =
+      response === null || response === undefined
+        ? 'No window response is loaded, so there is no window table to download.'
+        : `${shown} ${shown === 1 ? 'row is' : 'rows are'} displayed in the window table; the CSV and the JSON file of the ` +
+          `window table hold the same ${shown} ${shown === 1 ? 'row' : 'rows'}.`;
+
+    const id = runIdOf(state);
+    const live = state.engineResponseOrigin === 'api';
+    citationId.textContent = id ?? 'no run loaded';
+    const url = id === null || !live ? null : citationUrl(id);
+    if (url === null) {
+      citationLink.removeAttribute('href');
+      citationLink.setAttribute('aria-disabled', 'true');
+    } else {
+      citationLink.setAttribute('href', url);
+      citationLink.setAttribute('aria-disabled', 'false');
+    }
+    citationFetch.disabled = url === null;
+    citationCopy.disabled = id === null;
+    const citation = state.citationOrigin === 'api' ? state.citationResponse : null;
+    if (id === null) {
+      citationStatus.textContent = 'No run is loaded, so there is no citation to fetch.';
+    } else if (state.engineResponseOrigin === 'fixture') {
+      citationStatus.textContent =
+        `This run is the offline fixture ${FIXTURES.windows}: no running service stored it, so GET /v1/citation has no record of it.`;
+    } else if (state.engineResponseOrigin === 'api_stale') {
+      citationStatus.textContent =
+        'The service is not reachable, so GET /v1/citation cannot be asked; the rows shown are the last answer it gave.';
+    } else if (citation !== null) {
+      const files = Array.isArray(citation.source_files) ? citation.source_files.length : 0;
+      const vehicleRows = Array.isArray(citation.vehicle_rows) ? citation.vehicle_rows.length : 0;
+      citationStatus.textContent =
+        `GET /v1/citation?id=${citation.citation_id} answered: config_hash ${citation.config_hash}, generated_at ` +
+        `${citation.generated_at ?? 'absent'}, ${files} source files, ${vehicleRows} vehicle rows.`;
+    } else if (state.citationError !== null && state.citationError !== undefined) {
+      citationStatus.textContent = `GET /v1/citation did not answer for this run (${state.citationError}).`;
+    } else {
+      citationStatus.textContent = 'GET /v1/citation has not answered for this run yet.';
+    }
+
+    const claim = skillClaim(state.skillResponse);
+    skillClaimLine.setAttribute('data-claim-status', claim.status);
+    skillClaimLine.setAttribute('data-n-min', claim.nMin === null ? '' : String(claim.nMin));
+    skillClaimLine.setAttribute('data-n-max', claim.nMax === null ? '' : String(claim.nMax));
+    skillClaimLine.setAttribute('data-pairs', claim.pairs === null ? '' : String(claim.pairs));
+    skillClaimLine.setAttribute('data-horizon-days', claim.horizon === null ? '' : String(claim.horizon));
+    skillClaimLine.textContent = claim.text;
+
+    const skill = state.skillResponse;
+    baseRateLine.textContent =
+      skill === null || skill === undefined
+        ? 'No skill series loaded, so no base rate is shown.'
+        : `base_rate ${skill.base_rate} of GET /v1/validation/skill is the observed frequency of a launchable day in the ` +
+          `hindcast sample ${skill.period?.start} to ${skill.period?.end}. It is a frequency of outcomes, not an ensemble ` +
+          'probability, so it has no ensemble size, no issue time and no horizon label.';
+
+    const calibration = calibrationState(skill);
+    calibrationLine.setAttribute('data-calibration-state', calibration.state);
+    calibrationLine.setAttribute('data-gap', calibration.gap === null ? '' : calibration.gap.toFixed(3));
+    calibrationLine.setAttribute('data-populated-bins', String(calibration.populated));
+    calibrationLine.textContent = calibration.text;
   }
 
   function render(state) {
@@ -437,6 +588,7 @@ export function createAnalysisScreen({ root, store, table = () => document.query
     renderDuration(state);
     renderSkill(state);
     renderReliability(state);
+    renderResearcher(state);
   }
 
   return {

@@ -1,4 +1,4 @@
-import { createApiClient } from './api.js';
+import { createApiClient, queryString } from './api.js';
 import {
   COUNTDOWN_INTERVAL_MS,
   FIXTURES,
@@ -140,7 +140,17 @@ export function createApp(options = {}) {
       : createTrajectoryScreen({ root: trajectoryHost, store, footprintRegistry: options.footprints });
   const weather = weatherHost === null ? null : createWeatherScreen({ root: weatherHost, store });
   const viewing = viewingHost === null ? null : createViewingScreen({ root: viewingHost, store });
-  const analysis = analysisHost === null ? null : createAnalysisScreen({ root: analysisHost, store });
+  const analysis =
+    analysisHost === null
+      ? null
+      : createAnalysisScreen({
+          root: analysisHost,
+          store,
+          citationUrl: (id) => `${client.baseUrl}/citation?${queryString({ id })}`,
+          onFetchCitation: () => {
+            readCitation(store.getState().engineResponse, requestSequence);
+          },
+        });
 
   const unsubscribe = store.subscribe((state) => {
     screen.render(state);

@@ -66,6 +66,11 @@ export function responseJson(response) {
   return `${JSON.stringify(response, null, 2)}\n`;
 }
 
+/** The rows of the window table as the response holds them, one object per displayed row. */
+export function windowRowsJson(response) {
+  return `${JSON.stringify(windowRows(response), null, 2)}\n`;
+}
+
 export function windowRowCount(response) {
   return windowRows(response).length;
 }
