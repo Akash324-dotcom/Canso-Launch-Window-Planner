@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+.venv311
+**/__pycache__
+**/node_modules
+frontend
+vendor
+docs
+*.egg-info
+backend/api/data/runs/run_*.json
