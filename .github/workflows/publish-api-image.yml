@@ -26,7 +26,18 @@ jobs:
       - name: Smoke test the container
         run: |
           docker run -d --name api -p 8000:8000 "$IMAGE:latest"
-          curl --retry 15 --retry-delay 2 --retry-connrefused -fsS http://localhost:8000/v1/site > /dev/null
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/v1/site > /dev/null; then
+              echo "API answered after $i tries"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "API did not answer in time"
+              docker logs api
+              exit 1
+            fi
+            sleep 2
+          done
           curl -fsS "http://localhost:8000/v1/decision/delay-cost?p=0.5,0.5,0.5&c_day=2000" | grep -q '"expected_extra_days"'
           docker logs api | tail -5
 
