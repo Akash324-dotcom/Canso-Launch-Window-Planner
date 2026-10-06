@@ -2,7 +2,7 @@
 // Any page can still override this with ?api=<url>.
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', ''];
 const isLocal = typeof location === 'undefined' || LOCAL_HOSTS.includes(location.hostname);
-export const API_BASE = isLocal ? 'http://localhost:8000/v1' : 'https://canso-launch-api.onrender.com/v1';
+export const API_BASE = isLocal ? 'http://localhost:8000/v1' : 'https://canso-launch-api.proudhill-a910803e.swedencentral.azurecontainerapps.io/v1';
 
 export const REQUEST_TIMEOUT_MS = 8000;
 
