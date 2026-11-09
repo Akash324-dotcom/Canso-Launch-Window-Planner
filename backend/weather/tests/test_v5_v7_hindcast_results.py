@@ -20,6 +20,38 @@ WEATHER = REPO / "backend" / "weather"
 FIXTURE = REPO / "backend" / "fixtures" / "skill.json"
 
 
+def same_content(committed: str, regenerated: str) -> bool:
+    """True when the two texts hold the same data.
+
+    Floats are compared to a relative 1e-9, because the last digits of a float written by pandas or numpy
+    differ between library versions and CPUs. Every other value, key, column and row must match exactly.
+    """
+    if committed == regenerated:
+        return True
+    try:
+        return _close(json.loads(committed), json.loads(regenerated))
+    except ValueError:
+        pass
+    left, right = committed.splitlines(), regenerated.splitlines()
+    return len(left) == len(right) and all(
+        _close(a.split(","), b.split(",")) for a, b in zip(left, right))
+
+
+def _close(a, b) -> bool:
+    if isinstance(a, dict) and isinstance(b, dict):
+        return list(a) == list(b) and all(_close(a[k], b[k]) for k in a)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_close(x, y) for x, y in zip(a, b))
+    if isinstance(a, str) and isinstance(b, str) and a != b:
+        try:
+            return float(a) == pytest.approx(float(b), rel=1e-9)
+        except ValueError:
+            return False
+    if isinstance(a, float) or isinstance(b, float):
+        return isinstance(a, (int, float)) and isinstance(b, (int, float)) and a == pytest.approx(b, rel=1e-9)
+    return a == b
+
+
 def load_script():
     spec = importlib.util.spec_from_file_location("build_skill_fixture", REPO / "scripts" / "build_skill_fixture.py")
     module = importlib.util.module_from_spec(spec)
@@ -100,7 +132,7 @@ def test_the_response_has_the_spec_iv4_shape(real):
 
 def test_the_committed_raw_outputs_are_what_the_hindcast_computes(real):
     for name, text in real["outputs"].items():
-        assert (WEATHER / name).read_text(encoding="utf-8") == text, f"{name} was not produced by run_hindcast"
+        assert same_content((WEATHER / name).read_text(encoding="utf-8"), text), f"{name} was not produced by run_hindcast"
     rows = list(csv.DictReader(io.StringIO((WEATHER / "data/hindcast/pairs_canso.csv").read_text())))
     assert len(rows) == len(real["result"]["pairs"])
     assert all(0.0 <= float(row["p"]) <= 1.0 and row["o"] in {"0", "1"} for row in rows)
@@ -324,7 +356,7 @@ def test_the_report_records_the_disposition_of_the_calibration_criterion(real):
 # V7 ----------------------------------------------------------------------------------------------------------
 
 def test_the_skill_fixture_is_the_hindcast_response_written_by_the_committed_script(real):
-    assert FIXTURE.read_text(encoding="utf-8") == real["fixture"], "skill.json was not produced by the script"
+    assert same_content(FIXTURE.read_text(encoding="utf-8"), real["fixture"]), "skill.json was not produced by the script"
     assert json.loads(real["fixture"]) == json.loads(json.dumps(hindcast.response(real["result"])))
 
 
