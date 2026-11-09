@@ -31,6 +31,7 @@ import inspect
 import json
 import re
 import subprocess
+import sys
 import tempfile
 import tomllib
 from pathlib import Path
@@ -52,7 +53,9 @@ REPO_ROOT = API_DIR.parents[1]
 CLIENT_DIR = REPO_ROOT / "backend" / "client"
 CLIENT_MODULE = CLIENT_DIR / "launchwin.py"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
-VENV_PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
+_VENV_PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
+#: The project's own virtual environment when it exists, otherwise the interpreter running the tests (CI).
+VENV_PYTHON = _VENV_PYTHON if _VENV_PYTHON.exists() else Path(sys.executable)
 
 DEMO_DATES = ("2026-10-04", "2027-01-01")
 PUBLIC_FUNCTIONS = ("windows", "weather", "skill", "site", "ephemeris", "citation")
