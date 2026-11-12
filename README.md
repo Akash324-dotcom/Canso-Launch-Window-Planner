@@ -4,7 +4,7 @@
 
 A launch-window decision tool for Spaceport Nova Scotia (Canso, 45.3 N, 61.0 W), built for the MDA Mission Accepted Space Hackathon (Halifax, October 2026). Given a target orbit, it works out when a launch can reach it, how likely the weather is to allow it, and what a delay costs, and shows the answer in a five-screen web app with a launch countdown.
 
-[Demo video](https://drive.google.com/drive/folders/1mn3HQBs3uSoDM56nq-s1oIFmS-eHEmhs?usp=share_link)
+Live: **https://canso.akashmaity.dev** · [Demo video](https://drive.google.com/drive/folders/1mn3HQBs3uSoDM56nq-s1oIFmS-eHEmhs?usp=share_link)
 
 ## How it works
 
@@ -41,6 +41,18 @@ cd frontend && npm ci && npm test    # frontend: 176 tests
 ```
 
 Both run on every push through GitHub Actions (`.github/workflows/tests.yml`).
+
+## Validation against real launches
+
+The engine is checked against **six published launches** (Vega-C from Kourou, Falcon 9 from Vandenberg, Rockot from Plesetsk). Each case gives only the site, the published inclination and the published local time of the orbit node. The engine derives the plane itself, and its window must land **within 5 minutes** of the real launch instant. The published right ascension is never back-solved, because that would make the test circular. All six reproduce, and the check is a permanent test (`backend/engine/tests/test_reproduce_published_windows.py`).
+
+## Deployment
+
+The `deploy` branch carries the production setup:
+
+- A **Dockerfile** for the API.
+- A **GitHub Actions** workflow that builds the image, starts it, checks that `/v1/site` and the delay-cost endpoint answer, and only then publishes it to GitHub Container Registry.
+- The API runs on **Azure Container Apps**. The front end is served from **GitHub Pages** at the address above.
 
 ## Reproducibility notes
 
